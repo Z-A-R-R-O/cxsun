@@ -17,10 +17,9 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Added changelog parsing for versioned entries with timestamped headers
 - Refactored GitHub helper commit subjects to use `#<ref> - <title>`
 - Preserved changelog version labels while keeping Git commit messages concise
+- Added an interactive GitHub helper review prompt before pull, commit, and push
 
-## Unreleased
-
-### 2026-05-14 3:44 pm - Docker deployment refinements
+### [v 1.0.10] 2026-05-14 3:44 pm - Docker deployment refinements
 
 - Redirected backend build output to `build/server`
 - Redirected frontend build output to `build/frontend`
@@ -32,12 +31,12 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Renamed the app workspace Docker volume to `cxsun-volume`
 - Made local setup remove/recreate the app container and workspace volume before redeploy
 
-### 2026-05-14 3:44 pm - Backend root welcome page
+### [v 1.0.10] 2026-05-14 3:44 pm - Backend root welcome page
 
 - Added a server root HTML page at `/` showing backend status, timestamp, and frontend link
 - Added an automatic redirect from the backend root page to the configured frontend URL
 
-### 2026-05-14 3:49 pm - Changelog stability repair
+### [v 1.0.10] 2026-05-14 3:49 pm - Changelog stability repair
 
 - Restored historical changelog entry labels so old entries do not all become the current version
 - Updated release tooling so future version bumps do not rewrite historical changelog entries

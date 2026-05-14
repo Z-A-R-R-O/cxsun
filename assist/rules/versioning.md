@@ -20,8 +20,9 @@
 - `assist/documentation/CHANGELOG.md` must contain a `Version State` block at the top.
 - `Version State` records: current numeric package version, current `v-` release tag, and the versioned changelog label format.
 - Historical changelog entries are immutable. Do not rewrite old entry labels during a version bump.
-- Version bump automation may update only the `Version State` block and add a new entry for the new version.
-- Work completed without an approved version bump belongs under `Unreleased` using `### YYYY-MM-DD h:mm am - Title`.
+- Every changelog entry must live under a concrete `## v-<version>` section.
+- Do not use an `Unreleased` section.
+- Version bump automation may update the `Version State` block and add a concrete version section/entry.
 - Changelog times use the workspace local timezone and lowercase `am` / `pm`.
 - `npm run github:now` reads the latest versioned changelog entry and must not include changelog dates or timestamps in the Git commit subject.
 
@@ -31,6 +32,7 @@
 - Release tags use `v-` prefix.
 - Validate before tagging a release.
 - `npm run github:now` does not bump versions; perform version bumps only as an explicit release task.
+- `npm run github:now` must stop for an interactive commit-message review and confirmation before running Git mutations.
 
 ## Build Output
 

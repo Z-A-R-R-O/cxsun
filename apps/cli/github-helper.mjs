@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, execSync } from 'child_process'
+import { platform } from 'os'
 import { resolve } from 'path'
 import { createInterface } from 'readline'
 import { pathToFileURL } from 'url'
@@ -33,42 +34,79 @@ function runGit(args, opts = {}) {
   return result ? result.trim() : ''
 }
 
-let cachedPipedAnswers
-
-async function pipedAnswers() {
-  if (cachedPipedAnswers) {
-    return cachedPipedAnswers
+async function withPrompt(callback) {
+  if (!process.stdin.isTTY && platform() === 'win32') {
+    return callback(askWindowsModal)
   }
 
-  if (process.stdin.isTTY) {
-    cachedPipedAnswers = []
-    return cachedPipedAnswers
-  }
-
-  const chunks = []
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk)
-  }
-
-  cachedPipedAnswers = Buffer.concat(chunks).toString().trim().split('\n')
-  return cachedPipedAnswers
-}
-
-async function ask(query) {
-  process.stdout.write(query)
-
-  const answers = await pipedAnswers()
-  if (answers.length > 0) {
-    return answers.shift()
+  if (!process.stdin.isTTY) {
+    throw new Error(
+      'Interactive terminal input is required for github:now. Run it from a terminal that accepts input.',
+    )
   }
 
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolveAnswer) => {
-    rl.question('', (answer) => {
-      rl.close()
-      resolveAnswer(answer)
+
+  try {
+    return await callback((query) => {
+      return new Promise((resolveAnswer) => {
+        rl.question(query, (answer) => resolveAnswer(answer))
+      })
     })
-  })
+  } finally {
+    rl.close()
+  }
+}
+
+function askWindowsModal(query, defaultValue = '') {
+  const isConfirmation = /\[y\/N\]:\s*$/i.test(query)
+
+  if (isConfirmation) {
+    const script = [
+      'Add-Type -AssemblyName System.Windows.Forms',
+      `$result = [System.Windows.Forms.MessageBox]::Show(${quotePowerShellString(query.replace(/\s*\[y\/N\]:\s*$/i, ''))}, 'GitHub Commit Review', 'YesNo', 'Question')`,
+      "if ($result -eq 'Yes') { 'yes' } else { 'no' }",
+    ].join('; ')
+
+    return runPowerShellModal(script)
+  }
+
+  const script = [
+    'Add-Type -AssemblyName Microsoft.VisualBasic',
+    `[Microsoft.VisualBasic.Interaction]::InputBox(${quotePowerShellString(query)}, 'GitHub Commit Review', ${quotePowerShellString(defaultValue)})`,
+  ].join('; ')
+
+  return runPowerShellModal(script)
+}
+
+function runPowerShellModal(script) {
+  return execFileSync(
+    'powershell.exe',
+    ['-NoProfile', '-STA', '-Command', script],
+    { encoding: 'utf8', windowsHide: false },
+  ).trim()
+}
+
+function quotePowerShellString(value) {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+function renderReviewBox({ version, subject, fileCount }) {
+  const rows = [
+    'GitHub Commit Review',
+    `Version: ${version}`,
+    `Subject: ${subject}`,
+    `Files: ${fileCount}`,
+  ]
+  const width = Math.max(...rows.map((row) => row.length)) + 4
+  const border = `+${'-'.repeat(width)}+`
+  const lines = rows.map((row) => `| ${row.padEnd(width - 2)} |`)
+
+  return ['', border, ...lines, border, ''].join('\n')
+}
+
+function isYes(value) {
+  return ['y', 'yes'].includes(value.trim().toLowerCase())
 }
 
 async function main() {
@@ -87,8 +125,25 @@ async function main() {
     console.log('')
   }
 
-  const messageAnswer = await ask(`  Commit message [${defaultMessage}]: `)
-  const message = messageAnswer.trim() || defaultMessage
+  const message = await withPrompt(async (ask) => {
+    console.log(
+      renderReviewBox({
+        version: changelogEntry.version,
+        subject: defaultMessage,
+        fileCount: files.length,
+      }),
+    )
+
+    const answer = await ask(`  Commit message [${defaultMessage}]: `, defaultMessage)
+    const subject = answer.trim() || defaultMessage
+    const confirm = await ask(`  Continue with pull, commit, and push? [y/N]: `)
+
+    if (!isYes(confirm)) {
+      throw new Error('Cancelled.')
+    }
+
+    return subject
+  })
 
   console.log('\n  > git pull --rebase --autostash')
   runGit(['pull', '--rebase', '--autostash'])
