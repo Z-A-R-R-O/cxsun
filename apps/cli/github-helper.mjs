@@ -4,6 +4,7 @@ import { execFileSync, execSync } from 'child_process'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { createInterface } from 'readline'
+import { pathToFileURL } from 'url'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 
@@ -67,20 +68,20 @@ async function ask(query) {
   })
 }
 
-function getChangelogTitle() {
+function getChangelogHeader() {
   const path = resolve(ROOT, 'assist/documentation/CHANGELOG.md')
   const text = readFileSync(path, 'utf8')
-  const match = text.match(/^### (?:\[v [\d.]+\] )?\d{4}-\d{2}-\d{2} - (.+)$/m)
+  const match = text.match(/^### (.+)$/m)
   return match ? match[1].trim() : 'update'
 }
 
 async function main() {
-  const prevTitle = getChangelogTitle()
+  const changelogHeader = getChangelogHeader()
 
   const status = run('git status --porcelain', { silent: true })
   const files = status ? status.split('\n').filter(Boolean) : []
 
-  console.log(`\n  Changelog title: ${prevTitle}`)
+  console.log(`\n  Changelog header: ${changelogHeader}`)
   console.log(`  Uncommitted:     ${files.length} files\n`)
 
   if (files.length > 0) {
@@ -88,7 +89,7 @@ async function main() {
     console.log('')
   }
 
-  const defaultMessage = prevTitle
+  const defaultMessage = changelogHeader
   const messageAnswer = await ask(`  Commit message [${defaultMessage}]: `)
   const message = messageAnswer.trim() || defaultMessage
 
@@ -108,7 +109,9 @@ async function main() {
   console.log(`\n  Done - ${message}\n`)
 }
 
-main().catch((error) => {
-  console.error(`\n  Error: ${error.message}\n`)
-  process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(`\n  Error: ${error.message}\n`)
+    process.exit(1)
+  })
+}

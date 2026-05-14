@@ -12,7 +12,7 @@
 - Every meaningful batch uses a reference number: `#1`, `#2`, etc.
 - The batch reference in `assist/execution/task.md` must match `assist/execution/planning.md`.
 - App version `1.0.<reference>` derives from the batch reference number.
-- Changelog entries use the same ref: `### [v 1.0.10] YYYY-MM-DD - Title`.
+- Changelog entries use the same ref and local time: `### [v 1.0.10] YYYY-MM-DD h:mm am - Title`.
 - Commit subjects should use the latest changelog header title unless a clearer message is needed.
 
 ## Changelog Policy
@@ -21,7 +21,8 @@
 - `Version State` records: current numeric package version, current `v-` release tag, and the versioned changelog label format.
 - Historical changelog entries are immutable. Do not rewrite old entry labels during a version bump.
 - Version bump automation may update only the `Version State` block and add a new entry for the new version.
-- Work completed without an approved version bump belongs under `Unreleased`.
+- Work completed without an approved version bump belongs under `Unreleased` using `### YYYY-MM-DD h:mm am - Title`.
+- Changelog times use the workspace local timezone and lowercase `am` / `pm`.
 
 ## Release Operation
 
