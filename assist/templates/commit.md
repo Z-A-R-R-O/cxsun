@@ -2,10 +2,10 @@
 
 Format:
 ```
-#<ref> <description>
+<description>
 ```
 
 Example:
 ```
-#02 normalized all version refs
+changelog stability repair
 ```

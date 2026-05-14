@@ -1,0 +1,41 @@
+name: cxsun
+
+services:
+  cxsun:
+    build:
+      context: ..
+      dockerfile: .container/Dockerfile
+    image: cxsun:v1
+    container_name: cxsun
+    restart: unless-stopped
+    environment:
+      GIT_REPO_URL: ${GIT_REPO_URL:-https://github.com/CODEXSUN/cxsun.git}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+      GIT_PULL_ON_START: ${GIT_PULL_ON_START:-false}
+      APP_DIR: /workspace/cxsun
+      HOST: 0.0.0.0
+      PORT: ${PORT:-6001}
+      VITE_PORT: ${VITE_PORT:-6010}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:6001}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-codexsun_db}
+      DB_USER: ${DB_USER:-codexsun}
+      DB_PASSWORD: ${DB_PASSWORD:-DbPass1@@}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+    ports:
+      - "${PORT:-6001}:${PORT:-6001}"
+      - "${VITE_PORT:-6010}:${VITE_PORT:-6010}"
+    volumes:
+      - cxsun-volume:/workspace
+    networks:
+      - codexion-network
+
+volumes:
+  cxsun-volume:
+    name: cxsun-volume
+
+networks:
+  codexion-network:
+    external: true

@@ -46,4 +46,6 @@ Run targeted checks during development, or `npm run check` before finalizing mea
 - Put active frontend UI work under `apps/frontend/src`.
 - Put frontend CSS under `apps/frontend/src/assets/css`.
 - Use Kysely with SQLite for current local persistence at `storage/database/cxsun.sqlite`.
+- Production build artifacts belong under the root `build/` folder.
+- The Docker deploy environment lives under `.container/` and is started with root `docker-compose.yml`.
 - Do not move active frontend work into `packages/web` unless the project intentionally reintroduces that package as a real app.

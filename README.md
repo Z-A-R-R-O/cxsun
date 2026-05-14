@@ -37,6 +37,12 @@ npm run typecheck:active
 npm run build:active
 ```
 
+Build outputs are written to the root `build/` folder:
+
+- Backend: `build/server`
+- Frontend: `build/frontend`
+- Other emitted workspace output: `build/apps/*` and `build/packages/*`
+
 Default local ports:
 
 - Frontend: `6010`
@@ -50,6 +56,41 @@ Default local ports:
 - Reserved packages should stay typecheckable while minimal.
 - Frontend styles belong under `apps/frontend/src/assets/css`.
 - Backend persistence currently uses Kysely with SQLite.
+
+## Docker Deploy Environment
+
+The container setup is intentionally simple. It clones the GitHub repository, installs dependencies, builds into root `build/`, and runs the backend plus frontend preview.
+
+```bash
+docker compose -f .container/docker-compose.yml up --build
+```
+
+The container clones `https://github.com/CODEXSUN/cxsun.git` by default.
+
+On first start the entrypoint creates `.env` from `.env.sample`, then configures the active ports before building.
+
+Container ports:
+
+- Backend: `6001`
+- Frontend: `6010`
+
+Override ports when needed:
+
+```bash
+PORT=7001 VITE_PORT=7010 VITE_API_BASE_URL=http://localhost:7001 docker compose -f .container/docker-compose.yml up --build
+```
+
+Manual update flow:
+
+```bash
+docker compose -f .container/docker-compose.yml exec cxsun bash
+cd /workspace/cxsun
+git pull --ff-only
+npm ci
+npm run build:active
+exit
+docker compose -f .container/docker-compose.yml restart cxsun
+```
 
 ## AI Assist
 

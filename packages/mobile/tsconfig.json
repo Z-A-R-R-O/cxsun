@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
+    "outDir": "../../build/packages/mobile",
     "rootDir": "./src"
   },
   "include": ["src"]

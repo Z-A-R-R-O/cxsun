@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.git
+.idea
+.junie
+*.log
+.env
+storage/database/*.sqlite

@@ -95,6 +95,20 @@ npx shadcn@latest init --preset b0 --template vite --monorepo --pointer
 
 ## Current Prompt
 
+```
+read assist/readme and 
+make build or dist to root build folder make all apps to build at there with same for dist on server
+
+add .container and add docker and docker-compose file and make this to deploy
+
+make only docker with minimal and required sudo , nano and run time lib for node , and working folder with no restriction for read and write or any 
+
+make only env container that can handle to run this app and at entrypoint make clone from github and build and then run server and frontend 
+make this as simple setup and we can again pull updates from git manually and build and restart our server if wanted
+```
+
+## Current Prompt
+
 ~~~
 
 ## Current Prompt
@@ -523,3 +537,9 @@ export function ModeToggle() {
 }
 ```
 ~~~
+
+## Current Prompt
+
+```
+fix  Vite chunk-size warning in vite and check for any blocker on startup and check first paint timing
+```

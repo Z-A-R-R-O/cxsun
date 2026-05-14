@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   ArrowRight,
@@ -13,19 +13,12 @@ import {
 import './assets/css/app.css'
 
 import { version } from '../package.json'
-import dashboardData from 'src/app/dashboard/data.json'
-import { LoginForm } from 'src/components/blocks/auth/login-form'
 import { BrandLogo } from 'src/components/blocks/branding/brand-logo'
-import { DataTable } from 'src/components/blocks/dashboard/data-table'
-import { SectionCards } from 'src/components/blocks/dashboard/section-cards'
-import { SiteHeader } from 'src/components/blocks/layout/site-header'
-import { AppSidebar } from 'src/components/blocks/sidebar/app-sidebar'
 import { ThemeProvider } from 'src/components/blocks/theme/theme-provider'
 import { ThemeToggle } from 'src/components/blocks/theme/theme-toggle'
 import { Toaster } from './components/ui/sonner'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
-import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
 import { APP_NAME } from './lib/branding'
 import { cn } from './lib/utils'
@@ -74,6 +67,16 @@ interface PlatformFeature {
 const configuredApiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:6001'
 const apiBaseUrl = configuredApiBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+const DashboardView = lazy(() =>
+  import('src/components/blocks/dashboard/dashboard-view').then((module) => ({
+    default: module.DashboardView,
+  })),
+)
+const LoginForm = lazy(() =>
+  import('src/components/blocks/auth/login-form').then((module) => ({
+    default: module.LoginForm,
+  })),
+)
 const platformFeatures: PlatformFeature[] = [
   {
     label: 'Frontend',
@@ -271,7 +274,9 @@ function App() {
   if (activeView === 'dashboard') {
     return (
       <TooltipProvider>
-        <DashboardView onBackHome={() => setActiveView('landing')} />
+        <Suspense fallback={<AppFallback label="Loading dashboard" />}>
+          <DashboardView onBackHome={() => setActiveView('landing')} />
+        </Suspense>
         <Toaster />
       </TooltipProvider>
     )
@@ -369,7 +374,9 @@ function App() {
         {activeView === 'login' ? (
           <section className="cx-container grid min-h-[calc(100svh-210px)] place-items-center py-16">
             <div className="w-full max-w-md">
-              <LoginForm />
+              <Suspense fallback={<AppFallback label="Loading login" />}>
+                <LoginForm />
+              </Suspense>
             </div>
           </section>
         ) : (
@@ -523,22 +530,11 @@ function App() {
   )
 }
 
-function DashboardView({ onBackHome }: { onBackHome: () => void }) {
+function AppFallback({ label }: { label: string }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <SiteHeader onBackHome={onBackHome} />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <DataTable data={dashboardData} />
-            </div>
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="grid min-h-[240px] place-items-center bg-background p-6 text-sm font-medium text-muted-foreground">
+      {label}
+    </div>
   )
 }
 

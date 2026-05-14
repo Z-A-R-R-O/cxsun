@@ -38,7 +38,10 @@
 - [x] `2.27` Initialize shadcn b0 Vite monorepo preset
 - [x] `2.28` Add preset compatibility workspaces
 - [x] `2.29` Verify preset dashboard smoke and full check
-- [x] `2.30` Await next implementation task
+- [x] `2.30` Redirect build outputs to root build folder
+- [x] `2.31` Add Docker deploy environment
+- [x] `2.32` Verify root build and container files
+- [ ] `2.33` Await next implementation task
 
 ## Phase 3: Frontend theme work
 

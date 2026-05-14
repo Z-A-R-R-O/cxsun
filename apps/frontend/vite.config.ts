@@ -16,6 +16,56 @@ export default defineConfig(({ mode }) => {
       react(),
       babel({ presets: [reactCompilerPreset()] }),
     ],
+    build: {
+      outDir: '../../build/frontend',
+      emptyOutDir: true,
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            includeDependenciesRecursively: false,
+            maxSize: 450 * 1024,
+            minSize: 20 * 1024,
+            groups: [
+              {
+                name: 'react',
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                priority: 60,
+              },
+              {
+                name: 'radix',
+                test: /node_modules[\\/](@radix-ui|radix-ui|@floating-ui|cmdk|vaul)[\\/]/,
+                priority: 50,
+              },
+              {
+                name: 'data-grid',
+                test: /node_modules[\\/](@tanstack|@dnd-kit)[\\/]/,
+                priority: 45,
+              },
+              {
+                name: 'charts',
+                test: /node_modules[\\/](recharts|d3-|decimal.js)[\\/]/,
+                priority: 40,
+              },
+              {
+                name: 'icons',
+                test: /node_modules[\\/](lucide-react|@tabler)[\\/]/,
+                priority: 35,
+              },
+              {
+                name: 'date-ui',
+                test: /node_modules[\\/](date-fns|react-day-picker)[\\/]/,
+                priority: 30,
+              },
+              {
+                name: 'vendor',
+                test: /node_modules[\\/]/,
+                priority: 10,
+              },
+            ],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         src: resolve(__dirname, 'src'),

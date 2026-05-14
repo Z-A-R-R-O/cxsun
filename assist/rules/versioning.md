@@ -13,19 +13,22 @@
 - The batch reference in `assist/execution/task.md` must match `assist/execution/planning.md`.
 - App version `1.0.<reference>` derives from the batch reference number.
 - Changelog entries use the same ref: `### [v 1.0.10] YYYY-MM-DD - Title`.
-- Commit subjects start with the same reference number.
+- Commit subjects should use the latest changelog header title unless a clearer message is needed.
 
 ## Changelog Policy
 
 - `assist/documentation/CHANGELOG.md` must contain a `Version State` block at the top.
 - `Version State` records: current numeric package version, current `v-` release tag, and the versioned changelog label format.
-- New entries belong under the active version section until the next version bump is approved.
+- Historical changelog entries are immutable. Do not rewrite old entry labels during a version bump.
+- Version bump automation may update only the `Version State` block and add a new entry for the new version.
+- Work completed without an approved version bump belongs under `Unreleased`.
 
 ## Release Operation
 
 - Version, changelog, and tag naming must stay aligned in the same batch.
 - Release tags use `v-` prefix.
 - Validate before tagging a release.
+- `npm run github:now` does not bump versions; perform version bumps only as an explicit release task.
 
 ## Build Output
 
