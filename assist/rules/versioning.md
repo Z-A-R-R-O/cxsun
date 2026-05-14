@@ -13,7 +13,7 @@
 - The batch reference in `assist/execution/task.md` must match `assist/execution/planning.md`.
 - App version `1.0.<reference>` derives from the batch reference number.
 - Changelog entries use the same ref and local time: `### [v 1.0.10] YYYY-MM-DD h:mm am - Title`.
-- Commit subjects should use the latest changelog header title unless a clearer message is needed.
+- Commit subjects use the latest versioned changelog entry as `#<ref> - <title>`, for example `#10 - version update`.
 
 ## Changelog Policy
 
@@ -23,6 +23,7 @@
 - Version bump automation may update only the `Version State` block and add a new entry for the new version.
 - Work completed without an approved version bump belongs under `Unreleased` using `### YYYY-MM-DD h:mm am - Title`.
 - Changelog times use the workspace local timezone and lowercase `am` / `pm`.
+- `npm run github:now` reads the latest versioned changelog entry and must not include changelog dates or timestamps in the Git commit subject.
 
 ## Release Operation
 

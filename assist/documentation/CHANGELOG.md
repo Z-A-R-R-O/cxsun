@@ -2,13 +2,21 @@
 
 ## Version State
 
-- **Current version:** `1.0.09`
-- **Release tag:** `v-1.0.09`
-- **Changelog label:** `v 1.0.09`
+- **Current version:** `1.0.10`
+- **Release tag:** `v-1.0.10`
+- **Changelog label:** `v 1.0.10`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.10
+
+### [v 1.0.10] 2026-05-14 3:58 pm - version update
+
+- Added changelog parsing for versioned entries with timestamped headers
+- Refactored GitHub helper commit subjects to use `#<ref> - <title>`
+- Preserved changelog version labels while keeping Git commit messages concise
 
 ## Unreleased
 

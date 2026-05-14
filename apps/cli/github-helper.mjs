@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 
 import { execFileSync, execSync } from 'child_process'
-import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { createInterface } from 'readline'
 import { pathToFileURL } from 'url'
+import {
+  formatChangelogCommitSubject,
+  readLatestVersionedChangelogEntry,
+} from './changelog.mjs'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 
@@ -68,20 +71,15 @@ async function ask(query) {
   })
 }
 
-function getChangelogHeader() {
-  const path = resolve(ROOT, 'assist/documentation/CHANGELOG.md')
-  const text = readFileSync(path, 'utf8')
-  const match = text.match(/^### (.+)$/m)
-  return match ? match[1].trim() : 'update'
-}
-
 async function main() {
-  const changelogHeader = getChangelogHeader()
+  const changelogEntry = readLatestVersionedChangelogEntry(ROOT)
+  const defaultMessage = formatChangelogCommitSubject(changelogEntry)
 
   const status = run('git status --porcelain', { silent: true })
   const files = status ? status.split('\n').filter(Boolean) : []
 
-  console.log(`\n  Changelog header: ${changelogHeader}`)
+  console.log(`\n  Changelog version: ${changelogEntry.version}`)
+  console.log(`  Commit subject:    ${defaultMessage}`)
   console.log(`  Uncommitted:     ${files.length} files\n`)
 
   if (files.length > 0) {
@@ -89,7 +87,6 @@ async function main() {
     console.log('')
   }
 
-  const defaultMessage = changelogHeader
   const messageAnswer = await ask(`  Commit message [${defaultMessage}]: `)
   const message = messageAnswer.trim() || defaultMessage
 

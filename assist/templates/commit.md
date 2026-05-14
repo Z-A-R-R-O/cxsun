@@ -2,10 +2,10 @@
 
 Format:
 ```
-<description>
+#<ref> - <description>
 ```
 
 Example:
 ```
-changelog stability repair
+#10 - version update
 ```
