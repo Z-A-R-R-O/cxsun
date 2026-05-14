@@ -1,0 +1,14 @@
+{
+  "name": "cxsun",
+  "private": true,
+  "version": "1.0.00",
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "github:now": "node apps/cli/github-helper.mjs",
+    "dev:frontend": "npm -w apps/frontend run dev",
+    "dev:server": "npm -w apps/server run dev",
+    "build:frontend": "npm -w apps/frontend run build",
+    "build:server": "npm -w apps/server run build"
+  }
+}

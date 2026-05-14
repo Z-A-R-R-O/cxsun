@@ -1,0 +1,16 @@
+{
+  "name": "@cxsun/server",
+  "version": "1.0.00",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cxsun/shared": "*"
+  }
+}

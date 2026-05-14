@@ -1,0 +1,12 @@
+{
+  "name": "@cxsun/shared",
+  "version": "1.0.00",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  }
+}
