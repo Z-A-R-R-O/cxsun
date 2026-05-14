@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/config/tsconfig/nest.json",
+  "compilerOptions": {
+    "paths": {
+      "@cxnext/db": ["../../packages/db/dist/index.d.ts"],
+      "@cxnext/types": ["../../packages/types/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

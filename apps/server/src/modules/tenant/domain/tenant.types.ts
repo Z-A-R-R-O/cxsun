@@ -1,0 +1,48 @@
+export type TenantStatus = 'active' | 'not_active' | 'suspend'
+
+export interface Tenant {
+  id: number
+  code: number
+  slug: string
+  name: string
+  status: TenantStatus
+  industry_id: number | null
+  db_type: 'mariadb'
+  db_host: string
+  db_port: number
+  db_name: string
+  db_user: string
+  db_secret_ref: string
+  payload_settings: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface TenantUpsertInput {
+  id?: number
+  code?: number | null
+  slug?: string | null
+  name: string
+  status: TenantStatus
+  industry_id?: number | null
+  payload_settings?: string | null
+}
+
+export interface TenantUpsertData {
+  code: number
+  slug: string
+  name: string
+  status: TenantStatus
+  industry_id: number | null
+  payload_settings: string
+}
+
+export interface TenantDatabaseConfig {
+  type: 'mariadb'
+  host: string
+  port: number
+  database: string
+  user: string
+  secretRef: string
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@cxnext/db",
+  "version": "1.0.93",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json",
+    "db:migrate": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js migrate",
+    "db:prepare": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js prepare",
+    "db:fresh": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js fresh --yes",
+    "db:refresh": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js refresh --yes",
+    "db:seed": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js seed",
+    "db:status": "pnpm --filter @cxnext/types build && tsc -p tsconfig.json && node dist/cli.js status",
+    "lint": "eslint . --config ../../eslint.config.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cxnext/types": "workspace:*",
+    "kysely": "0.28.16",
+    "mysql2": "^3.22.3",
+    "zod": "^4.4.3"
+  }
+}

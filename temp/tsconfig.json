@@ -1,0 +1,26 @@
+{
+  "extends": "./packages/config/tsconfig/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@cxnext/core": ["./packages/core/src/index.ts"],
+      "@cxnext/core/*": ["./packages/core/src/*"],
+      "@cxnext/event": ["./packages/event/src/index.ts"],
+      "@cxnext/event/*": ["./packages/event/src/*"],
+      "@cxnext/db": ["./packages/db/src/index.ts"],
+      "@cxnext/db/*": ["./packages/db/src/*"],
+      "@cxnext/validation": ["./packages/validation/src/index.ts"],
+      "@cxnext/validation/*": ["./packages/validation/src/*"],
+      "@cxnext/config": ["./packages/config/src/index.ts"],
+      "@cxnext/config/*": ["./packages/config/src/*"],
+      "@cxnext/hooks": ["./packages/hooks/src/index.ts"],
+      "@cxnext/hooks/*": ["./packages/hooks/src/*"],
+      "@cxnext/utils": ["./packages/utils/src/index.ts"],
+      "@cxnext/utils/*": ["./packages/utils/src/*"],
+      "@cxnext/types": ["./packages/types/src/index.ts"],
+      "@cxnext/types/*": ["./packages/types/src/*"],
+      "@cxnext/ui": ["./packages/ui/src/index.ts"],
+      "@cxnext/ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", "out"]
+}

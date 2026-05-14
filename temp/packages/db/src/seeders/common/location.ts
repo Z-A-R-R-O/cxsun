@@ -1,0 +1,278 @@
+import { createCommonMasterSeeder } from "./common-master-seeder";
+import { commonDefinition } from "./common-master-definitions";
+
+const countries = [
+  { code: "IN", name: "India", phone_code: "+91" },
+  { code: "US", name: "United States", phone_code: "+1" },
+  { code: "GB", name: "United Kingdom", phone_code: "+44" },
+  { code: "SG", name: "Singapore", phone_code: "+65" },
+  { code: "AE", name: "United Arab Emirates", phone_code: "+971" },
+  { code: "CA", name: "Canada", phone_code: "+1" },
+  { code: "AU", name: "Australia", phone_code: "+61" },
+  { code: "DE", name: "Germany", phone_code: "+49" },
+  { code: "FR", name: "France", phone_code: "+33" },
+  { code: "IT", name: "Italy", phone_code: "+39" },
+  { code: "NL", name: "Netherlands", phone_code: "+31" },
+  { code: "CH", name: "Switzerland", phone_code: "+41" },
+  { code: "JP", name: "Japan", phone_code: "+81" },
+  { code: "CN", name: "China", phone_code: "+86" },
+  { code: "KR", name: "South Korea", phone_code: "+82" },
+  { code: "MY", name: "Malaysia", phone_code: "+60" },
+  { code: "TH", name: "Thailand", phone_code: "+66" },
+  { code: "ID", name: "Indonesia", phone_code: "+62" },
+  { code: "PH", name: "Philippines", phone_code: "+63" },
+  { code: "SA", name: "Saudi Arabia", phone_code: "+966" },
+  { code: "QA", name: "Qatar", phone_code: "+974" },
+  { code: "KW", name: "Kuwait", phone_code: "+965" },
+  { code: "OM", name: "Oman", phone_code: "+968" },
+  { code: "ZA", name: "South Africa", phone_code: "+27" },
+  { code: "BR", name: "Brazil", phone_code: "+55" },
+];
+
+const states = [
+  ["TN", "Tamil Nadu"],
+  ["-", "-"],
+  ["AP", "Andhra Pradesh"],
+  ["AR", "Arunachal Pradesh"],
+  ["AS", "Assam"],
+  ["BR", "Bihar"],
+  ["CT", "Chhattisgarh"],
+  ["GA", "Goa"],
+  ["GJ", "Gujarat"],
+  ["HR", "Haryana"],
+  ["HP", "Himachal Pradesh"],
+  ["JH", "Jharkhand"],
+  ["KA", "Karnataka"],
+  ["KL", "Kerala"],
+  ["MP", "Madhya Pradesh"],
+  ["MH", "Maharashtra"],
+  ["MN", "Manipur"],
+  ["ML", "Meghalaya"],
+  ["MZ", "Mizoram"],
+  ["NL", "Nagaland"],
+  ["OD", "Odisha"],
+  ["PB", "Punjab"],
+  ["RJ", "Rajasthan"],
+  ["SK", "Sikkim"],
+  ["TG", "Telangana"],
+  ["TR", "Tripura"],
+  ["UP", "Uttar Pradesh"],
+  ["UT", "Uttarakhand"],
+  ["WB", "West Bengal"],
+  ["AN", "Andaman and Nicobar Islands"],
+  ["CH", "Chandigarh"],
+  ["DN", "Dadra and Nagar Haveli and Daman and Diu"],
+  ["DL", "Delhi"],
+  ["JK", "Jammu and Kashmir"],
+  ["LA", "Ladakh"],
+  ["LD", "Lakshadweep"],
+  ["PY", "Puducherry"],
+];
+
+const districts = [
+  ["-", "-", "-"],
+  ["TN-CHN", "Chennai", "TN"],
+  ["TN-CBE", "Coimbatore", "TN"],
+  ["TN-MDU", "Madurai", "TN"],
+  ["TN-TPR", "Tiruppur", "TN"],
+  ["TN-TRY", "Tiruchirappalli", "TN"],
+  ["TN-SLM", "Salem", "TN"],
+  ["TN-ERD", "Erode", "TN"],
+  ["TN-TNV", "Tirunelveli", "TN"],
+  ["TN-TTK", "Thoothukudi", "TN"],
+  ["TN-VLR", "Vellore", "TN"],
+  ["TN-DGL", "Dindigul", "TN"],
+  ["TN-TNJ", "Thanjavur", "TN"],
+  ["TN-KKI", "Kanniyakumari", "TN"],
+  ["TN-KGI", "Krishnagiri", "TN"],
+  ["TN-KPM", "Kancheepuram", "TN"],
+  ["TN-CUD", "Cuddalore", "TN"],
+  ["TN-KRR", "Karur", "TN"],
+  ["TN-VNR", "Virudhunagar", "TN"],
+  ["TN-TVR", "Thiruvarur", "TN"],
+  ["TN-TRYR", "Tiruvallur", "TN"],
+  ["TN-CHG", "Chengalpattu", "TN"],
+  ["KA-BLR", "Bengaluru Urban", "KA"],
+  ["MH-MUM", "Mumbai", "MH"],
+  ["DL-ND", "New Delhi", "DL"],
+  ["TG-HYD", "Hyderabad", "TG"],
+  ["GJ-AHM", "Ahmedabad", "GJ"],
+  ["WB-KOL", "Kolkata", "WB"],
+  ["PB-LDH", "Ludhiana", "PB"],
+  ["RJ-JPR", "Jaipur", "RJ"],
+  ["UP-LKO", "Lucknow", "UP"],
+  ["KL-ERN", "Ernakulam", "KL"],
+  ["GA-NGA", "North Goa", "GA"],
+  ["BR-PAT", "Patna", "BR"],
+  ["MP-IND", "Indore", "MP"],
+];
+
+const cities = [
+  ["-", "-", "-"],
+  ["MAA", "Chennai", "TN-CHN"],
+  ["CBE", "Coimbatore", "TN-CBE"],
+  ["MDU", "Madurai", "TN-MDU"],
+  ["TPR", "Tiruppur", "TN-TPR"],
+  ["TRY", "Tiruchirappalli", "TN-TRY"],
+  ["SLM", "Salem", "TN-SLM"],
+  ["ERD", "Erode", "TN-ERD"],
+  ["TNV", "Tirunelveli", "TN-TNV"],
+  ["TTK", "Thoothukudi", "TN-TTK"],
+  ["VLR", "Vellore", "TN-VLR"],
+  ["DGL", "Dindigul", "TN-DGL"],
+  ["TNJ", "Thanjavur", "TN-TNJ"],
+  ["HSR", "Hosur", "TN-KGI"],
+  ["NGL", "Nagercoil", "TN-KKI"],
+  ["AVD", "Avadi", "TN-TRYR"],
+  ["TBM", "Tambaram", "TN-CHG"],
+  ["KPM", "Kancheepuram", "TN-KPM"],
+  ["CUD", "Cuddalore", "TN-CUD"],
+  ["KRR", "Karur", "TN-KRR"],
+  ["SVK", "Sivakasi", "TN-VNR"],
+  ["KMU", "Kumbakonam", "TN-TNJ"],
+  ["MTP", "Mettupalayam", "TN-CBE"],
+  ["PLD", "Pollachi", "TN-CBE"],
+  ["UDT", "Udumalaipettai", "TN-TPR"],
+  ["DHP", "Dharapuram", "TN-TPR"],
+  ["KGL", "Kangeyam", "TN-TPR"],
+  ["BLR", "Bengaluru", "KA-BLR"],
+  ["BOM", "Mumbai", "MH-MUM"],
+  ["DEL", "New Delhi", "DL-ND"],
+  ["HYD", "Hyderabad", "TG-HYD"],
+  ["AMD", "Ahmedabad", "GJ-AHM"],
+  ["CCU", "Kolkata", "WB-KOL"],
+  ["LDH", "Ludhiana", "PB-LDH"],
+  ["JAI", "Jaipur", "RJ-JPR"],
+  ["LKO", "Lucknow", "UP-LKO"],
+  ["COK", "Kochi", "KL-ERN"],
+  ["GOI", "Panaji", "GA-NGA"],
+  ["PAT", "Patna", "BR-PAT"],
+  ["IDR", "Indore", "MP-IND"],
+];
+
+const pincodes = [
+  ["-", "-", "-"],
+  ["600001", "George Town", "MAA"],
+  ["600017", "T Nagar", "MAA"],
+  ["600028", "Mylapore", "MAA"],
+  ["600042", "Velachery", "MAA"],
+  ["600100", "Medavakkam", "MAA"],
+  ["641001", "Town Hall", "CBE"],
+  ["641002", "R S Puram", "CBE"],
+  ["641004", "Peelamedu", "CBE"],
+  ["641018", "Race Course", "CBE"],
+  ["641035", "Saravanampatti", "CBE"],
+  ["641600", "Tiruppur North", "TPR"],
+  ["641601", "Tiruppur", "TPR"],
+  ["641602", "Tiruppur South", "TPR"],
+  ["641603", "Gandhi Nagar", "TPR"],
+  ["641604", "Kumar Nagar", "TPR"],
+  ["641605", "Veerapandi", "TPR"],
+  ["641606", "Vijayapuram", "TPR"],
+  ["641607", "Mannarai", "TPR"],
+  ["641608", "Kangeyam Road", "TPR"],
+  ["641652", "Avinashi", "TPR"],
+  ["625001", "Madurai Main", "MDU"],
+  ["625020", "Anna Nagar", "MDU"],
+  ["620001", "Tiruchirappalli Main", "TRY"],
+  ["620018", "Thillai Nagar", "TRY"],
+  ["636001", "Salem Main", "SLM"],
+  ["636004", "Fairlands", "SLM"],
+  ["638001", "Erode Main", "ERD"],
+  ["627001", "Tirunelveli Town", "TNV"],
+  ["628001", "Thoothukudi", "TTK"],
+  ["632001", "Vellore", "VLR"],
+  ["624001", "Dindigul", "DGL"],
+  ["613001", "Thanjavur", "TNJ"],
+  ["635109", "Hosur", "HSR"],
+  ["629001", "Nagercoil", "NGL"],
+  ["600054", "Avadi", "AVD"],
+  ["600045", "Tambaram", "TBM"],
+  ["631501", "Kancheepuram", "KPM"],
+  ["607001", "Cuddalore", "CUD"],
+  ["639001", "Karur", "KRR"],
+  ["626123", "Sivakasi", "SVK"],
+  ["612001", "Kumbakonam", "KMU"],
+  ["560001", "MG Road", "BLR"],
+  ["560037", "Marathahalli", "BLR"],
+  ["400001", "Fort", "BOM"],
+  ["400053", "Andheri West", "BOM"],
+  ["110001", "Connaught Place", "DEL"],
+  ["500001", "Abids", "HYD"],
+  ["380001", "Ahmedabad GPO", "AMD"],
+  ["700001", "Kolkata GPO", "CCU"],
+  ["141001", "Ludhiana", "LDH"],
+  ["302001", "Jaipur", "JAI"],
+  ["226001", "Lucknow", "LKO"],
+  ["682001", "Fort Kochi", "COK"],
+  ["403001", "Panaji", "GOI"],
+  ["800001", "Patna", "PAT"],
+  ["452001", "Indore", "IDR"],
+];
+
+function countryId(code: string) {
+  return countries.findIndex((country) => country.code === code) + 1;
+}
+
+function stateId(code: string) {
+  return states.findIndex(([stateCode]) => stateCode === code) + 1;
+}
+
+function districtId(code: string) {
+  return districts.findIndex(([districtCode]) => districtCode === code) + 1;
+}
+
+function cityId(code: string) {
+  return cities.findIndex(([cityCode]) => cityCode === code) + 1;
+}
+
+function cityDistrictCode(code: string) {
+  return cities.find(([cityCode]) => cityCode === code)?.[2] ?? "";
+}
+
+function cityStateId(code: string) {
+  const districtCode = cityDistrictCode(code);
+  const stateCode =
+    districts.find(([candidateDistrictCode]) => candidateDistrictCode === districtCode)?.[2] ?? "";
+  return stateId(stateCode);
+}
+
+export const locationCommonSeeders = [
+  createCommonMasterSeeder(commonDefinition("countries"), 50, countries),
+  createCommonMasterSeeder(
+    commonDefinition("states"),
+    51,
+    states.map(([code, name]) => ({
+      country_id: countryId("IN"),
+      code,
+      name,
+    })),
+  ),
+  createCommonMasterSeeder(
+    commonDefinition("districts"),
+    52,
+    districts.map(([code, name, stateCode]) => ({ state_id: stateId(stateCode), code, name })),
+  ),
+  createCommonMasterSeeder(
+    commonDefinition("cities"),
+    53,
+    cities.map(([code, name, districtCode]) => ({
+      state_id: cityStateId(code),
+      district_id: districtId(districtCode),
+      code,
+      name,
+    })),
+  ),
+  createCommonMasterSeeder(
+    commonDefinition("pincodes"),
+    54,
+    pincodes.map(([code, area_name, cityCode]) => ({
+      country_id: countryId("IN"),
+      state_id: cityStateId(cityCode),
+      district_id: districtId(cityDistrictCode(cityCode)),
+      city_id: cityId(cityCode),
+      code,
+      area_name,
+    })),
+  ),
+] as const;

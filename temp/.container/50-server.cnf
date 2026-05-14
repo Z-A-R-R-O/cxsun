@@ -1,0 +1,38 @@
+[server]
+user = mysql
+pid-file = /run/mysqld/mysqld.pid
+socket = /run/mysqld/mysqld.sock
+basedir = /usr
+datadir = /var/lib/mysql
+tmpdir = /tmp
+lc-messages-dir = /usr/share/mysql
+bind-address = 0.0.0.0
+log_error = /var/log/mysql/error.log
+
+[mysqld]
+innodb_file_format = Barracuda
+innodb_file_per_table = 1
+innodb_large_prefix = 1
+bind-address = 0.0.0.0
+max_connections = 200
+wait_timeout = 60
+interactive_timeout = 60
+thread_cache_size = 50
+table_open_cache = 4000
+innodb_buffer_pool_size = 2G
+
+# Character Set Settings
+character-set-client-handshake = FALSE
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# Performance (optional)
+query_cache_size = 24M
+query_cache_type = 1
+
+[mysql]
+default-character-set = utf8mb4
+
+[client]
+default-character-set = utf8mb4
+connect_timeout = 30
