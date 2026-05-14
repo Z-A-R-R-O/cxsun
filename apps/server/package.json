@@ -1,10 +1,10 @@
 {
   "name": "@cxsun/server",
   "private": true,
-  "version": "1.0.07",
+  "version": "1.0.08",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "node ../../apps/cli/preflight.mjs server",
     "build": "tsc",
     "start": "node dist/main.js",
     "lint": "eslint .",

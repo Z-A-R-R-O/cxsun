@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 
-const PORT = Number(process.env.PORT) || 3000
+const PORT = Number(process.env.PORT) || 6001
 const HOST = process.env.HOST || '0.0.0.0'
 const GRACE = 5_000
 
