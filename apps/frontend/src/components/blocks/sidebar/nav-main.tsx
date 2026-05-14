@@ -1,3 +1,4 @@
+import type React from "react"
 import { ChevronRight, type LucideIcon } from "lucide-react"
 
 import {
@@ -21,11 +22,13 @@ interface NavItem {
   icon?: LucideIcon
   isActive?: boolean
   defaultOpen?: boolean
+  onSelect?: () => void
   items?: {
     title: string
     url: string
     icon?: LucideIcon
     isActive?: boolean
+    onSelect?: () => void
   }[]
 }
 
@@ -43,7 +46,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
                   tooltip={item.title}
                   className="h-10 rounded-xl px-3 font-semibold transition-[background,color,box-shadow,transform] duration-300 hover:bg-sidebar-accent/80 hover:shadow-sm data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-sm [&_svg]:size-4"
                 >
-                  <a href={item.url}>
+                  <a href={item.url} onClick={handleSelect(item.onSelect)}>
                     {item.icon ? <item.icon /> : null}
                     <span>{item.title}</span>
                   </a>
@@ -79,7 +82,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
                           isActive={subItem.isActive}
                           className="h-9 rounded-xl px-3 font-medium text-muted-foreground transition-[background,color,box-shadow] duration-300 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-sm [&_svg]:size-4"
                         >
-                          <a href={subItem.url}>
+                          <a href={subItem.url} onClick={handleSelect(subItem.onSelect)}>
                             {subItem.icon ? <subItem.icon /> : null}
                             <span>{subItem.title}</span>
                           </a>
@@ -97,3 +100,13 @@ export function NavMain({ items }: { items: NavItem[] }) {
   )
 }
 
+function handleSelect(onSelect?: () => void) {
+  return (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onSelect) {
+      return
+    }
+
+    event.preventDefault()
+    onSelect()
+  }
+}

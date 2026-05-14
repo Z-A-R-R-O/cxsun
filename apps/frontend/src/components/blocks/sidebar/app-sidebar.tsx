@@ -7,6 +7,7 @@ import {
   Factory,
   Home,
   Landmark,
+  RefreshCw,
   Settings,
   ShieldCheck,
   UserRoundCog,
@@ -123,7 +124,45 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export type DashboardPage = "overview" | "system-update"
+
+export function AppSidebar({
+  activePage = "overview",
+  onNavigate,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  activePage?: DashboardPage
+  onNavigate?: (page: DashboardPage) => void
+}) {
+  const navMain = data.navMain.map((item) => {
+    if (item.title === "Overview") {
+      return {
+        ...item,
+        isActive: activePage === "overview",
+        onSelect: () => onNavigate?.("overview"),
+      }
+    }
+
+    if (item.title === "Admin") {
+      return {
+        ...item,
+        defaultOpen: true,
+        items: [
+          ...(item.items ?? []),
+          {
+            title: "System Update",
+            url: "#system-update",
+            icon: RefreshCw,
+            isActive: activePage === "system-update",
+            onSelect: () => onNavigate?.("system-update"),
+          },
+        ],
+      }
+    }
+
+    return item
+  })
+
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader className="p-3 pb-2">
@@ -131,10 +170,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarSeparator className="mx-3" />
       <SidebarContent className="gap-3 px-3 py-6">
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>
   )
 }
-

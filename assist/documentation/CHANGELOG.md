@@ -12,12 +12,18 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 
 ## v-1.0.10
 
-### [v 1.0.10] 2026-05-14 3:58 pm - version update
+### [v 1.0.10] 2026-05-14 3:58 pm - version update and system update module
 
 - Added changelog parsing for versioned entries with timestamped headers
 - Refactored GitHub helper commit subjects to use `#<ref> - <title>`
 - Preserved changelog version labels while keeping Git commit messages concise
 - Added an interactive GitHub helper review prompt before pull, commit, and push
+
+### [v 1.0.10] 2026-05-14 4:19 pm - system update module
+
+- Added a backend system update API that force-resets local changes, pulls Git updates, installs dependencies, builds active apps, and checks frontend/backend health
+- Added a dashboard System Update page with update trigger, status cards, step logs, and health results
+- Wired System Update into the dashboard sidebar menu
 
 ### [v 1.0.10] 2026-05-14 3:44 pm - Docker deployment refinements
 
