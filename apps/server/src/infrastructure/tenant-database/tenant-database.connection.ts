@@ -121,61 +121,91 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
       .execute()
   }
 
-  const ownerRole = await database
+  for (const role of [
+    { code: 'owner', name: 'Owner' },
+    { code: 'super-admin', name: 'Super admin' },
+    { code: 'tenant-admin', name: 'Tenant admin' },
+    { code: 'tenant-user', name: 'Tenant user' },
+  ]) {
+    await ensureRole(database, role)
+  }
+
+  for (const policy of [
+    {
+      code: 'company.manage',
+      name: 'Manage companies',
+      description: 'Allows managing companies inside this tenant database.',
+    },
+    {
+      code: 'rbac.manage',
+      name: 'Manage RBAC',
+      description: 'Allows managing tenant-local roles and policy assignments.',
+    },
+  ]) {
+    await ensurePolicy(database, policy)
+  }
+
+  for (const roleCode of ['owner', 'super-admin', 'tenant-admin', 'tenant-user']) {
+    await ensureRolePolicy(database, roleCode, 'company.manage')
+  }
+
+  for (const roleCode of ['owner', 'super-admin', 'tenant-admin']) {
+    await ensureRolePolicy(database, roleCode, 'rbac.manage')
+  }
+}
+
+async function ensureRole(database: TenantDatabase, role: { code: string; name: string }) {
+  const existing = await database
     .selectFrom('rbac_roles')
     .select('id')
-    .where('code', '=', 'owner')
+    .where('code', '=', role.code)
     .executeTakeFirst()
 
-  if (!ownerRole) {
-    await database
-      .insertInto('rbac_roles')
-      .values({
-        code: 'owner',
-        name: 'Owner',
-        settings: JSON.stringify({ system: true }),
-      })
-      .execute()
+  if (existing) {
+    return
   }
 
-  const policy = await database
+  await database
+    .insertInto('rbac_roles')
+    .values({
+      code: role.code,
+      name: role.name,
+      settings: JSON.stringify({ system: true }),
+    })
+    .execute()
+}
+
+async function ensurePolicy(
+  database: TenantDatabase,
+  policy: { code: string; name: string; description: string },
+) {
+  const existing = await database
     .selectFrom('rbac_policies')
     .select('id')
-    .where('code', '=', 'company.manage')
+    .where('code', '=', policy.code)
     .executeTakeFirst()
 
-  if (!policy) {
-    await database
-      .insertInto('rbac_policies')
-      .values([
-        {
-          code: 'company.manage',
-          name: 'Manage companies',
-          description: 'Allows managing companies inside this tenant database.',
-        },
-        {
-          code: 'rbac.manage',
-          name: 'Manage RBAC',
-          description: 'Allows managing tenant-local roles and policy assignments.',
-        },
-      ])
-      .execute()
+  if (existing) {
+    return
   }
 
-  const rolePolicy = await database
+  await database.insertInto('rbac_policies').values(policy).execute()
+}
+
+async function ensureRolePolicy(database: TenantDatabase, roleCode: string, policyCode: string) {
+  const existing = await database
     .selectFrom('rbac_role_policies')
     .select('id')
-    .where('role_code', '=', 'owner')
-    .where('policy_code', '=', 'company.manage')
+    .where('role_code', '=', roleCode)
+    .where('policy_code', '=', policyCode)
     .executeTakeFirst()
 
-  if (!rolePolicy) {
-    await database
-      .insertInto('rbac_role_policies')
-      .values([
-        { role_code: 'owner', policy_code: 'company.manage' },
-        { role_code: 'owner', policy_code: 'rbac.manage' },
-      ])
-      .execute()
+  if (existing) {
+    return
   }
+
+  await database
+    .insertInto('rbac_role_policies')
+    .values({ role_code: roleCode, policy_code: policyCode })
+    .execute()
 }

@@ -34,9 +34,92 @@ export interface SiteMessagesTable {
   created_at: Generated<string>
 }
 
+export interface IndustriesTable {
+  id: Generated<number>
+  code: string
+  name: string
+  payload_schema: string
+  default_features: string
+  default_ui_settings: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface TenantsTable {
+  id: Generated<number>
+  code: number
+  slug: string
+  name: string
+  status: string
+  industry_id: number | null
+  db_type: string
+  db_host: string
+  db_port: number
+  db_name: string
+  db_user: string
+  db_secret_ref: string
+  payload_settings: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+  deleted_at: string | null
+}
+
+export interface UsersTable {
+  id: Generated<number>
+  name: string
+  email: string
+  password_hash: string
+  status: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface UserTenantsTable {
+  id: Generated<number>
+  user_id: number
+  tenant_id: number
+  role: string
+  created_at: Generated<string>
+}
+
+export interface RbacPoliciesTable {
+  id: Generated<number>
+  code: string
+  name: string
+  description: string
+  created_at: Generated<string>
+}
+
+export interface TenantRbacPoliciesTable {
+  id: Generated<number>
+  tenant_id: number
+  policy_code: string
+  enabled: number
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface QueueJobsTable {
+  id: Generated<number>
+  type: string
+  payload: string
+  status: string
+  attempts: number
+  run_at: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
 export interface DatabaseSchema {
   site_pages: SitePagesTable
   site_services: SiteServicesTable
   site_posts: SitePostsTable
   site_messages: SiteMessagesTable
+  industries: IndustriesTable
+  tenants: TenantsTable
+  users: UsersTable
+  user_tenants: UserTenantsTable
+  rbac_policies: RbacPoliciesTable
+  tenant_rbac_policies: TenantRbacPoliciesTable
+  queue_jobs: QueueJobsTable
 }

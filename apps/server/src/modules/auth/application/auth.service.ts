@@ -1,0 +1,59 @@
+import { Inject } from '../../../core/decorators/inject.js'
+import { Injectable } from '../../../core/decorators/injectable.js'
+import { signJwt } from '../../../infrastructure/auth/jwt.js'
+import { verifyPassword } from '../../../infrastructure/auth/password-hash.js'
+import type { LoginInput } from '../domain/auth.types.js'
+import { AuthRepository } from '../infrastructure/auth.repository.js'
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @Inject(AuthRepository) private readonly auth: AuthRepository,
+  ) {}
+
+  async login(input: LoginInput) {
+    const email = input.email?.trim().toLowerCase()
+    const password = input.password ?? ''
+
+    if (!email || !password) {
+      return { ok: false, error: 'Email and password are required.' }
+    }
+
+    const user = await this.auth.findUserByEmail(email)
+
+    if (!user || user.status !== 'active' || !verifyPassword(password, user.password_hash)) {
+      return { ok: false, error: 'Invalid email or password.' }
+    }
+
+    const tenants = await this.auth.listTenantAccess(user.id)
+
+    if (tenants.length === 0) {
+      return { ok: false, error: 'User does not have tenant access.' }
+    }
+
+    const requestedTenant = input.tenantCode?.trim()
+    const selectedTenant = requestedTenant
+      ? tenants.find((tenant) => tenant.slug === requestedTenant || String(tenant.code) === requestedTenant)
+      : tenants[0]
+
+    if (!selectedTenant) {
+      return { ok: false, error: 'User does not have access to the requested tenant.' }
+    }
+
+    const token = signJwt({
+      sub: user.id,
+      email: user.email,
+      role: selectedTenant.role,
+      tenantCode: selectedTenant.slug,
+      superAdmin: selectedTenant.role === 'super-admin',
+    })
+
+    return {
+      ok: true,
+      token,
+      user: { id: user.id, name: user.name, email: user.email },
+      tenants,
+      selectedTenant,
+    }
+  }
+}

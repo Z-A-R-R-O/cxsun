@@ -124,7 +124,7 @@ const data = {
   ],
 }
 
-export type DashboardPage = "overview" | "system-update"
+export type DashboardPage = "overview" | "tenant" | "industry" | "company" | "system-update"
 
 export function AppSidebar({
   activePage = "overview",
@@ -140,6 +140,25 @@ export function AppSidebar({
         ...item,
         isActive: activePage === "overview",
         onSelect: () => onNavigate?.("overview"),
+      }
+    }
+
+    if (item.title === "Organisation") {
+      return {
+        ...item,
+        defaultOpen: true,
+        items: item.items?.map((subItem) => {
+          const page = (
+            subItem.title === "Default Company"
+              ? "company"
+              : subItem.title.toLowerCase().replace(" ", "-")
+          ) as DashboardPage
+          return {
+            ...subItem,
+            isActive: activePage === page,
+            onSelect: () => onNavigate?.(page),
+          }
+        }),
       }
     }
 

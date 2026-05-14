@@ -1,6 +1,7 @@
 import 'reflect-metadata'
 import { Module } from '../../core/decorators/module.js'
 import { MasterQueueService } from '../../infrastructure/queue/master-queue.service.js'
+import { TenantDatabaseProvisioner } from '../../infrastructure/tenant-database/tenant-database.provisioner.js'
 import { ListTenantsUseCase } from './application/list-tenants.use-case.js'
 import { RestoreTenantUseCase } from './application/restore-tenant.use-case.js'
 import { ResolveTenantContextUseCase } from './application/resolve-tenant-context.use-case.js'
@@ -23,6 +24,7 @@ import { TenantService } from './tenant.service.js'
     UpsertTenantUseCase,
     TenantRepository,
     TenantEventBus,
+    TenantDatabaseProvisioner,
   ],
 })
 export class TenantModule {}

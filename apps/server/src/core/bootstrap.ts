@@ -51,7 +51,11 @@ export class CxApp {
     const app = Fastify({ logger: { level: logLevel } })
     const container = new Container()
 
-    await app.register(cors, { origin: true })
+    await app.register(cors, {
+      origin: true,
+      allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'x-tenant-code', 'x-user-email'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    })
 
     app.addHook('onError', async (_req, _reply, error) => {
       app.log.error({ err: error })

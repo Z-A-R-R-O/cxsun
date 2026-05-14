@@ -13,7 +13,6 @@ export class CompanyRepository {
       .execute()
 
     return rows
-      .filter((row) => isEmptyDeletedAt(row.deleted_at))
       .map((row) => ({
         id: row.id,
         name: row.name,
