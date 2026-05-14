@@ -35,11 +35,30 @@ interface SystemUpdateResult {
 interface SystemUpdateStatus {
   running: boolean
   lastResult: SystemUpdateResult | null
+  lastPreflight: SystemUpdatePreflight | null
+}
+
+interface SystemUpdatePreflight {
+  ok: boolean
+  repositoryRoot: string
+  localVersion: string
+  cloudVersion: string | null
+  localCommit: string
+  cloudCommit: string | null
+  branch: string
+  upstream: string | null
+  dirty: boolean
+  updateAvailable: boolean
+  backendHealth: boolean
+  frontendHealth: boolean
+  checkedAt: string
+  error?: string
 }
 
 export function SystemUpdateView() {
   const [status, setStatus] = useState<SystemUpdateStatus | null>(null)
   const [running, setRunning] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -57,9 +76,33 @@ export function SystemUpdateView() {
     setRunning(payload.running)
   }
 
+  async function checkLatest() {
+    setChecking(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/system-update/preflight`)
+      const payload = (await response.json()) as SystemUpdatePreflight
+
+      setStatus((current) => ({
+        running: current?.running ?? false,
+        lastResult: current?.lastResult ?? null,
+        lastPreflight: payload,
+      }))
+
+      if (!payload.ok) {
+        setError(payload.error ?? "Unable to check cloud version.")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to check cloud version.")
+    } finally {
+      setChecking(false)
+    }
+  }
+
   async function runUpdate() {
     const confirmed = window.confirm(
-      "System update will force rollback local changes, remove untracked files, pull from Git, install dependencies, build, and health-check the app. Continue?",
+      "System update will force rollback tracked local changes, pull from Git, install dependencies, build, restart when configured, and health-check the app. .env, storage, and build are kept untouched. Continue?",
     )
 
     if (!confirmed) {
@@ -75,7 +118,11 @@ export function SystemUpdateView() {
       })
       const payload = (await response.json()) as SystemUpdateResult
 
-      setStatus({ running: false, lastResult: payload })
+      setStatus((current) => ({
+        running: false,
+        lastResult: payload,
+        lastPreflight: current?.lastPreflight ?? null,
+      }))
       if (!payload.ok) {
         setError(payload.error ?? "System update finished with failed checks.")
       }
@@ -87,6 +134,7 @@ export function SystemUpdateView() {
   }
 
   const result = status?.lastResult ?? null
+  const preflight = status?.lastPreflight ?? null
   const completedSteps = result?.steps.filter((step) => step.ok).length ?? 0
   const progress = result?.steps.length ? (completedSteps / result.steps.length) * 100 : running ? 15 : 0
 
@@ -99,19 +147,44 @@ export function SystemUpdateView() {
             Pull the latest Git revision, rebuild active apps, and verify frontend/backend health.
           </p>
         </div>
-        <Button disabled={running} onClick={runUpdate} type="button">
-          <RefreshCw className={cn("size-4", running && "animate-spin")} />
-          {running ? "Updating" : "Collect new update"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={checking || running} onClick={checkLatest} type="button" variant="outline">
+            <RefreshCw className={cn("size-4", checking && "animate-spin")} />
+            {checking ? "Checking" : "Check latest version"}
+          </Button>
+          <Button disabled={running} onClick={runUpdate} type="button">
+            <RefreshCw className={cn("size-4", running && "animate-spin")} />
+            {running ? "Updating" : "Update and restart"}
+          </Button>
+        </div>
       </div>
 
       <Alert variant="destructive">
         <AlertCircle />
-        <AlertTitle>Force rollback enabled</AlertTitle>
+        <AlertTitle>Tracked rollback enabled</AlertTitle>
         <AlertDescription>
-          This action runs `git reset --hard` and `git clean -fd` before pulling updates.
+          This action runs `git reset --hard` before pulling updates. It does not run `git clean`, so `.env`, `storage/`, and `build/` remain untouched.
         </AlertDescription>
       </Alert>
+
+      {preflight ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle>Latest version check</CardTitle>
+              <Badge variant={preflight.updateAvailable ? "default" : "outline"}>
+                {preflight.updateAvailable ? "update available" : "up to date"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <InfoTile label="Local version" value={preflight.localVersion} />
+            <InfoTile label="Cloud version" value={preflight.cloudVersion ?? "unknown"} />
+            <InfoTile label="Branch" value={preflight.branch || "unknown"} />
+            <InfoTile label="Workspace" value={preflight.dirty ? "dirty" : "clean"} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="gap-3">
@@ -189,6 +262,15 @@ function HealthCard({ label, ok }: { label: string; ok: boolean }) {
         <p className="text-sm font-semibold">{label}</p>
         <p className="text-xs text-muted-foreground">{ok ? "Passed" : "Failed"}</p>
       </div>
+    </div>
+  )
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 break-all font-mono text-sm">{value}</p>
     </div>
   )
 }

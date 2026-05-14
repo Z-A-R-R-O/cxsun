@@ -14,6 +14,11 @@ export class SystemUpdateController {
     return this.systemUpdateService.status()
   }
 
+  @Get('preflight')
+  async preflight() {
+    return this.systemUpdateService.preflight()
+  }
+
   @Post('run')
   async run() {
     return this.systemUpdateService.runUpdate()

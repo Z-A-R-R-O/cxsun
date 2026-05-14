@@ -28,15 +28,99 @@ export interface SystemUpdateResult {
   error?: string
 }
 
+export interface SystemUpdatePreflight {
+  ok: boolean
+  repositoryRoot: string
+  localVersion: string
+  cloudVersion: string | null
+  localCommit: string
+  cloudCommit: string | null
+  branch: string
+  upstream: string | null
+  dirty: boolean
+  updateAvailable: boolean
+  backendHealth: boolean
+  frontendHealth: boolean
+  checkedAt: string
+  error?: string
+}
+
 @Injectable()
 export class SystemUpdateService {
   private isRunning = false
   private lastResult: SystemUpdateResult | null = null
+  private lastPreflight: SystemUpdatePreflight | null = null
 
   status() {
     return {
       running: this.isRunning,
       lastResult: this.lastResult,
+      lastPreflight: this.lastPreflight,
+    }
+  }
+
+  async preflight(): Promise<SystemUpdatePreflight> {
+    const repositoryRoot = findWorkspaceRoot()
+
+    try {
+      await execFileAsync('git', ['fetch', '--all', '--prune'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024 * 8,
+        windowsHide: true,
+      })
+
+      const branch = await runText(repositoryRoot, 'git', ['branch', '--show-current'])
+      const upstream = await getUpstream(repositoryRoot)
+      const localCommit = await runText(repositoryRoot, 'git', ['rev-parse', 'HEAD'])
+      const cloudCommit = upstream
+        ? await runText(repositoryRoot, 'git', ['rev-parse', upstream])
+        : null
+      const dirty = Boolean(await runText(repositoryRoot, 'git', ['status', '--porcelain']))
+      const localVersion = readPackageVersion(repositoryRoot)
+      const cloudVersion = upstream
+        ? await readCloudPackageVersion(repositoryRoot, upstream)
+        : null
+      const result: SystemUpdatePreflight = {
+        ok: true,
+        repositoryRoot,
+        localVersion,
+        cloudVersion,
+        localCommit,
+        cloudCommit,
+        branch,
+        upstream,
+        dirty,
+        updateAvailable:
+          Boolean(cloudCommit && cloudCommit !== localCommit) ||
+          Boolean(cloudVersion && cloudVersion !== localVersion),
+        backendHealth: await checkUrl(backendHealthUrl()),
+        frontendHealth: await checkUrl(frontendUrl()),
+        checkedAt: new Date().toISOString(),
+      }
+
+      this.lastPreflight = result
+      return result
+    } catch (error) {
+      const result: SystemUpdatePreflight = {
+        ok: false,
+        repositoryRoot,
+        localVersion: readPackageVersion(repositoryRoot),
+        cloudVersion: null,
+        localCommit: '',
+        cloudCommit: null,
+        branch: '',
+        upstream: null,
+        dirty: false,
+        updateAvailable: false,
+        backendHealth: await checkUrl(backendHealthUrl()),
+        frontendHealth: await checkUrl(frontendUrl()),
+        checkedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      }
+
+      this.lastPreflight = result
+      return result
     }
   }
 
@@ -61,10 +145,10 @@ export class SystemUpdateService {
 
     try {
       steps.push(await runStep(repositoryRoot, 'Force rollback tracked changes', 'git', ['reset', '--hard']))
-      steps.push(await runStep(repositoryRoot, 'Remove untracked files', 'git', ['clean', '-fd']))
       steps.push(await runStep(repositoryRoot, 'Pull latest changes', 'git', ['pull', '--ff-only']))
       steps.push(await runStep(repositoryRoot, 'Install dependencies', npmCommand(), ['ci']))
       steps.push(await runStep(repositoryRoot, 'Build active apps', npmCommand(), ['run', 'build:active']))
+      steps.push(await runStep(repositoryRoot, 'Restart active app processes', npmCommand(), ['run', 'restart:active']))
 
       const backendHealth = await checkUrl(backendHealthUrl())
       const frontendHealth = await checkUrl(frontendUrl())
@@ -99,6 +183,54 @@ export class SystemUpdateService {
     } finally {
       this.isRunning = false
     }
+  }
+}
+
+async function runText(cwd: string, command: string, args: string[]) {
+  const result = await execFileAsync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 8,
+    windowsHide: true,
+  })
+
+  return result.stdout.trim()
+}
+
+async function getUpstream(repositoryRoot: string) {
+  try {
+    return await runText(repositoryRoot, 'git', [
+      'rev-parse',
+      '--abbrev-ref',
+      '--symbolic-full-name',
+      '@{u}',
+    ])
+  } catch {
+    return null
+  }
+}
+
+async function readCloudPackageVersion(repositoryRoot: string, upstream: string) {
+  try {
+    const packageJson = await runText(repositoryRoot, 'git', [
+      'show',
+      `${upstream}:package.json`,
+    ])
+    return (JSON.parse(packageJson) as { version?: string }).version ?? null
+  } catch {
+    return null
+  }
+}
+
+function readPackageVersion(repositoryRoot: string) {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(resolve(repositoryRoot, 'package.json'), 'utf8'),
+    ) as { version?: string }
+
+    return pkg.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
   }
 }
 

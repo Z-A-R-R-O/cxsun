@@ -9,6 +9,7 @@ import {
   formatChangelogCommitSubject,
   readLatestVersionedChangelogEntry,
 } from './changelog.mjs'
+import { bumpNextVersion } from './version-bump.mjs'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 
@@ -110,8 +111,8 @@ function isYes(value) {
 }
 
 async function main() {
-  const changelogEntry = readLatestVersionedChangelogEntry(ROOT)
-  const defaultMessage = formatChangelogCommitSubject(changelogEntry)
+  let changelogEntry = readLatestVersionedChangelogEntry(ROOT)
+  let defaultMessage = formatChangelogCommitSubject(changelogEntry)
 
   const status = run('git status --porcelain', { silent: true })
   const files = status ? status.split('\n').filter(Boolean) : []
@@ -133,6 +134,20 @@ async function main() {
         fileCount: files.length,
       }),
     )
+
+    const shouldBump = await ask(`  Bump next version before commit? [y/N]: `)
+
+    if (isYes(shouldBump)) {
+      const titleAnswer = await ask(`  Version title [version update]: `, 'version update')
+      const title = titleAnswer.trim() || 'version update'
+      const bump = bumpNextVersion(ROOT, title)
+
+      changelogEntry = readLatestVersionedChangelogEntry(ROOT)
+      defaultMessage = formatChangelogCommitSubject(changelogEntry)
+
+      console.log(`\n  Bumped ${bump.currentVersion} -> ${bump.nextVersion}`)
+      console.log(`  Commit subject: ${defaultMessage}\n`)
+    }
 
     const answer = await ask(`  Commit message [${defaultMessage}]: `, defaultMessage)
     const subject = answer.trim() || defaultMessage

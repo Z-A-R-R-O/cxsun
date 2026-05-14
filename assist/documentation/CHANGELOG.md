@@ -2,13 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.10`
-- **Release tag:** `v-1.0.10`
-- **Changelog label:** `v 1.0.10`
+- **Current version:** `1.0.12`
+- **Release tag:** `v-1.0.12`
+- **Changelog label:** `v 1.0.12`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.12
+
+### [v 1.0.12] 2026-05-14 5:20 pm - version update
+
+- Bumped workspace version to 1.0.12
+## v-1.0.11
+
+### [v 1.0.11] 2026-05-14 5:10 pm - cli version bump
+
+- Bumped workspace version to 1.0.11
+- Added `npm run version:bump` to create the next version across packages and changelog state
+- Added a `github:now` prompt to bump the next version before commit
 
 ## v-1.0.10
 
@@ -24,6 +37,9 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Added a backend system update API that force-resets local changes, pulls Git updates, installs dependencies, builds active apps, and checks frontend/backend health
 - Added a dashboard System Update page with update trigger, status cards, step logs, and health results
 - Wired System Update into the dashboard sidebar menu
+- Added preflight latest-version checks for local Git/package version versus cloud Git/package version
+- Preserved `.env`, `storage/`, and `build/` by removing untracked cleanup from the update flow
+- Added a restart hook through `CXSUN_RESTART_COMMAND`
 
 ### [v 1.0.10] 2026-05-14 3:44 pm - Docker deployment refinements
 

@@ -1,6 +1,6 @@
 # cxsun
 
-**Version:** 1.0.10
+**Version:** 1.0.12
 
 CXSun is a TypeScript monorepo for an ERP + ecommerce + multi-tenant platform. The current working application is a Node.js/Fastify backend paired with a React + Vite frontend using Tailwind CSS and shadcn-style UI primitives.
 

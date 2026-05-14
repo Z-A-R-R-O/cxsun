@@ -25,6 +25,7 @@
 - Version bump automation may update the `Version State` block and add a concrete version section/entry.
 - Changelog times use the workspace local timezone and lowercase `am` / `pm`.
 - `npm run github:now` reads the latest versioned changelog entry and must not include changelog dates or timestamps in the Git commit subject.
+- `npm run version:bump -- "<title>"` bumps the next patch version across package files, display files, and the changelog top section.
 
 ## Release Operation
 

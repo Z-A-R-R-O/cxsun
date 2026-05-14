@@ -1,7 +1,7 @@
 {
   "name": "cxsun",
   "private": true,
-  "version": "1.0.10",
+  "version": "1.0.12",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -14,8 +14,10 @@
     "check": "bash assist/scripts/check.sh",
     "typecheck:active": "npm -w apps/server run typecheck && npm -w apps/frontend run typecheck && npm -w apps/web run typecheck && npm -w packages/shared run typecheck && npm -w packages/ui run typecheck && npm -w packages/web run typecheck && npm -w packages/desktop run typecheck && npm -w packages/mobile run typecheck",
     "build:active": "npm -w apps/server run build && npm -w apps/frontend run build",
+    "restart:active": "node apps/cli/restart-active.mjs",
     "build:server": "npm -w apps/server run build",
     "build:frontend": "npm -w apps/frontend run build",
+    "version:bump": "node apps/cli/version-bump.mjs",
     "github:now": "node apps/cli/github-helper.mjs"
   },
   "devDependencies": {
