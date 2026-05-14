@@ -1,6 +1,6 @@
 # cxsun
 
-**Version: 1.0.06**
+**Version: 1.0.07**
 
 React + TypeScript + Vite
 
