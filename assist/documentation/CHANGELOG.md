@@ -2,9 +2,9 @@
 
 ## Version State
 
-- **Current version:** `1.0.12`
-- **Release tag:** `v-1.0.12`
-- **Changelog label:** `v 1.0.12`
+- **Current version:** `1.0.13`
+- **Release tag:** `v-1.0.13`
+- **Changelog label:** `v 1.0.13`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
