@@ -3,6 +3,7 @@ import { createConnection } from 'mysql2/promise'
 import { Kysely, MysqlDialect, sql } from 'kysely'
 import type { TenantDatabaseSchema } from './tenant-database.schema.js'
 import type { Tenant } from '../../modules/tenant/domain/tenant.types.js'
+import { getDatabase } from '../database/connection.js'
 
 type TenantDatabase = Kysely<TenantDatabaseSchema>
 
@@ -122,70 +123,74 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .execute()
 
   await seedTenantDatabase(database, tenant)
+  await syncTenantCompanyMetrics(tenant)
 }
 
 function getTenantDatabasePassword(secretRef: string) {
   return process.env[secretRef] ?? process.env.MARIADB_ROOT_PASSWORD ?? 'Computer.1'
 }
 
+export async function syncTenantCompanyMetrics(tenant: Tenant): Promise<void> {
+  const database = getTenantDatabase(tenant)
+  const metrics = await sql<{
+    company_count: number | string | bigint | null
+    active_company_count: number | string | bigint | null
+    company_concept_count: number | string | bigint | null
+  }>`
+    SELECT
+      COUNT(*) AS company_count,
+      SUM(CASE WHEN is_active = 1 AND status = 'active' THEN 1 ELSE 0 END) AS active_company_count,
+      SUM(
+        CASE
+          WHEN COALESCE(NULLIF(TRIM(short_about), ''), NULLIF(TRIM(description), ''), NULLIF(TRIM(tagline), '')) IS NOT NULL
+          THEN 1
+          ELSE 0
+        END
+      ) AS company_concept_count
+    FROM companies
+    WHERE deleted_at IS NULL
+  `.execute(database)
+
+  const row = metrics.rows[0]
+  const now = new Date().toISOString()
+
+  await getDatabase()
+    .updateTable('tenants')
+    .set({
+      company_count: toMetricNumber(row?.company_count),
+      active_company_count: toMetricNumber(row?.active_company_count),
+      company_concept_count: toMetricNumber(row?.company_concept_count),
+      updated_at: now,
+    })
+    .where('id', '=', tenant.id)
+    .execute()
+}
+
+function toMetricNumber(value: number | string | bigint | null | undefined) {
+  const numberValue = Number(value ?? 0)
+  return Number.isFinite(numberValue) ? numberValue : 0
+}
+
 async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
   const years = await seedAccountingYears(database)
-  const company = await database
-    .selectFrom('companies')
-    .select(['id', 'tenant_id', 'industry_id'])
-    .executeTakeFirst()
+  const seededCompanies = tenantCompanyCatalog[tenant.slug] ?? [
+    {
+      code: normalizeTenantCompanyCode(tenant),
+      name: `${tenant.name} Company`,
+      industryCode: 'software',
+      concept: `${tenant.name} licensed software workspace.`,
+    },
+  ]
 
-  if (!company) {
-    const result = await database
-      .insertInto('companies')
-      .values({
-        tenant_id: tenant.id,
-        industry_id: tenant.industry_id ?? 0,
-        code: normalizeTenantCompanyCode(tenant),
-        name: `${tenant.name} Company`,
-        legal_name: `${tenant.name} Private Limited`,
-        tagline: 'Connected business workspace',
-        short_about: `${tenant.name} default operating company.`,
-        gstin_uin: null,
-        pan: null,
-        date_of_incorporation: null,
-        msme_no: null,
-        msme_category: null,
-        tan: null,
-        tds_available: false,
-        tds_section: null,
-        tds_rate_percent: null,
-        tcs_available: false,
-        tcs_section: null,
-        tcs_rate_percent: null,
-        website: null,
-        description: `Default seeded company for ${tenant.name}.`,
-        primary_email: `hello@${tenant.slug}.local`,
-        primary_phone: null,
-        is_primary: true,
-        is_active: true,
-        status: 'active',
-        settings: JSON.stringify({ timezone: 'Asia/Calcutta', currency: 'INR' }),
-        features: JSON.stringify(['company.manage']),
-      })
-      .executeTakeFirst()
-
-    const companyId = Number(result.insertId)
+  for (const [index, companySeed] of seededCompanies.entries()) {
+    const industryId = await findIndustryId(companySeed.industryCode)
+    const companyId = await ensureTenantCompany(database, tenant, {
+      ...companySeed,
+      industryId,
+      isPrimary: index === 0,
+    })
     await seedCompanyChildren(database, companyId)
-    await ensureDefaultCompany(database, tenant, companyId, years.currentYearId)
-  } else {
-    await database
-      .updateTable('companies')
-      .set({
-        tenant_id: company.tenant_id || tenant.id,
-        industry_id: company.industry_id || tenant.industry_id || 0,
-        code: normalizeTenantCompanyCode(tenant),
-      })
-      .where('id', '=', company.id)
-      .execute()
-
-    await seedCompanyChildren(database, company.id)
-    await ensureDefaultCompany(database, tenant, company.id, years.currentYearId)
+    await ensureDefaultCompany(database, tenant, companyId, years.currentYearId, industryId)
   }
 
   for (const role of [
@@ -219,6 +224,104 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
   for (const roleCode of ['owner', 'super-admin', 'tenant-admin']) {
     await ensureRolePolicy(database, roleCode, 'rbac.manage')
   }
+}
+
+const tenantCompanyCatalog: Record<string, Array<{
+  code: string
+  name: string
+  industryCode: string
+  concept: string
+}>> = {
+  sundar: [
+    { code: 'CODEXSUN', name: 'Codexsun', industryCode: 'software', concept: 'Software brand portfolio.' },
+    { code: 'AARAN_ASSOCIATES', name: 'Aaran Associates', industryCode: 'accountant', concept: 'Auditor office and bookkeeping practice.' },
+    { code: 'AARAN_INFO_TECH', name: 'Aaran Info Tech', industryCode: 'computer', concept: 'Computer sales and service.' },
+    { code: 'TIRUPUR_DIRECT', name: 'Tirupur Direct', industryCode: 'ecommerce', concept: 'Tirupur based garment ecommerce.' },
+    { code: 'AARAN_CONNECT', name: 'Aaran Connect', industryCode: 'marketing', concept: 'Buyer and seller connection network like IndiaMART.' },
+  ],
+  sathish: [
+    { code: 'GANAPATHI_PRINTING', name: 'Ganapathi Printing', industryCode: 'offset_printing', concept: 'Offset printing business.' },
+  ],
+  sampath: [
+    { code: 'COTTON_KNITS', name: 'Cotton Knits', industryCode: 'garment', concept: 'Garment manufacturing unit.' },
+    { code: 'POLYMADE_INDIA', name: 'Polymade India', industryCode: 'garment', concept: 'Garment manufacturing unit.' },
+  ],
+  sathasivam: [
+    { code: 'SUKKRAA_GARMENTS', name: 'Sukkraa Garments', industryCode: 'garment', concept: 'Garment manufacturing unit.' },
+    { code: 'MATHAN_KNITTERS', name: 'Mathan Knitters', industryCode: 'garment', concept: 'Garment manufacturing unit.' },
+  ],
+}
+
+async function findIndustryId(code: string) {
+  const industry = await getDatabase()
+    .selectFrom('industries')
+    .select('id')
+    .where('code', '=', code)
+    .executeTakeFirst()
+
+  return industry?.id ?? 0
+}
+
+async function ensureTenantCompany(
+  database: TenantDatabase,
+  tenant: Tenant,
+  data: {
+    code: string
+    name: string
+    industryId: number
+    concept: string
+    isPrimary: boolean
+  },
+) {
+  const existing = await database
+    .selectFrom('companies')
+    .select('id')
+    .where('code', '=', data.code)
+    .executeTakeFirst()
+
+  const row = {
+    tenant_id: tenant.id,
+    industry_id: data.industryId,
+    code: data.code,
+    name: data.name,
+    legal_name: data.name,
+    tagline: data.concept,
+    short_about: data.concept,
+    gstin_uin: null,
+    pan: null,
+    date_of_incorporation: null,
+    msme_no: null,
+    msme_category: null,
+    tan: null,
+    tds_available: false,
+    tds_section: null,
+    tds_rate_percent: null,
+    tcs_available: false,
+    tcs_section: null,
+    tcs_rate_percent: null,
+    website: null,
+    description: data.concept,
+    primary_email: `hello@${tenant.slug}.local`,
+    primary_phone: null,
+    is_primary: data.isPrimary,
+    is_active: true,
+    status: 'active',
+    settings: JSON.stringify({ timezone: 'Asia/Calcutta', currency: 'INR' }),
+    features: JSON.stringify(['company.manage']),
+    deleted_at: null,
+  }
+
+  if (existing) {
+    await database
+      .updateTable('companies')
+      .set({ ...row, updated_at: new Date() })
+      .where('id', '=', existing.id)
+      .execute()
+    return existing.id
+  }
+
+  const result = await database.insertInto('companies').values(row).executeTakeFirst()
+  return Number(result.insertId)
 }
 
 async function ensureCompanyColumns(database: TenantDatabase) {
@@ -421,6 +524,7 @@ async function ensureDefaultCompany(
   tenant: Tenant,
   companyId: number,
   accountingYearId: number,
+  industryId: number,
 ) {
   if (!accountingYearId) return
 
@@ -437,7 +541,7 @@ async function ensureDefaultCompany(
     .insertInto('default_companies')
     .values({
       tenant_id: tenant.id,
-      industry_id: tenant.industry_id ?? 0,
+      industry_id: industryId,
       company_id: companyId,
       accounting_year_id: accountingYearId,
       is_active: true,

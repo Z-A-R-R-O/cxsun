@@ -106,7 +106,7 @@ export interface CompanyRecord {
 export type CompanyUpsertInput = Omit<
   CompanyRecord,
   "id" | "tenantId" | "tenantName" | "industryId" | "industryCode" | "industryName" | "createdAt" | "updatedAt" | "deletedAt"
-> & { id?: number }
+> & { id?: number; industryId?: number | null }
 
 export async function listCompanies(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/companies`, {
@@ -192,6 +192,7 @@ export function emptyCompany(): CompanyUpsertInput {
   return {
     code: "",
     name: "",
+    industryId: null,
     legalName: null,
     tagline: null,
     shortAbout: null,
@@ -231,6 +232,7 @@ export function emptyCompany(): CompanyUpsertInput {
 export function toCompanyInput(company: CompanyRecord): CompanyUpsertInput {
   return {
     id: company.id,
+    industryId: company.industryId,
     code: company.code,
     name: company.name,
     legalName: company.legalName,

@@ -25,7 +25,15 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { APP_NAME } from './lib/branding'
 import { cn } from './lib/utils'
 
-type View = 'landing' | 'dashboard' | 'login' | 'forgot-password'
+type View =
+  | 'landing'
+  | 'tenant-dashboard'
+  | 'admin-dashboard'
+  | 'super-admin-dashboard'
+  | 'login'
+  | 'admin-login'
+  | 'super-admin-login'
+  | 'forgot-password'
 
 interface SitePage {
   slug: 'home' | 'about' | 'services' | 'contact' | 'blog'
@@ -195,10 +203,26 @@ const sitePageSlugs = ['home', 'about', 'services', 'contact', 'blog'] as const
 
 function parseRoute(pathname = window.location.pathname): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/'
-  const [, firstSegment] = normalizedPath.split('/')
+  const [, firstSegment, secondSegment] = normalizedPath.split('/')
 
   if (firstSegment === 'app') {
-    return { page: 'home', view: 'dashboard' }
+    return { page: 'home', view: 'tenant-dashboard' }
+  }
+
+  if (firstSegment === 'admin') {
+    return secondSegment === 'login'
+      ? { page: 'home', view: 'admin-login' }
+      : { page: 'home', view: 'admin-dashboard' }
+  }
+
+  if (firstSegment === 'sa') {
+    return secondSegment === 'login'
+      ? { page: 'home', view: 'super-admin-login' }
+      : { page: 'home', view: 'super-admin-dashboard' }
+  }
+
+  if (firstSegment === 'sg' && secondSegment === 'login') {
+    return { page: 'home', view: 'super-admin-login' }
   }
 
   if (firstSegment === 'login') {
@@ -217,8 +241,12 @@ function parseRoute(pathname = window.location.pathname): AppRoute {
 }
 
 function routePath(route: AppRoute) {
-  if (route.view === 'dashboard') return '/app'
+  if (route.view === 'tenant-dashboard') return '/app'
+  if (route.view === 'admin-dashboard') return '/admin'
+  if (route.view === 'super-admin-dashboard') return '/sa'
   if (route.view === 'login') return '/login'
+  if (route.view === 'admin-login') return '/admin/login'
+  if (route.view === 'super-admin-login') return '/sg/login'
   if (route.view === 'forgot-password') return '/forgot-password'
   return route.page === 'home' ? '/' : `/${route.page}`
 }
@@ -269,6 +297,7 @@ function App() {
   const siteQuery = useQuery({
     queryKey: ['site-content'],
     queryFn: fetchSiteContent,
+    placeholderData: fallbackContent,
   })
   const healthQuery = useQuery({
     queryKey: ['health'],
@@ -312,14 +341,6 @@ function App() {
 
   const page = pagesBySlug[activePage] ?? fallbackContent.pages[0]
 
-  if (siteQuery.isLoading && !siteQuery.data) {
-    return (
-      <TooltipProvider>
-        <GlobalLoader label="Preparing application" />
-      </TooltipProvider>
-    )
-  }
-
   async function submitContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
@@ -354,11 +375,25 @@ function App() {
     </button>
   ))
 
-  if (activeView === 'dashboard') {
+  if (
+    activeView === 'tenant-dashboard' ||
+    activeView === 'admin-dashboard' ||
+    activeView === 'super-admin-dashboard'
+  ) {
+    const dashboardConfig =
+      activeView === 'super-admin-dashboard'
+        ? { basePath: '/sa' as const, loginPath: '/sg/login' as const, mode: 'super-admin' as const }
+        : activeView === 'admin-dashboard'
+          ? { basePath: '/admin' as const, loginPath: '/admin/login' as const, mode: 'admin' as const }
+          : { basePath: '/app' as const, loginPath: '/login' as const, mode: 'tenant' as const }
+
     return (
       <TooltipProvider>
         <Suspense fallback={<GlobalLoader label="Loading dashboard" />}>
-          <DashboardView onBackHome={() => navigate({ page: 'home', view: 'landing' })} />
+          <DashboardView
+            {...dashboardConfig}
+            onBackHome={() => navigate({ page: 'home', view: 'landing' })}
+          />
         </Suspense>
         <Toaster />
       </TooltipProvider>
@@ -386,7 +421,7 @@ function App() {
             {nav}
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              onClick={() => navigate({ page: 'home', view: 'dashboard' })}
+              onClick={() => navigate({ page: 'home', view: 'tenant-dashboard' })}
               type="button"
             >
               Dashboard
@@ -431,7 +466,7 @@ function App() {
             {nav}
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              onClick={() => navigate({ page: 'home', view: 'dashboard' })}
+              onClick={() => navigate({ page: 'home', view: 'tenant-dashboard' })}
               type="button"
             >
               Dashboard
@@ -448,7 +483,10 @@ function App() {
       </header>
 
       <main>
-        {activeView === 'login' || activeView === 'forgot-password' ? (
+        {activeView === 'login' ||
+        activeView === 'admin-login' ||
+        activeView === 'super-admin-login' ||
+        activeView === 'forgot-password' ? (
           <section className="cx-container grid min-h-[calc(100svh-210px)] place-items-center py-16">
             <div className="w-full max-w-[560px]">
               <Suspense fallback={<GlobalLoader label="Loading account access" />}>
@@ -456,7 +494,31 @@ function App() {
                   <ForgotPasswordForm onBackToLogin={() => navigate({ page: 'home', view: 'login' })} />
                 ) : (
                   <LoginForm
-                    onAuthenticated={() => navigate({ page: 'home', view: 'dashboard' })}
+                    surface={
+                      activeView === 'super-admin-login'
+                        ? 'super-admin'
+                        : activeView === 'admin-login'
+                          ? 'admin'
+                          : 'tenant'
+                    }
+                    subtitle={
+                      activeView === 'super-admin-login'
+                        ? 'Super admin orchestration access'
+                        : activeView === 'admin-login'
+                          ? 'Admin helpdesk access'
+                          : 'Tenant workspace access'
+                    }
+                    onAuthenticated={() =>
+                      navigate({
+                        page: 'home',
+                        view:
+                          activeView === 'super-admin-login'
+                            ? 'super-admin-dashboard'
+                            : activeView === 'admin-login'
+                              ? 'admin-dashboard'
+                              : 'tenant-dashboard',
+                      })
+                    }
                     onForgotPassword={() => navigate({ page: 'home', view: 'forgot-password' })}
                   />
                 )}

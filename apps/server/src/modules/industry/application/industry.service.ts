@@ -13,6 +13,18 @@ export class IndustryService {
     return this.industries.list()
   }
 
+  async destroy(id: number) {
+    return (await this.industries.softDelete(id))
+      ? { ok: true }
+      : { ok: false, error: 'Industry was not found.' }
+  }
+
+  async restore(id: number) {
+    return (await this.industries.restore(id))
+      ? { ok: true }
+      : { ok: false, error: 'Industry was not found.' }
+  }
+
   async upsert(input: IndustryUpsertInput) {
     const code = normalizeIndustryCode(input.code)
     const name = input.name?.trim()
@@ -35,4 +47,3 @@ export class IndustryService {
     }
   }
 }
-

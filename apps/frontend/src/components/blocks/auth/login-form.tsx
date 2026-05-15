@@ -12,16 +12,20 @@ import {
 import { Input } from "src/components/ui/input"
 import { BrandLogo } from "src/components/blocks/branding/brand-logo"
 import { APP_NAME } from "src/lib/branding"
-import { login, type AuthSession } from "src/features/auth/auth-client"
+import { login, type AuthSession, type AuthSurface } from "src/features/auth/auth-client"
 
 export function LoginForm({
   className,
   onAuthenticated,
   onForgotPassword,
+  surface = "tenant",
+  subtitle,
   ...props
 }: React.ComponentProps<"div"> & {
   onAuthenticated?: (session: AuthSession) => void
   onForgotPassword?: () => void
+  surface?: AuthSurface
+  subtitle?: string
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -37,7 +41,7 @@ export function LoginForm({
       const session = await login({
         email: String(formData.get("email") ?? ""),
         password: String(formData.get("password") ?? ""),
-      })
+      }, surface)
       toast.success("Login successful", {
         description: `${session.user.name} is connected to ${session.selectedTenant.name}.`,
       })
@@ -63,7 +67,9 @@ export function LoginForm({
         <BrandLogo className="size-14" />
         <div>
           <p className="text-lg font-semibold leading-6">{APP_NAME}</p>
-          <p className="text-sm text-muted-foreground">Tenant workspace access</p>
+          <p className="text-sm text-muted-foreground">
+            {subtitle ?? "Tenant workspace access"}
+          </p>
         </div>
       </div>
 

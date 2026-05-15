@@ -14,11 +14,12 @@ import { SidebarTrigger } from "src/components/ui/sidebar"
 import { ThemeToggle } from "src/components/blocks/theme/theme-toggle"
 
 interface SiteHeaderProps {
+  dashboardTitle?: string
   onBackHome?: () => void
   onLogout?: () => void
 }
 
-export function SiteHeader({ onBackHome, onLogout }: SiteHeaderProps) {
+export function SiteHeader({ dashboardTitle = "Dashboard", onBackHome, onLogout }: SiteHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center border-b transition-[width,height] ease-linear">
       <div className="flex h-full w-full items-center gap-3 px-4 lg:px-5">
@@ -41,7 +42,7 @@ export function SiteHeader({ onBackHome, onLogout }: SiteHeaderProps) {
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
             <BreadcrumbItem>
-              <BreadcrumbPage>Dashboard</BreadcrumbPage>
+              <BreadcrumbPage>{dashboardTitle}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>

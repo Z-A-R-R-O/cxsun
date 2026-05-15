@@ -543,3 +543,117 @@ export function ModeToggle() {
 ```
 fix  Vite chunk-size warning in vite and check for any blocker on startup and check first paint timing
 ```
+
+## Current Prompt
+
+```
+read assist/readme and read our codebase short and continue our work
+```
+
+## Current Prompt
+
+```
+ok fine read app structure 
+
+url -> domain -> tenant -> load teant database 
+
+it is our last work 
+
+scan tenant , domain , industry ,company and auth surface and find any gap or blocker
+
+update readme about this structure and other files about architech
+```
+
+## Current Prompt
+
+```
+ok fine now split  super-admin, admin , client dashboard separately 
+
+super admin dashboard handles every thing as orchestration
+
+admin dashboard -> user who handle this software , bugs and helpdesk
+
+tenant dashboard -> only isolated client
+
+in side tenant db roles and companies 
+```
+
+## Current Prompt
+
+```
+also update api also 
+
+http://localhost:6010/app/company for client or tenant
+
+http://localhost:6010/admin/company for admin . helpdesk
+
+http://localhost:6010/sa/company for super admin surface
+
+every url has it own auth gate and own login not to confuse 
+
+http://localhost:6010/login is for normal clients and any others
+
+http://localhost:6010/admin/login for admin helpdesk
+
+http://localhost:6010/sg/login for super admin login
+
+so plan and split code by module for each role
+
+super admin  as sa |  admin | tenant as normal
+
+also create desk that is dashboard according to this bhevaiour
+```
+
+## Current Prompt
+
+```
+once again create clear pic in assist about this software 
+
+this software is like to be shoppify + zoho concecpt don't mention it just write what we are going to implement
+```
+
+## Current Prompt
+
+```
+now add domain list + upsert pop up form with common -list and wire it to super-admin side menu
+```
+
+## Current Prompt
+
+```
+make this Tenant Domains with show page and upsert page instead of pop up
+with master list
+```
+
+
+## Current Prompt
+
+```
+make all table 3dot button border to rounded and keep drop down same tone of tenant with view | edit | delete or suspend in 
+
+domain , industry , company , client manager 
+
+make all forms to match
+```
+
+
+## Current Prompt
+
+```
+make clean refactor on super admin split in to two area
+
+one is modules with tenant or master database
+another one is for tenant base
+
+tenant , domain , industry , system update , user manager comes under tenant
+company goes to tenant base 
+
+so it can be easy
+```
+
+## Current Prompt
+
+```
+read readme and log and version pump and commit all and push all
+```
+

@@ -38,11 +38,13 @@ export interface IndustriesTable {
   id: Generated<number>
   code: string
   name: string
+  status: string
   payload_schema: string
   default_features: string
   default_ui_settings: string
   created_at: Generated<string>
   updated_at: Generated<string>
+  deleted_at: string | null
 }
 
 export interface TenantsTable {
@@ -51,14 +53,45 @@ export interface TenantsTable {
   slug: string
   name: string
   status: string
-  industry_id: number | null
   db_type: string
   db_host: string
   db_port: number
   db_name: string
   db_user: string
   db_secret_ref: string
+  company_count: number
+  active_company_count: number
+  company_concept_count: number
   payload_settings: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+  deleted_at: string | null
+}
+
+export interface TenantDomainsTable {
+  id: Generated<number>
+  tenant_id: number
+  domain: string
+  label: string
+  is_primary: number
+  status: string
+  settings: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+  deleted_at: string | null
+}
+
+export interface ClientsTable {
+  id: Generated<number>
+  name: string
+  company_name: string | null
+  category: string | null
+  source: string | null
+  phone: string | null
+  email: string | null
+  location: string | null
+  notes: string
+  status: string
   created_at: Generated<string>
   updated_at: Generated<string>
   deleted_at: string | null
@@ -117,6 +150,8 @@ export interface DatabaseSchema {
   site_messages: SiteMessagesTable
   industries: IndustriesTable
   tenants: TenantsTable
+  tenant_domains: TenantDomainsTable
+  clients: ClientsTable
   users: UsersTable
   user_tenants: UserTenantsTable
   rbac_policies: RbacPoliciesTable

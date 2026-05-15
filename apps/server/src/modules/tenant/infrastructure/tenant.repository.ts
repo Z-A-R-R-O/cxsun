@@ -1,14 +1,34 @@
 import { Injectable } from '../../../core/decorators/injectable.js'
 import { getDatabase } from '../../../infrastructure/database/connection.js'
 import type { Tenant, TenantUpsertData } from '../domain/tenant.types.js'
-import type { Industry } from '../../industry/domain/industry.types.js'
+
+const tenantColumns = [
+  'id',
+  'code',
+  'slug',
+  'name',
+  'status',
+  'db_type',
+  'db_host',
+  'db_port',
+  'db_name',
+  'db_user',
+  'db_secret_ref',
+  'company_count',
+  'active_company_count',
+  'company_concept_count',
+  'payload_settings',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+] as const
 
 @Injectable()
 export class TenantRepository {
   async list(): Promise<Tenant[]> {
     return getDatabase()
       .selectFrom('tenants')
-      .selectAll()
+      .select(tenantColumns)
       .orderBy('created_at', 'desc')
       .execute() as Promise<Tenant[]>
   }
@@ -20,7 +40,7 @@ export class TenantRepository {
   async findActiveById(id: number): Promise<Tenant | undefined> {
     return getDatabase()
       .selectFrom('tenants')
-      .selectAll()
+      .select(tenantColumns)
       .where('id', '=', id)
       .where('deleted_at', 'is', null)
       .executeTakeFirst() as Promise<Tenant | undefined>
@@ -29,7 +49,7 @@ export class TenantRepository {
   async findAnyById(id: number): Promise<Tenant | undefined> {
     return getDatabase()
       .selectFrom('tenants')
-      .selectAll()
+      .select(tenantColumns)
       .where('id', '=', id)
       .executeTakeFirst() as Promise<Tenant | undefined>
   }
@@ -37,7 +57,7 @@ export class TenantRepository {
   async findByCode(code: number): Promise<Tenant | undefined> {
     return getDatabase()
       .selectFrom('tenants')
-      .selectAll()
+      .select(tenantColumns)
       .where('code', '=', code)
       .executeTakeFirst() as Promise<Tenant | undefined>
   }
@@ -45,7 +65,7 @@ export class TenantRepository {
   async findBySlug(slug: string): Promise<Tenant | undefined> {
     return getDatabase()
       .selectFrom('tenants')
-      .selectAll()
+      .select(tenantColumns)
       .where('slug', '=', slug)
       .executeTakeFirst() as Promise<Tenant | undefined>
   }
@@ -57,12 +77,26 @@ export class TenantRepository {
     if (Number.isInteger(numericCode)) {
       return getDatabase()
         .selectFrom('tenants')
-        .selectAll()
+        .select(tenantColumns)
         .where('code', '=', numericCode)
         .executeTakeFirst() as Promise<Tenant | undefined>
     }
 
     return this.findBySlug(normalized)
+  }
+
+  async findByDomain(value: string): Promise<Tenant | undefined> {
+    const domain = normalizeDomain(value)
+    if (!domain) return undefined
+
+    return getDatabase()
+      .selectFrom('tenant_domains')
+      .innerJoin('tenants', 'tenants.id', 'tenant_domains.tenant_id')
+      .select(tenantColumns.map((column) => `tenants.${column}` as const))
+      .where('tenant_domains.domain', '=', domain)
+      .where('tenant_domains.status', '=', 'active')
+      .where('tenant_domains.deleted_at', 'is', null)
+      .executeTakeFirst() as Promise<Tenant | undefined>
   }
 
   async listEnabledPolicyCodes(tenantId: number): Promise<string[]> {
@@ -96,14 +130,6 @@ export class TenantRepository {
     return catalog.map((policy) => policy.code)
   }
 
-  async findIndustryById(id: number): Promise<Industry | undefined> {
-    return getDatabase()
-      .selectFrom('industries')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst() as Promise<Industry | undefined>
-  }
-
   async hasCode(code: number, exceptId?: number): Promise<boolean> {
     const query = getDatabase()
       .selectFrom('tenants')
@@ -135,12 +161,9 @@ export class TenantRepository {
       .insertInto('tenants')
       .values({
         ...data,
-        db_type: 'mariadb',
-        db_host: process.env.MARIADB_HOST ?? '127.0.0.1',
-        db_port: Number(process.env.MARIADB_PORT ?? 3306),
-        db_name: data.slug,
-        db_user: process.env.MARIADB_USER ?? 'root',
-        db_secret_ref: 'MARIADB_ROOT_PASSWORD',
+        company_count: 0,
+        active_company_count: 0,
+        company_concept_count: 0,
       })
       .execute()
 
@@ -156,7 +179,20 @@ export class TenantRepository {
   async update(id: number, data: TenantUpsertData): Promise<Tenant> {
     await getDatabase()
       .updateTable('tenants')
-      .set({ ...data, updated_at: new Date().toISOString() })
+      .set({
+        code: data.code,
+        slug: data.slug,
+        name: data.name,
+        status: data.status,
+        db_type: data.db_type,
+        db_host: data.db_host,
+        db_port: data.db_port,
+        db_name: data.db_name,
+        db_user: data.db_user,
+        db_secret_ref: data.db_secret_ref,
+        payload_settings: data.payload_settings,
+        updated_at: new Date().toISOString(),
+      })
       .where('id', '=', id)
       .execute()
 
@@ -211,4 +247,8 @@ export class TenantRepository {
 
     return Number(result.numUpdatedRows) > 0
   }
+}
+
+function normalizeDomain(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
 }

@@ -28,4 +28,24 @@ export class AuthRepository {
       .orderBy('tenants.code', 'asc')
       .execute() as Promise<AuthTenantAccess[]>
   }
+
+  async findTenantSlugByDomain(hostOrDomain: string): Promise<string | undefined> {
+    const domain = normalizeDomain(hostOrDomain)
+    if (!domain) return undefined
+
+    const row = await getDatabase()
+      .selectFrom('tenant_domains')
+      .innerJoin('tenants', 'tenants.id', 'tenant_domains.tenant_id')
+      .select('tenants.slug')
+      .where('tenant_domains.domain', '=', domain)
+      .where('tenant_domains.status', '=', 'active')
+      .where('tenant_domains.deleted_at', 'is', null)
+      .executeTakeFirst()
+
+    return row?.slug
+  }
+}
+
+function normalizeDomain(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
 }

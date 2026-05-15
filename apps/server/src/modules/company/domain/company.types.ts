@@ -103,6 +103,7 @@ export interface Company {
 
 export interface CompanyUpsertInput {
   id?: number
+  industryId?: number | null
   code?: string
   name: string
   legalName?: string | null

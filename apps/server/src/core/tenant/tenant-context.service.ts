@@ -1,5 +1,5 @@
 import { Injectable } from '../decorators/injectable.js'
-import { ForbiddenException, NotFoundException } from '../exceptions/http.exception.js'
+import { ForbiddenException, NotFoundException, UnauthorizedException } from '../exceptions/http.exception.js'
 import { getDatabase } from '../../infrastructure/database/connection.js'
 import { getTenantDatabase } from '../../infrastructure/tenant-database/tenant-database.connection.js'
 import type { TenantDatabaseSchema } from '../../infrastructure/tenant-database/tenant-database.schema.js'
@@ -7,10 +7,32 @@ import type { Tenant } from '../../modules/tenant/domain/tenant.types.js'
 import { verifyJwt } from '../../infrastructure/auth/jwt.js'
 import type { Kysely } from 'kysely'
 
+const tenantColumns = [
+  'id',
+  'code',
+  'slug',
+  'name',
+  'status',
+  'db_type',
+  'db_host',
+  'db_port',
+  'db_name',
+  'db_user',
+  'db_secret_ref',
+  'company_count',
+  'active_company_count',
+  'company_concept_count',
+  'payload_settings',
+  'created_at',
+  'updated_at',
+  'deleted_at',
+] as const
+
 export interface TenantRequestHeaders {
   'x-tenant-code'?: string | string[]
   'x-user-email'?: string | string[]
   authorization?: string | string[]
+  host?: string | string[]
 }
 
 export interface TenantRuntimeContext {
@@ -28,9 +50,15 @@ export class TenantContextService {
   async resolve(headers: TenantRequestHeaders, requiredPolicy?: string): Promise<TenantRuntimeContext> {
     const token = bearerToken(firstHeader(headers.authorization))
     const auth = verifyJwt(token)
-    const tenantCode = firstHeader(headers['x-tenant-code']) ?? auth?.tenantCode ?? 'tenant_1'
-    const userEmail = auth?.email ?? firstHeader(headers['x-user-email']) ?? 'sundar@sundar.com'
-    const tenant = await findTenant(tenantCode)
+    if (!auth) {
+      throw new UnauthorizedException('Authentication is required.')
+    }
+
+    const tenantCode = firstHeader(headers['x-tenant-code']) ?? auth?.tenantCode
+    const userEmail = auth.email
+    const tenant = tenantCode
+      ? await findTenant(tenantCode)
+      : await findTenantByDomain(firstHeader(headers.host) ?? '')
 
     if (!tenant) {
       throw new NotFoundException('Tenant was not found.')
@@ -92,13 +120,31 @@ async function findTenant(value: string): Promise<Tenant | undefined> {
   const normalized = value.trim()
   const numericCode = Number(normalized)
 
-  const query = getDatabase().selectFrom('tenants').selectAll()
+  const query = getDatabase().selectFrom('tenants').select(tenantColumns)
 
   if (Number.isInteger(numericCode)) {
     return query.where('code', '=', numericCode).executeTakeFirst() as Promise<Tenant | undefined>
   }
 
   return query.where('slug', '=', normalized).executeTakeFirst() as Promise<Tenant | undefined>
+}
+
+async function findTenantByDomain(value: string): Promise<Tenant | undefined> {
+  const domain = normalizeDomain(value)
+  if (!domain) return undefined
+
+  return getDatabase()
+    .selectFrom('tenant_domains')
+    .innerJoin('tenants', 'tenants.id', 'tenant_domains.tenant_id')
+    .select(tenantColumns.map((column) => `tenants.${column}` as const))
+    .where('tenant_domains.domain', '=', domain)
+    .where('tenant_domains.status', '=', 'active')
+    .where('tenant_domains.deleted_at', 'is', null)
+    .executeTakeFirst() as Promise<Tenant | undefined>
+}
+
+function normalizeDomain(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
 }
 
 async function assertPolicies({

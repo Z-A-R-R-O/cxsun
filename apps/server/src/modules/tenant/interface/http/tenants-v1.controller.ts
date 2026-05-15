@@ -21,8 +21,11 @@ export class TenantsV1Controller {
   }
 
   @Get('context')
-  async context(@Headers('x-tenant-code') tenantCode?: string | string[]) {
-    return this.tenantService.context(tenantCode)
+  async context(
+    @Headers('x-tenant-code') tenantCode?: string | string[],
+    @Headers('host') host?: string | string[],
+  ) {
+    return this.tenantService.context(tenantCode, host)
   }
 
   @Post('upsert')

@@ -10,6 +10,7 @@ import type {
 } from './company.types.js'
 
 export interface NormalizedCompanyData {
+  industry_id: number
   code: string
   name: string
   legal_name: string | null
@@ -64,6 +65,7 @@ export class CompanyAggregate {
     }
 
     return {
+      industry_id: nullableInteger(input.industryId),
       code,
       name,
       legal_name: nullable(input.legalName),
@@ -118,6 +120,10 @@ function nullable(value: string | null | undefined) {
 
 function nullableNumber(value: number | null | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function nullableInteger(value: number | null | undefined) {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 0
 }
 
 function normalizeLogos(logos: CompanyLogo[] | undefined) {

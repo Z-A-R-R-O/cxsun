@@ -1,5 +1,7 @@
 import { sql } from 'kysely'
 import { Injectable } from '../../../core/decorators/injectable.js'
+import { getDatabase } from '../../../infrastructure/database/connection.js'
+import { syncTenantCompanyMetrics } from '../../../infrastructure/tenant-database/tenant-database.connection.js'
 import type { TenantRuntimeContext } from '../../../core/tenant/tenant-context.service.js'
 import type { Company, CompanyStatus } from '../domain/company.types.js'
 import type { NormalizedCompanyData } from '../domain/company.aggregate.js'
@@ -47,6 +49,7 @@ export class CompanyRepository {
       throw new Error('Company insert did not return a persisted company.')
     }
 
+    await syncTenantCompanyMetrics(context.tenant)
     return company
   }
 
@@ -68,6 +71,7 @@ export class CompanyRepository {
       throw new Error('Company update did not return a persisted company.')
     }
 
+    await syncTenantCompanyMetrics(context.tenant)
     return company
   }
 
@@ -78,7 +82,12 @@ export class CompanyRepository {
       WHERE id = ${id}
     `.execute(context.database)
 
-    return affectedRows(result) > 0
+    const changed = affectedRows(result) > 0
+    if (changed) {
+      await syncTenantCompanyMetrics(context.tenant)
+    }
+
+    return changed
   }
 
   async restore(context: TenantRuntimeContext, id: number): Promise<boolean> {
@@ -88,7 +97,12 @@ export class CompanyRepository {
       WHERE id = ${id}
     `.execute(context.database)
 
-    return affectedRows(result) > 0
+    const changed = affectedRows(result) > 0
+    if (changed) {
+      await syncTenantCompanyMetrics(context.tenant)
+    }
+
+    return changed
   }
 
   private async hydrate(context: TenantRuntimeContext, row: Record<string, unknown>): Promise<Company> {
@@ -110,14 +124,22 @@ export class CompanyRepository {
     ])
 
     const isSuperAdmin = context.user.role === 'super-admin'
+    const industryId = Number(row.industry_id ?? 0)
+    const industry = industryId > 0
+      ? await getDatabase()
+        .selectFrom('industries')
+        .select(['code', 'name'])
+        .where('id', '=', industryId)
+        .executeTakeFirst()
+      : undefined
 
     return {
       id,
       tenantId: isSuperAdmin ? Number(row.tenant_id ?? context.tenant.id) : null,
       tenantName: context.tenant.name,
-      industryId: isSuperAdmin ? Number(row.industry_id ?? context.tenant.industry_id ?? 0) : null,
-      industryCode: null,
-      industryName: isSuperAdmin ? `Industry ${context.tenant.industry_id ?? 0}` : 'Industry',
+      industryId: isSuperAdmin ? industryId || null : null,
+      industryCode: industry?.code ?? null,
+      industryName: industry?.name ?? 'Not classified',
       code: String(row.code ?? ''),
       name: String(row.name ?? ''),
       legalName: stringOrNull(row.legal_name),
@@ -284,7 +306,7 @@ export class CompanyRepository {
 function toCompanyRow(context: TenantRuntimeContext, data: NormalizedCompanyData) {
   return {
     tenant_id: context.tenant.id,
-    industry_id: context.tenant.industry_id ?? 0,
+    industry_id: data.industry_id,
     code: data.code,
     name: data.name,
     legal_name: data.legal_name,

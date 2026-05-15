@@ -50,3 +50,51 @@
 - [x] `3.3` Add theme provider and theme preset tokens
 - [x] `3.4` Wire mode and color theme controls
 - [x] `3.5` Run frontend verification
+
+## Phase 4: Frontend startup performance
+
+- [x] `4.1` Record current prompt into prompt review
+- [x] `4.2` Reproduce frontend build output
+- [x] `4.3` Fix production build environment handling
+- [x] `4.4` Remove landing-page first-paint blocker
+- [x] `4.5` Verify build, local startup, browser console, and first paint timing
+
+## Phase 5: Tenant runtime architecture scan
+
+- [x] `5.1` Record current prompt into prompt review
+- [x] `5.2` Trace URL/domain to tenant to tenant database flow
+- [x] `5.3` Scan tenant-domain, tenant, industry, company, and auth surfaces
+- [x] `5.4` Fix tenant context fallback and protected tenant access blocker
+- [x] `5.5` Update README and assist architecture docs
+
+## Phase 6: Dashboard role split
+
+- [x] `6.1` Record current prompt into prompt review
+- [x] `6.2` Split dashboard route modes by super-admin, admin, and tenant
+- [x] `6.3` Split sidebar navigation by dashboard mode
+- [x] `6.4` Add admin support and tenant roles placeholder surfaces
+- [x] `6.5` Seed a development software admin role
+- [x] `6.6` Verify frontend/server/full checks
+
+## Phase 7: Dedicated dashboard URL families
+
+- [x] `7.1` Record current prompt into prompt review
+- [x] `7.2` Add `/app`, `/admin`, and `/sa` route families
+- [x] `7.3` Add `/login`, `/admin/login`, and `/sg/login` auth gates
+- [x] `7.4` Split auth session storage by dashboard surface
+- [x] `7.5` Map `/app/company`, `/admin/company`, and `/sa/company` to distinct surfaces
+- [x] `7.6` Verify clean checks
+
+## Phase 8: Product picture
+
+- [x] `8.1` Record current prompt into prompt review
+- [x] `8.2` Create clear product picture in assist context
+- [x] `8.3` Link product picture from assist README and architecture context
+
+## Phase 9: Super-admin domain management
+
+- [x] `9.1` Record current prompt into prompt review
+- [x] `9.2` Add tenant-domain list and upsert API
+- [x] `9.3` Add domain master list, show page, and upsert page
+- [x] `9.4` Wire domain page to super-admin sidebar and route
+- [x] `9.5` Verify clean checks

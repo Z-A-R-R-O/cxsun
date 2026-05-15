@@ -6,6 +6,11 @@ export class TenantAggregate {
     const name = input.name?.trim()
     const slug = normalizeTenantSlug(input.slug || name || `tenant-${code}`)
     const status = input.status
+    const dbName = normalizeTenantDatabaseName(input.db_name || slug)
+    const dbHost = input.db_host?.trim() || process.env.MARIADB_HOST || 'localhost'
+    const dbPort = Number(input.db_port ?? process.env.MARIADB_PORT ?? 3306)
+    const dbUser = input.db_user?.trim() || process.env.MARIADB_USER || 'root'
+    const dbSecretRef = input.db_secret_ref?.trim() || 'MARIADB_ROOT_PASSWORD'
     const payloadSettings = input.payload_settings?.trim() || '{}'
 
     if (!Number.isInteger(code) || code < 100) {
@@ -28,12 +33,37 @@ export class TenantAggregate {
       throw new TenantValidationError('Tenant payload settings must be a JSON object.')
     }
 
+    if (!dbName) {
+      throw new TenantValidationError('Tenant database name is required.')
+    }
+
+    if (!dbHost) {
+      throw new TenantValidationError('Tenant database host is required.')
+    }
+
+    if (!Number.isInteger(dbPort) || dbPort <= 0) {
+      throw new TenantValidationError('Tenant database port is invalid.')
+    }
+
+    if (!dbUser) {
+      throw new TenantValidationError('Tenant database user is required.')
+    }
+
+    if (!dbSecretRef) {
+      throw new TenantValidationError('Tenant database secret reference is required.')
+    }
+
     return {
       code,
       slug,
       name,
       status,
-      industry_id: input.industry_id ?? null,
+      db_type: 'mariadb',
+      db_host: dbHost,
+      db_port: dbPort,
+      db_name: dbName,
+      db_user: dbUser,
+      db_secret_ref: dbSecretRef,
       payload_settings: payloadSettings,
     }
   }
@@ -51,6 +81,11 @@ function normalizeTenantSlug(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '')
+}
+
+function normalizeTenantDatabaseName(value: string) {
+  const normalized = normalizeTenantSlug(value).replace(/_db$/, '')
+  return normalized ? `${normalized}_db` : ''
 }
 
 function isJsonObject(value: string) {

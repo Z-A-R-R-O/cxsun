@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Eye, ImagePlus, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react"
+import { ArrowLeft, CheckCircle2, ImagePlus, Pencil, Plus, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/ui/dropdown-menu"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
 import { Separator } from "src/components/ui/separator"
 import { Switch } from "src/components/ui/switch"
 import {
   MasterListEmptyState,
   MasterListPageFrame,
   MasterListPaginationCard,
+  MasterListRowActions,
   MasterListShowCard,
   MasterListShowLayout,
   MasterListTableCard,
@@ -24,6 +25,7 @@ import {
 } from "src/components/blocks/lists/master-list"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
+import { listIndustries, type IndustryRecord } from "src/features/industry/industry-client"
 import {
   destroyCompany,
   emptyCompany,
@@ -88,6 +90,10 @@ export function CompanyPage({ session }: { session: AuthSession }) {
   const companiesQuery = useQuery({
     queryKey: companyQueryKey,
     queryFn: () => listCompanies(session),
+  })
+  const industriesQuery = useQuery({
+    queryKey: ["industries", "company-options"],
+    queryFn: () => listIndustries(),
   })
   const upsertMutation = useMutation({
     mutationFn: (input: CompanyUpsertInput) => upsertCompany(session, input),
@@ -175,7 +181,7 @@ export function CompanyPage({ session }: { session: AuthSession }) {
     try {
       await restoreMutation.mutateAsync(company)
       toast.success("Company restored", {
-        description: `${company.name} is active again.`,
+        description: `${company.name} is active again and available for tenant workflows.`,
       })
       await queryClient.invalidateQueries({ queryKey: companyQueryKey })
     } catch (error) {
@@ -189,6 +195,7 @@ export function CompanyPage({ session }: { session: AuthSession }) {
     return (
       <CompanyUpsertPage
         company={upsertState.company}
+        industries={industriesQuery.data ?? []}
         onBack={() => setUpsertState(null)}
         onSubmit={saveCompany}
       />
@@ -266,25 +273,29 @@ export function CompanyPage({ session }: { session: AuthSession }) {
             <tbody>
               {pageCompanies.map((company, index) => (
                 <tr key={company.id} className="border-b border-border/60 last:border-b-0 hover:bg-muted/20">
-                  <td className="px-4 py-2.5 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                  {visibleColumns.code ? <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{company.code}</td> : null}
+                  <td className="px-4 py-2 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                  {visibleColumns.code ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{company.code}</td> : null}
                   {visibleColumns.name ? (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2">
                       <button className="cursor-pointer text-left font-medium text-foreground hover:underline" onClick={() => setSelectedCompany(company)} type="button">
                         {company.name}
                       </button>
                       <div className="text-xs text-muted-foreground">{company.primaryEmail || company.primaryPhone || company.legalName}</div>
                     </td>
                   ) : null}
-                  {canManagePlatform && visibleColumns.tenant ? <td className="px-4 py-2.5 text-muted-foreground">{company.tenantName}</td> : null}
-                  {canManagePlatform && visibleColumns.industry ? <td className="px-4 py-2.5 text-muted-foreground">{company.industryName}</td> : null}
+                  {canManagePlatform && visibleColumns.tenant ? <td className="px-4 py-2 text-muted-foreground">{company.tenantName}</td> : null}
+                  {canManagePlatform && visibleColumns.industry ? <td className="px-4 py-2 text-muted-foreground">{company.industryName}</td> : null}
                   {visibleColumns.status ? (
-                    <td className="px-4 py-2.5">
-                      <StatusBadge company={company} />
+                    <td className="px-4 py-2">
+                      <CompanyStatusToggle
+                        company={company}
+                        onDestroy={destroy}
+                        onRestore={restore}
+                      />
                     </td>
                   ) : null}
-                  {visibleColumns.updated ? <td className="px-4 py-2.5 text-muted-foreground">{formatDate(company.updatedAt)}</td> : null}
-                  <td className="px-4 py-2 text-right">
+                  {visibleColumns.updated ? <td className="px-4 py-2 text-muted-foreground">{formatDate(company.updatedAt)}</td> : null}
+                  <td className="px-4 py-1.5 text-right">
                     <CompanyActions company={company} onDestroy={destroy} onEdit={(record) => openEditPage(record, "list")} onRestore={restore} onView={setSelectedCompany} />
                   </td>
                 </tr>
@@ -408,10 +419,12 @@ function CompanyShowPage({
 
 function CompanyUpsertPage({
   company,
+  industries,
   onBack,
   onSubmit,
 }: {
   company: CompanyRecord | null
+  industries: IndustryRecord[]
   onBack(): void
   onSubmit(input: CompanyUpsertInput): Promise<void>
 }) {
@@ -471,7 +484,7 @@ function CompanyUpsertPage({
             <AnimatedTabs
               value={tab}
               onValueChange={(value) => setTab(value as FormTab)}
-              tabs={buildCompanyUpsertTabs({ company, form, setForm })}
+              tabs={buildCompanyUpsertTabs({ company, form, industries, setForm })}
             />
             <Separator />
             <div className="flex flex-wrap items-center gap-3">
@@ -494,10 +507,12 @@ function CompanyUpsertPage({
 function buildCompanyUpsertTabs({
   company,
   form,
+  industries,
   setForm,
 }: {
   company: CompanyRecord | null
   form: CompanyUpsertInput
+  industries: IndustryRecord[]
   setForm: Dispatch<SetStateAction<CompanyUpsertInput>>
 }) {
   return [
@@ -511,7 +526,21 @@ function buildCompanyUpsertTabs({
             <TextField label="Company name" value={form.name} onChange={(value) => setFormField(setForm, "name", value)} />
             <ReadOnlyField label="Tenant" value={company?.tenantName ?? "Current tenant"} />
             <TextField label="Legal name" value={form.legalName} onChange={(value) => setFormField(setForm, "legalName", value)} />
-            <ReadOnlyField label="Industry" value={company ? formatIndustryLabel(company.industryCode, company.industryName) : "Current industry"} />
+            <FieldShell label="Industry">
+              <Select value={form.industryId ? String(form.industryId) : "none"} onValueChange={(value) => setFormField(setForm, "industryId", value === "none" ? null : Number(value))}>
+                <SelectTrigger className="h-11 rounded-xl">
+                  <SelectValue placeholder="Select industry" />
+                </SelectTrigger>
+                <SelectContent className="rounded-md">
+                  <SelectItem value="none">Not classified</SelectItem>
+                  {industries.map((industry) => (
+                    <SelectItem key={industry.id} value={String(industry.id)}>
+                      {industry.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FieldShell>
             <TextField label="Tagline" value={form.tagline} onChange={(value) => setFormField(setForm, "tagline", value)} className="md:col-span-2" />
           </div>
           <div className="grid gap-4 pt-2 md:grid-cols-2">
@@ -677,36 +706,14 @@ function CompanyActions({
   onView(company: CompanyRecord): void
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button aria-label={`${company.name} actions`} size="icon" variant="ghost" className="size-8 cursor-pointer rounded-md">
-          <MoreHorizontal className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36 rounded-md p-1">
-        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onView(company)}>
-          <Eye className="size-4" />
-          View
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onEdit(company)}>
-          <Pencil className="size-4" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {company.status === "suspend" ? (
-          <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onRestore(company)}>
-            <RotateCcw className="size-4" />
-            Restore
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem className="cursor-pointer gap-2 text-destructive focus:text-destructive" onSelect={() => onDestroy(company)}>
-            <Trash2 className="size-4" />
-            Suspend
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <MasterListRowActions
+      title={company.name}
+      isSuspended={company.status === "suspend"}
+      onDelete={() => onDestroy(company)}
+      onEdit={() => onEdit(company)}
+      onRestore={() => onRestore(company)}
+      onView={() => onView(company)}
+    />
   )
 }
 
@@ -826,9 +833,12 @@ function SwitchRow({
 }) {
   return (
     <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", checked ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}>
-      <span>
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="block text-xs text-muted-foreground">{description}</span>
+        <span>
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          {checked ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : null}
+          {label}
+        </span>
+        <span className={cn("block text-xs", checked ? "text-emerald-700" : "text-muted-foreground")}>{description}</span>
       </span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
@@ -838,9 +848,41 @@ function SwitchRow({
 function StatusBadge({ company }: { company: CompanyRecord }) {
   const active = company.status !== "suspend" && company.isActive
   return (
-    <Badge variant="outline" className={cn("rounded-full", active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500")}>
+    <Badge variant="outline" className={cn("h-6 gap-1 rounded-md px-2 text-[11px]", active ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500")}>
+      {active ? <CheckCircle2 className="size-3" /> : null}
       {active ? "Active" : "Suspended"}
     </Badge>
+  )
+}
+
+function CompanyStatusToggle({
+  company,
+  onDestroy,
+  onRestore,
+}: {
+  company: CompanyRecord
+  onDestroy(company: CompanyRecord): void
+  onRestore(company: CompanyRecord): void
+}) {
+  const active = company.status !== "suspend" && company.isActive
+
+  return (
+    <Button
+      aria-label={active ? `Suspend ${company.name}` : `Restore ${company.name}`}
+      className={cn(
+        "h-6 rounded-md border px-2 text-[11px] font-medium shadow-none",
+        active
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+      )}
+      onClick={() => active ? onDestroy(company) : onRestore(company)}
+      title={active ? "Active. Click to suspend this company." : "Suspended. Click to restore this company."}
+      type="button"
+      variant="outline"
+    >
+      {active ? <CheckCircle2 className="size-3" /> : <RotateCcw className="size-3" />}
+      {active ? "Active" : "Restore"}
+    </Button>
   )
 }
 
@@ -965,10 +1007,6 @@ function emptyBank(): CompanyBankAccount {
 
 function columnLabel(column: CompanyColumnId) {
   return ({ code: "Code", name: "Company", tenant: "Tenant", industry: "Industry", status: "Status", updated: "Updated" })[column]
-}
-
-function formatIndustryLabel(code: string | null | undefined, name: string) {
-  return code ? `${code} - ${name}` : name
 }
 
 function normalizeCode(value: string) {

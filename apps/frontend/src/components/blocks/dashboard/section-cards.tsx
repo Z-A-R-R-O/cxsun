@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
 
 import {
@@ -8,69 +9,67 @@ import {
   CardTitle,
 } from "src/components/ui/card"
 
-export function SectionCards() {
+interface DashboardMetric {
+  label: string
+  value: string
+  trend: ReactNode
+  description: string
+  direction?: "up" | "down"
+}
+
+const defaultMetrics: DashboardMetric[] = [
+  {
+    label: "Total Revenue",
+    value: "$1,250.00",
+    trend: "Trending up this month",
+    description: "Visitors for the last 6 months",
+    direction: "up",
+  },
+  {
+    label: "New Customers",
+    value: "1,234",
+    trend: "Down 20% this period",
+    description: "Acquisition needs attention",
+    direction: "down",
+  },
+  {
+    label: "Active Accounts",
+    value: "45,678",
+    trend: "Strong user retention",
+    description: "Engagement exceed targets",
+    direction: "up",
+  },
+  {
+    label: "Growth Rate",
+    value: "4.5%",
+    trend: "Steady performance increase",
+    description: "Meets growth projections",
+    direction: "up",
+  },
+]
+
+export function SectionCards({ metrics = defaultMetrics }: { metrics?: DashboardMetric[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Total Revenue</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $1,250.00
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Visitors for the last 6 months
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>New Customers</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1,234
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <IconTrendingDown className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Acquisition needs attention
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Active Accounts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            45,678
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Growth Rate</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            4.5%
-          </CardTitle>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance increase <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
-        </CardFooter>
-      </Card>
+      {metrics.map((metric) => {
+        const TrendIcon = metric.direction === "down" ? IconTrendingDown : IconTrendingUp
+        return (
+          <Card className="@container/card" key={metric.label}>
+            <CardHeader>
+              <CardDescription>{metric.label}</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {metric.value}
+              </CardTitle>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1.5 text-sm">
+              <div className="line-clamp-1 flex gap-2 font-medium">
+                {metric.trend} <TrendIcon className="size-4" />
+              </div>
+              <div className="text-muted-foreground">{metric.description}</div>
+            </CardFooter>
+          </Card>
+        )
+      })}
     </div>
   )
 }

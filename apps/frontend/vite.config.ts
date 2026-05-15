@@ -6,7 +6,11 @@ import { resolve } from 'path'
 
 const envDir = resolve(__dirname, '../..')
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
+  if (command === 'build') {
+    process.env.NODE_ENV = 'production'
+  }
+
   const env = loadEnv(mode, envDir, '')
 
   return {
@@ -19,7 +23,11 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: '../../build/frontend',
       emptyOutDir: true,
+      chunkSizeWarningLimit: 450,
       rolldownOptions: {
+        checks: {
+          pluginTimings: false,
+        },
         output: {
           codeSplitting: {
             includeDependenciesRecursively: false,

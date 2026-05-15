@@ -1,34 +1,27 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Edit,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-} from "lucide-react"
-
-import {
-  CommonListEmptyState,
-  CommonListPageFrame,
-  CommonListPaginationCard,
-  CommonListTableCard,
-  CommonListToolbarCard,
-  buildCommonListShowingLabel,
-} from "src/components/blocks/lists/common-list"
+import { ArrowLeft, CheckCircle2, Eye, MoreHorizontal, Pencil, Plus, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react"
+import { AnimatedTabs } from "src/components/ui/animated-tabs"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "src/components/ui/dropdown-menu"
+import { Input } from "src/components/ui/input"
+import { Label } from "src/components/ui/label"
+import { Separator } from "src/components/ui/separator"
+import { Switch } from "src/components/ui/switch"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "src/components/ui/dropdown-menu"
+  MasterListEmptyState,
+  MasterListPageFrame,
+  MasterListPaginationCard,
+  MasterListShowCard,
+  MasterListShowLayout,
+  MasterListTableCard,
+  MasterListToolbarCard,
+  MasterListUpsertCard,
+  MasterListUpsertLayout,
+  buildMasterListShowingLabel,
+} from "src/components/blocks/lists/master-list"
 import { cn } from "src/lib/utils"
 import {
   buildTenantColumnOptions,
@@ -49,344 +42,203 @@ import {
   type TenantColumnId,
   type TenantFormState,
   type TenantRecord,
-  type TenantStatusFilter,
 } from "../../domain/tenant"
-import { TenantUpsertDialog } from "../components/tenant-upsert-dialog"
 
 type TenantSortDirection = "asc" | "desc"
-type DialogMode = "create" | "edit"
+type TenantUpsertState = { tenant: TenantRecord | null; returnTo: "list" | "show" }
+type TenantTab = "identity" | "database" | "settings"
 
 export function TenantListPage() {
-  const [tenants, setTenants] = useState<readonly TenantRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
+  const [selectedTenant, setSelectedTenant] = useState<TenantRecord | null>(null)
+  const [upsertState, setUpsertState] = useState<TenantUpsertState | null>(null)
   const [searchValue, setSearchValue] = useState("")
-  const [statusFilter, setStatusFilter] = useState<TenantStatusFilter>("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<{ mode: DialogMode; record: TenantRecord | null } | null>(null)
-  const [form, setForm] = useState<TenantFormState>(emptyTenantForm)
-  const [sortState, setSortState] = useState<{
-    key: TenantColumnId
-    direction: TenantSortDirection
-  }>({
-    key: "name",
-    direction: "asc",
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [visibleColumns, setVisibleColumns] = useState(defaultTenantColumnVisibility)
+  const [sortState, setSortState] = useState<{ key: TenantColumnId; direction: TenantSortDirection }>({
+    key: "updated",
+    direction: "desc",
   })
-  const [visibleColumns, setVisibleColumns] = useState<Record<TenantColumnId, boolean>>(
-    defaultTenantColumnVisibility,
-  )
+  const tenantsQuery = useQuery({ queryKey: ["tenants"], queryFn: () => listTenants() })
+  const upsertMutation = useMutation({ mutationFn: upsertTenant })
+  const destroyMutation = useMutation({ mutationFn: (tenant: TenantRecord) => softDeleteTenant(tenant.id) })
+  const restoreMutation = useMutation({ mutationFn: (tenant: TenantRecord) => restoreTenant(tenant.id) })
+  const tenants = tenantsQuery.data ?? []
+  const isLoading = tenantsQuery.isFetching
+
+  useEffect(() => {
+    if (tenantsQuery.error) {
+      toast.error("Tenant load failed", {
+        description: tenantsQuery.error instanceof Error ? tenantsQuery.error.message : "Unable to load tenants.",
+      })
+    }
+  }, [tenantsQuery.error])
+
+  useEffect(() => {
+    setSelectedTenant((current) => tenants.find((tenant) => tenant.id === current?.id) ?? null)
+  }, [tenants])
 
   const filteredTenants = useMemo(() => {
-    const matchingTenants = filterTenants({
-      tenants,
-      searchValue,
-      statusFilter,
-    })
-
-    return [...matchingTenants].sort((left, right) =>
+    return [...filterTenants({ tenants, searchValue, statusFilter: statusFilter as never })].sort((left, right) =>
       compareTenantRecords(left, right, sortState.key, sortState.direction),
     )
   }, [searchValue, sortState.direction, sortState.key, statusFilter, tenants])
   const totalPages = Math.max(1, Math.ceil(filteredTenants.length / rowsPerPage))
-  const pageTenants = filteredTenants.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage,
-  )
-  const columnOptions = useMemo(
-    () =>
-      buildTenantColumnOptions({
-        visibleColumns,
-        onToggle: (columnId, checked) =>
-          setVisibleColumns((current) => ({ ...current, [columnId]: checked })),
-      }),
-    [visibleColumns],
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-    void loadTenantRecords(controller.signal)
-
-    return () => controller.abort()
-  }, [])
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
-
-  async function loadTenantRecords(signal?: AbortSignal) {
-    setIsLoading(true)
-    setLoadError(null)
-
-    try {
-      const records = await listTenants({ signal })
-      setTenants(records)
-    } catch (error) {
-      if (signal?.aborted) {
-        return
-      }
-
-      setTenants([])
-      setLoadError(error instanceof Error ? error.message : "Unable to load tenants.")
-    } finally {
-      if (!signal?.aborted) {
-        setIsLoading(false)
-      }
-    }
-  }
-
-  function openCreate() {
-    setForm(emptyTenantForm)
-    setFormError(null)
-    setDialog({ mode: "create", record: null })
-  }
-
-  function openEdit(tenant: TenantRecord) {
-    setForm(toTenantForm(tenant))
-    setFormError(null)
-    setDialog({ mode: "edit", record: tenant })
-  }
-
-  async function saveTenant() {
-    setIsSaving(true)
-    setFormError(null)
-
-    try {
-      const tenant = await upsertTenant(toTenantUpsertInput(form))
-      setDialog(null)
-      toast.success(dialog?.mode === "edit" ? "Tenant updated" : "Tenant created", {
-        description: `${tenant.name} is ready in the tenant list.`,
-      })
-      await loadTenantRecords()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to save tenant."
-      setFormError(message)
-      toast.error("Tenant save failed", { description: message })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function deleteTenant(tenant: TenantRecord) {
-    try {
-      await softDeleteTenant(tenant.id)
-      toast.error("Tenant destroyed", {
-        description: `${tenant.name} was soft deleted.`,
-      })
-      await loadTenantRecords()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to delete tenant."
-      toast.error("Tenant delete failed", { description: message })
-    }
-  }
-
-  async function restoreDestroyedTenant(tenant: TenantRecord) {
-    try {
-      await restoreTenant(tenant.id)
-      toast.success("Tenant restored", {
-        description: `${tenant.name} is active in the tenant list again.`,
-      })
-      await loadTenantRecords()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to restore tenant."
-      toast.error("Tenant restore failed", { description: message })
-    }
-  }
-
-  function setFormValue<K extends keyof TenantFormState>(key: K, value: TenantFormState[K]) {
-    setForm((current) => {
-      return { ...current, [key]: value }
-    })
-  }
-
-  function showAllColumns() {
-    setVisibleColumns(defaultTenantColumnVisibility)
-  }
+  const pageTenants = filteredTenants.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
   function toggleSort(nextKey: TenantColumnId) {
-    setSortState((current) => {
-      if (current.key === nextKey) {
-        return {
-          key: nextKey,
-          direction: current.direction === "asc" ? "desc" : "asc",
-        }
-      }
+    setSortState((current) => ({
+      key: nextKey,
+      direction: current.key === nextKey && current.direction === "asc" ? "desc" : "asc",
+    }))
+  }
 
-      return {
-        key: nextKey,
-        direction: "asc",
-      }
+  async function saveTenant(input: TenantFormState) {
+    const result = await upsertMutation.mutateAsync(toTenantUpsertInput(input))
+    toast.success(input.id ? "Tenant updated" : "Tenant created", {
+      description: `${result.name} is ready in the tenant list.`,
     })
+    await queryClient.invalidateQueries({ queryKey: ["tenants"] })
+    setUpsertState(null)
+    setSelectedTenant(upsertState?.returnTo === "show" ? result : null)
+  }
+
+  async function destroy(tenant: TenantRecord) {
+    try {
+      await destroyMutation.mutateAsync(tenant)
+      toast.error("Tenant suspended", {
+        description: `${tenant.name} is hidden from active tenant selection until it is restored.`,
+      })
+      await queryClient.invalidateQueries({ queryKey: ["tenants"] })
+    } catch (error) {
+      toast.error("Tenant suspend failed", {
+        description: error instanceof Error ? error.message : "Unable to suspend tenant.",
+      })
+    }
+  }
+
+  async function restore(tenant: TenantRecord) {
+    try {
+      await restoreMutation.mutateAsync(tenant)
+      toast.success("Tenant restored", {
+        description: `${tenant.name} is active again and ready for workspace access.`,
+      })
+      await queryClient.invalidateQueries({ queryKey: ["tenants"] })
+    } catch (error) {
+      toast.error("Tenant restore failed", {
+        description: error instanceof Error ? error.message : "Unable to restore tenant.",
+      })
+    }
+  }
+
+  if (upsertState) {
+    return (
+      <TenantUpsertPage
+        tenant={upsertState.tenant}
+        onBack={() => setUpsertState(null)}
+        onSubmit={saveTenant}
+      />
+    )
+  }
+
+  if (selectedTenant) {
+    return (
+      <TenantShowPage
+        tenant={selectedTenant}
+        onBack={() => setSelectedTenant(null)}
+        onDestroy={() => void destroy(selectedTenant)}
+        onEdit={() => setUpsertState({ tenant: selectedTenant, returnTo: "show" })}
+        onRestore={() => void restore(selectedTenant)}
+      />
+    )
   }
 
   return (
-    <CommonListPageFrame
+    <MasterListPageFrame
+      title="Tenants"
+      description="Create and review tenant records with code, status, database context, and lifecycle controls."
+      technicalName="page.tenant.list"
       action={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            className="h-11 rounded-md px-4"
-            disabled={isLoading}
-            onClick={() => void loadTenantRecords()}
-            type="button"
-            variant="outline"
-          >
+        <div className="flex items-center gap-2">
+          <Button disabled={isLoading} onClick={() => void tenantsQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md">
             <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
             Refresh
           </Button>
-          <Button className="h-11 rounded-md px-4" onClick={openCreate} type="button">
+          <Button onClick={() => setUpsertState({ tenant: null, returnTo: "list" })} type="button" className="h-9 rounded-md">
             <Plus className="size-4" />
-            New Tenant
+            New tenant
           </Button>
         </div>
       }
-      description="Create and review simple tenant records with numeric code, status, timestamps, and soft delete."
-      technicalName="page.tenant.list"
-      title="Tenants"
     >
-      <CommonListToolbarCard
-        columns={columnOptions}
+      <MasterListToolbarCard
+        columns={buildTenantColumnOptions({
+          visibleColumns,
+          onToggle: (columnId, checked) => setVisibleColumns((current) => ({ ...current, [columnId]: checked })),
+        })}
         filterOptions={tenantStatusFilters}
         filterValue={statusFilter}
         onFilterValueChange={(nextValue) => {
-          setStatusFilter(nextValue as TenantStatusFilter)
+          setStatusFilter(nextValue)
           setCurrentPage(1)
         }}
-        onSearchValueChange={(nextValue) => {
-          setSearchValue(nextValue)
+        onSearchValueChange={(value) => {
+          setSearchValue(value)
           setCurrentPage(1)
         }}
-        onShowAllColumns={showAllColumns}
-        searchPlaceholder="Search tenant, code, or status"
+        onShowAllColumns={() => setVisibleColumns(defaultTenantColumnVisibility)}
+        searchPlaceholder="Search tenant, code, slug, database, company count, or status"
         searchValue={searchValue}
       />
-
-      {loadError ? <CommonListEmptyState>{loadError}</CommonListEmptyState> : null}
-
-      <CommonListTableCard className="rounded-md">
+      <MasterListTableCard>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead className="[&>tr]:bg-muted/55">
+          <table className="w-full min-w-[980px] border-collapse text-sm">
+            <thead className="bg-muted/50">
               <tr>
-                <Header className="w-16">#</Header>
-                {visibleColumns.name ? (
-                  <SortableHeader
-                    label="Tenant"
-                    sortDirection={sortState.key === "name" ? sortState.direction : null}
-                    onSort={() => toggleSort("name")}
-                  />
-                ) : null}
-                {visibleColumns.code ? (
-                  <SortableHeader
-                    label="Code"
-                    sortDirection={sortState.key === "code" ? sortState.direction : null}
-                    onSort={() => toggleSort("code")}
-                  />
-                ) : null}
-                {visibleColumns.updated ? (
-                  <SortableHeader
-                    label="Updated"
-                    sortDirection={sortState.key === "updated" ? sortState.direction : null}
-                    onSort={() => toggleSort("updated")}
-                  />
-                ) : null}
-                {visibleColumns.status ? (
-                  <SortableHeader
-                    label="Status"
-                    sortDirection={sortState.key === "status" ? sortState.direction : null}
-                    onSort={() => toggleSort("status")}
-                  />
-                ) : null}
-                <Header className="sticky right-0 z-10 bg-muted/95 text-right">Action</Header>
+                <ListHeader>#</ListHeader>
+                {visibleColumns.name ? <SortableHeader label="Tenant" column="name" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.code ? <SortableHeader label="Code" column="code" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.slug ? <SortableHeader label="Slug" column="slug" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.database ? <SortableHeader label="Database" column="database" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.companies ? <SortableHeader label="Companies" column="companies" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.activeCompanies ? <SortableHeader label="Active" column="activeCompanies" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.concepts ? <SortableHeader label="Concepts" column="concepts" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.updated ? <SortableHeader label="Updated" column="updated" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.status ? <SortableHeader label="Status" column="status" sortState={sortState} onSort={toggleSort} /> : null}
+                <ListHeader className="text-right">Action</ListHeader>
               </tr>
             </thead>
             <tbody>
               {pageTenants.map((tenant, index) => (
-                <tr
-                  key={tenant.id}
-                  className={cn(
-                    "border-b border-border/60 last:border-b-0 hover:bg-muted/20",
-                    tenant.deletedAt && "bg-muted/20 text-muted-foreground",
-                  )}
-                >
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {(currentPage - 1) * rowsPerPage + index + 1}
-                  </td>
+                <tr key={tenant.id} className={cn("border-b border-border/70", tenant.deletedAt && "bg-muted/20 text-muted-foreground")}>
+                  <td className="px-4 py-2 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   {visibleColumns.name ? (
-                    <td className="px-4 py-2.5">
-                      <button
-                        className="cursor-pointer text-left font-medium text-foreground hover:underline"
-                        onClick={() => openEdit(tenant)}
-                        type="button"
-                      >
+                    <td className="px-4 py-2">
+                      <button className="cursor-pointer font-medium hover:underline" type="button" onClick={() => setSelectedTenant(tenant)}>
                         {tenant.name}
                       </button>
                     </td>
                   ) : null}
-                  {visibleColumns.code ? (
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                      {tenant.code}
-                    </td>
-                  ) : null}
-                  {visibleColumns.updated ? (
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {formatTenantDate(tenant.updatedAt)}
-                    </td>
-                  ) : null}
+                  {visibleColumns.code ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.code}</td> : null}
+                  {visibleColumns.slug ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.slug}</td> : null}
+                  {visibleColumns.database ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.dbName}</td> : null}
+                  {visibleColumns.companies ? <td className="px-4 py-2 tabular-nums">{tenant.companyCount}</td> : null}
+                  {visibleColumns.activeCompanies ? <td className="px-4 py-2 tabular-nums text-emerald-700">{tenant.activeCompanyCount}</td> : null}
+                  {visibleColumns.concepts ? <td className="px-4 py-2 tabular-nums">{tenant.companyConceptCount}</td> : null}
+                  {visibleColumns.updated ? <td className="px-4 py-2 text-muted-foreground">{formatTenantDate(tenant.updatedAt)}</td> : null}
                   {visibleColumns.status ? (
-                    <td className="px-4 py-2.5">
-                      <TenantStatusBadge status={tenant.status} />
+                    <td className="px-4 py-2">
+                      <TenantStatusToggle
+                        tenant={tenant}
+                        onDestroy={destroy}
+                        onRestore={restore}
+                      />
                     </td>
                   ) : null}
-                  <td className="sticky right-0 bg-card/95 px-4 py-2 text-right shadow-[-10px_0_18px_-18px_rgba(15,23,42,0.55)]">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-label={`${tenant.name} actions`}
-                          className="size-8 !rounded-full !border !border-border/80 bg-background shadow-none hover:bg-muted"
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36 rounded-md p-1.5">
-                        {!tenant.deletedAt ? (
-                          <>
-                            <DropdownMenuItem
-                              className="h-8 cursor-pointer gap-2 px-2"
-                              onSelect={() => openEdit(tenant)}
-                            >
-                              <Edit className="size-4" />
-                              Edit tenant
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="my-1" />
-                          </>
-                        ) : null}
-                        {tenant.deletedAt ? (
-                          <DropdownMenuItem
-                            className="h-8 cursor-pointer gap-2 px-2"
-                            onSelect={() => void restoreDestroyedTenant(tenant)}
-                          >
-                            <RotateCcw className="size-4" />
-                            Restore
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            className="h-8 cursor-pointer gap-2 px-2"
-                            variant="destructive"
-                            onSelect={() => void deleteTenant(tenant)}
-                          >
-                            <Trash2 className="size-4" />
-                            Destroy
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <td className="px-4 py-1.5 text-right">
+                    <TenantActions tenant={tenant} onDestroy={destroy} onEdit={(item) => setUpsertState({ tenant: item, returnTo: "list" })} onRestore={restore} onView={setSelectedTenant} />
                   </td>
                 </tr>
               ))}
@@ -394,20 +246,13 @@ export function TenantListPage() {
           </table>
         </div>
         {pageTenants.length === 0 ? (
-          <CommonListEmptyState>
-            {isLoading ? "Loading tenants from database." : "No tenants found."}
-          </CommonListEmptyState>
+          <MasterListEmptyState>{isLoading ? "Loading tenants from database." : "No tenants found."}</MasterListEmptyState>
         ) : null}
-      </CommonListTableCard>
-
-      <CommonListPaginationCard
+      </MasterListTableCard>
+      <MasterListPaginationCard
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildCommonListShowingLabel({
-          page: currentPage,
-          pageSize: rowsPerPage,
-          totalCount: filteredTenants.length,
-        })}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredTenants.length })}
         singularLabel="tenants"
         totalCount={filteredTenants.length}
         totalPages={totalPages}
@@ -419,81 +264,382 @@ export function TenantListPage() {
           setCurrentPage(1)
         }}
       />
-
-      <TenantUpsertDialog
-        form={form}
-        message={formError}
-        onFormChange={setFormValue}
-        onOpenChange={(open) => setDialog(open ? dialog : null)}
-        onSave={() => void saveTenant()}
-        open={Boolean(dialog)}
-        saving={isSaving}
-      />
-    </CommonListPageFrame>
+    </MasterListPageFrame>
   )
 }
 
-function SortableHeader({
-  label,
-  onSort,
-  sortDirection,
+function TenantShowPage({
+  tenant,
+  onBack,
+  onDestroy,
+  onEdit,
+  onRestore,
 }: {
-  label: string
-  onSort: () => void
-  sortDirection: TenantSortDirection | null
+  tenant: TenantRecord
+  onBack(): void
+  onDestroy(): void
+  onEdit(): void
+  onRestore(): void
 }) {
   return (
-    <Header>
-      <div className="flex items-center gap-2">
-        <span>{label}</span>
-        <button
-          aria-label={`Sort ${label}`}
-          className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          onClick={onSort}
-          type="button"
-        >
-          {sortDirection === "asc" ? (
-            <ArrowUp className="size-4" />
-          ) : sortDirection === "desc" ? (
-            <ArrowDown className="size-4" />
+    <MasterListPageFrame
+      title={`${tenant.code} - ${tenant.name}`}
+      description="Tenant identity, database binding, and lifecycle details."
+      technicalName="page.tenant.show"
+      action={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={onBack} type="button" variant="outline" className="h-9 rounded-md"><ArrowLeft className="size-4" />Back</Button>
+          <Button onClick={onEdit} type="button" className="h-9 rounded-md"><Pencil className="size-4" />Edit</Button>
+          {tenant.status === "suspend" ? (
+            <Button onClick={onRestore} type="button" variant="outline" className="h-9 rounded-md"><RotateCcw className="size-4" />Restore</Button>
           ) : (
-            <ArrowUpDown className="size-4" />
+            <Button onClick={onDestroy} type="button" variant="destructive" className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button>
           )}
-        </button>
-      </div>
-    </Header>
+        </div>
+      }
+    >
+      <MasterListShowLayout>
+        <div className="space-y-4">
+          <MasterListShowCard title="Tenant profile">
+            <DetailGrid rows={[["Name", tenant.name], ["Code", tenant.code], ["Slug", tenant.slug], ["Status", <StatusBadge key="status" status={tenant.status} />]]} />
+          </MasterListShowCard>
+          <MasterListShowCard title="Company metrics">
+            <DetailGrid rows={[["Companies", tenant.companyCount], ["Active companies", tenant.activeCompanyCount], ["Company concepts", tenant.companyConceptCount]]} />
+          </MasterListShowCard>
+          <MasterListShowCard title="Payload settings">
+            <pre className="max-h-80 overflow-auto rounded-md bg-muted/40 p-3 text-xs">{formatJsonText(tenant.payloadSettings)}</pre>
+          </MasterListShowCard>
+        </div>
+        <div className="space-y-4">
+          <MasterListShowCard title="Database">
+            <DetailGrid rows={[["Type", tenant.dbType], ["Host", tenant.dbHost], ["Port", tenant.dbPort], ["Database", tenant.dbName], ["User", tenant.dbUser], ["Secret", tenant.dbSecretRef]]} />
+          </MasterListShowCard>
+          <MasterListShowCard title="Timestamps">
+            <DetailGrid rows={[["Created", formatTenantDate(tenant.createdAt)], ["Updated", formatTenantDate(tenant.updatedAt)], ["Deleted", formatTenantDate(tenant.deletedAt)]]} />
+          </MasterListShowCard>
+        </div>
+      </MasterListShowLayout>
+    </MasterListPageFrame>
   )
 }
 
-function Header({
-  children,
-  className,
+function TenantUpsertPage({
+  tenant,
+  onBack,
+  onSubmit,
 }: {
-  children: ReactNode
-  className?: string
+  tenant: TenantRecord | null
+  onBack(): void
+  onSubmit(input: TenantFormState): Promise<void>
+}) {
+  const [form, setForm] = useState<TenantFormState>(emptyTenantForm)
+  const [tab, setTab] = useState<TenantTab>("identity")
+  const [isSaving, setIsSaving] = useState(false)
+  const isEdit = Boolean(tenant)
+
+  useEffect(() => {
+    setForm(tenant ? toTenantForm(tenant) : { ...emptyTenantForm, dbName: "" })
+    setTab("identity")
+  }, [tenant])
+
+  async function submit() {
+    if (!form.name.trim()) {
+      toast.error("Tenant name is required")
+      return
+    }
+
+    if (!isValidJsonObject(form.payloadSettings)) {
+      toast.error("Payload settings must be a JSON object")
+      return
+    }
+
+    if (!form.dbHost.trim() || !form.dbPort.trim() || !form.dbUser.trim() || !form.dbSecretRef.trim()) {
+      toast.error("Tenant database details are required")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await onSubmit(form)
+    } catch (error) {
+      toast.error("Tenant save failed", {
+        description: error instanceof Error ? error.message : "Unable to save tenant.",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <MasterListPageFrame
+      title={isEdit ? "Edit tenant" : "New tenant"}
+      description={isEdit ? "Update tenant identity, database connection, status, and settings." : "Create a tenant record with generated numeric code starting from 100."}
+      technicalName="page.tenant.upsert"
+      action={<Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>}
+    >
+      <MasterListUpsertLayout>
+        <MasterListUpsertCard>
+          <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void submit() }}>
+            <AnimatedTabs value={tab} onValueChange={(value) => setTab(value as TenantTab)} tabs={buildTenantTabs({ form, setForm, tenant })} />
+            <Separator />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={isSaving} className="rounded-md"><Save className={cn("size-4", isSaving && "animate-spin")} />{isEdit ? "Update tenant" : "Create tenant"}</Button>
+              <Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>
+            </div>
+          </form>
+        </MasterListUpsertCard>
+      </MasterListUpsertLayout>
+    </MasterListPageFrame>
+  )
+}
+
+function buildTenantTabs({
+  form,
+  setForm,
+  tenant,
+}: {
+  form: TenantFormState
+  setForm: Dispatch<SetStateAction<TenantFormState>>
+  tenant: TenantRecord | null
+}) {
+  return [
+    {
+      value: "identity",
+      label: "Details",
+      content: (
+        <div className="space-y-6 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+          <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+            <TextField label="Tenant code" value={form.code || (tenant ? "" : "Auto")} disabled={!tenant} onChange={(value) => setField(setForm, "code", value.replace(/\D/g, ""))} />
+            <TextField label="Tenant name" value={form.name} onChange={(value) => setTenantName(setForm, value, Boolean(tenant))} />
+            <TextField label="Slug" value={form.slug} inputClassName="font-mono lowercase" onChange={(value) => setTenantSlug(setForm, value, Boolean(tenant))} />
+            <SwitchRow
+              checked={form.status === "active"}
+              label="Active"
+              description="Active tenants can be selected for workspace access."
+              onChange={(checked) => setField(setForm, "status", checked ? "active" : "suspend")}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      value: "database",
+      label: "Database",
+      content: (
+        <div className="space-y-6 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+          <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+            <ReadOnlyField label="Database type" value={form.dbType || "mariadb"} />
+            <TextField label="Host" value={form.dbHost} onChange={(value) => setField(setForm, "dbHost", value)} />
+            <TextField label="Port" value={form.dbPort} onChange={(value) => setField(setForm, "dbPort", value.replace(/\D/g, ""))} />
+            <TextField label="Database name" value={form.dbName} inputClassName="font-mono lowercase" onChange={(value) => setField(setForm, "dbName", databaseName(value))} />
+            <TextField label="User" value={form.dbUser} onChange={(value) => setField(setForm, "dbUser", value)} />
+            <TextField label="Secret reference" value={form.dbSecretRef} inputClassName="font-mono" onChange={(value) => setField(setForm, "dbSecretRef", value)} />
+          </div>
+        </div>
+      ),
+    },
+    {
+      value: "settings",
+      label: "Settings",
+      content: (
+        <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+          <TextField label="Payload settings JSON" value={form.payloadSettings} onChange={(value) => setField(setForm, "payloadSettings", value)} />
+        </div>
+      ),
+    },
+  ] as const
+}
+
+function TenantActions({ tenant, onDestroy, onEdit, onRestore, onView }: {
+  tenant: TenantRecord
+  onDestroy(tenant: TenantRecord): void
+  onEdit(tenant: TenantRecord): void
+  onRestore(tenant: TenantRecord): void
+  onView(tenant: TenantRecord): void
 }) {
   return (
-    <th className={cn("border-b border-border/70 px-4 py-3 text-left font-medium text-foreground", className)}>
-      {children}
-    </th>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button aria-label={`${tenant.name} actions`} size="icon" variant="ghost" className="size-8 cursor-pointer rounded-md border border-border/70">
+          <MoreHorizontal className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36 rounded-md p-1">
+        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onView(tenant)}><Eye className="size-4" />View</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onEdit(tenant)}><Pencil className="size-4" />Edit</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {tenant.status === "suspend" ? (
+          <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => onRestore(tenant)}><RotateCcw className="size-4" />Restore</DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem className="cursor-pointer gap-2 text-destructive focus:text-destructive" onSelect={() => onDestroy(tenant)}><Trash2 className="size-4" />Suspend</DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function TenantStatusBadge({ status }: { status: TenantRecord["status"] }) {
+function SortableHeader({ column, label, onSort, sortState }: { column: TenantColumnId; label: string; onSort(column: TenantColumnId): void; sortState: { key: TenantColumnId; direction: TenantSortDirection } }) {
+  return <ListHeader><button type="button" className="inline-flex cursor-pointer items-center gap-2" onClick={() => onSort(column)}>{label}<span className="text-muted-foreground">{sortState.key === column ? (sortState.direction === "asc" ? "↑" : "↓") : "↕"}</span></button></ListHeader>
+}
+
+function ListHeader({ children, className }: { children: ReactNode; className?: string }) {
+  return <th className={cn("border-b border-border/70 px-4 py-3.5 text-left font-medium text-foreground", className)}>{children}</th>
+}
+
+function StatusBadge({ status }: { status: TenantRecord["status"] }) {
   const active = status === "active"
   const suspended = status === "suspend"
-
   return (
     <Badge
       variant="outline"
       className={cn(
-        "rounded-full",
-        active && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300",
-        suspended && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-300",
-        !active && !suspended && "border-border/80 bg-background text-muted-foreground",
+        "h-6 gap-1 rounded-md px-2 text-[11px]",
+        active && "border-emerald-200 bg-emerald-50 text-emerald-700",
+        suspended && "border-amber-200 bg-amber-50 text-amber-700",
+        status === "not_active" && "border-slate-200 bg-slate-50 text-slate-600",
       )}
     >
-      {status === "not_active" ? "not active" : status}
+      {active ? <CheckCircle2 className="size-3" /> : null}
+      {status.replace("_", " ")}
     </Badge>
   )
+}
+
+function TenantStatusToggle({
+  tenant,
+  onDestroy,
+  onRestore,
+}: {
+  tenant: TenantRecord
+  onDestroy(tenant: TenantRecord): void
+  onRestore(tenant: TenantRecord): void
+}) {
+  const active = tenant.status === "active"
+  const suspended = tenant.status === "suspend"
+
+  return (
+    <Button
+      aria-label={suspended ? `Restore ${tenant.name}` : `Suspend ${tenant.name}`}
+      className={cn(
+        "h-6 rounded-md border px-2 text-[11px] font-medium shadow-none",
+        active && "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+        suspended && "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+        tenant.status === "not_active" && "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100",
+      )}
+      onClick={() => suspended ? onRestore(tenant) : onDestroy(tenant)}
+      title={suspended ? "Suspended. Click to restore this tenant." : "Click to suspend this tenant."}
+      type="button"
+      variant="outline"
+    >
+      {active ? <CheckCircle2 className="size-3" /> : suspended ? <RotateCcw className="size-3" /> : null}
+      {suspended ? "Restore" : tenant.status.replace("_", " ")}
+    </Button>
+  )
+}
+
+function FieldShell({ children, className, label }: { children: ReactNode; className?: string; label: string }) {
+  return <div className={cn("grid gap-2", className)}><Label className="text-sm font-medium">{label}</Label>{children}</div>
+}
+
+function TextField({ disabled, inputClassName, label, onChange, value }: { disabled?: boolean; inputClassName?: string; label: string; value: string | number | null; onChange(value: string): void }) {
+  return <FieldShell label={label}><Input disabled={disabled} className={cn("h-11 rounded-xl", inputClassName)} value={value ?? ""} onChange={(event) => onChange(event.target.value)} /></FieldShell>
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <FieldShell label={label}>
+      <div className="flex h-11 items-center rounded-xl border border-border/70 bg-muted/30 px-3 text-sm text-muted-foreground">
+        {value}
+      </div>
+    </FieldShell>
+  )
+}
+
+function SwitchRow({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  description: string
+  label: string
+  onChange(checked: boolean): void
+}) {
+  return (
+    <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", checked ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}>
+      <span>
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          {checked ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : null}
+          {label}
+        </span>
+        <span className={cn("block text-xs", checked ? "text-emerald-700" : "text-muted-foreground")}>{description}</span>
+      </span>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </label>
+  )
+}
+
+function DetailGrid({ rows }: { rows: Array<[string, ReactNode]> }) {
+  return (
+    <dl className="grid gap-3 sm:grid-cols-2">
+      {rows.map(([label, value]) => (
+        <div key={label} className="rounded-md bg-muted/30 px-3 py-2">
+          <dt className="text-xs text-muted-foreground">{label}</dt>
+          <dd className="mt-1 text-sm font-medium text-foreground">{value || "Not set"}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function setField<K extends keyof TenantFormState>(setForm: Dispatch<SetStateAction<TenantFormState>>, key: K, value: TenantFormState[K]) {
+  setForm((current) => ({ ...current, [key]: value }))
+}
+
+function setTenantName(setForm: Dispatch<SetStateAction<TenantFormState>>, value: string, isEdit: boolean) {
+  setForm((current) => {
+    if (isEdit || current.slug.trim()) {
+      return { ...current, name: value }
+    }
+
+    const nextSlug = slugify(value)
+    return { ...current, name: value, slug: nextSlug, dbName: databaseName(nextSlug) }
+  })
+}
+
+function setTenantSlug(setForm: Dispatch<SetStateAction<TenantFormState>>, value: string, isEdit: boolean) {
+  const nextSlug = slugify(value)
+  setForm((current) => ({
+    ...current,
+    slug: nextSlug,
+    dbName: isEdit ? current.dbName : databaseName(nextSlug),
+  }))
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "")
+}
+
+function databaseName(value: string) {
+  const normalized = slugify(value).replace(/_db$/, "")
+  return normalized ? `${normalized}_db` : ""
+}
+
+function formatJsonText(value: string) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value || "{}"
+  }
+}
+
+function isValidJsonObject(value: string) {
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+  } catch {
+    return false
+  }
 }

@@ -37,6 +37,7 @@ export class IndustryRepository {
     const data = {
       code: normalizeIndustryCode(input.code),
       name: input.name.trim(),
+      status: input.status ?? 'active',
       payload_schema: JSON.stringify(input.payload_schema ?? {}),
       default_features: JSON.stringify(input.default_features ?? []),
       default_ui_settings: JSON.stringify(input.default_ui_settings ?? {}),
@@ -73,6 +74,30 @@ export class IndustryRepository {
 
     return industry
   }
+
+  async softDelete(id: number): Promise<boolean> {
+    const deletedAt = new Date().toISOString()
+    const result = await getDatabase()
+      .updateTable('industries')
+      .set({ status: 'suspend', deleted_at: deletedAt, updated_at: deletedAt })
+      .where('id', '=', id)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+
+    return Number(result.numUpdatedRows) > 0
+  }
+
+  async restore(id: number): Promise<boolean> {
+    const restoredAt = new Date().toISOString()
+    const result = await getDatabase()
+      .updateTable('industries')
+      .set({ status: 'active', deleted_at: null, updated_at: restoredAt })
+      .where('id', '=', id)
+      .where('deleted_at', 'is not', null)
+      .executeTakeFirst()
+
+    return Number(result.numUpdatedRows) > 0
+  }
 }
 
 export function normalizeIndustryCode(value: string) {
@@ -82,4 +107,3 @@ export function normalizeIndustryCode(value: string) {
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '')
 }
-

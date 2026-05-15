@@ -13,14 +13,6 @@ export interface TenantContextResult {
       slug: string
       name: string
       status: string
-    industryId: number | null
-      industry: {
-        id: number
-        code: string
-        name: string
-        defaultFeatures: string[]
-        defaultUiSettings: Record<string, unknown>
-      } | null
     }
     database: {
       type: 'mariadb'
@@ -48,18 +40,18 @@ export class ResolveTenantContextUseCase {
     @Inject(TenantRepository) private readonly tenants: TenantRepository,
   ) {}
 
-  async execute(tenantCode?: string | string[]): Promise<TenantContextResult> {
+  async execute(tenantCode?: string | string[], host?: string | string[]): Promise<TenantContextResult> {
     const requestedTenant = Array.isArray(tenantCode) ? tenantCode[0] : tenantCode
-    const tenant = await this.tenants.findForResolution(requestedTenant ?? 'tenant_1')
+    const requestedHost = Array.isArray(host) ? host[0] : host
+    const tenant = requestedTenant
+      ? await this.tenants.findForResolution(requestedTenant)
+      : await this.tenants.findByDomain(requestedHost ?? '')
 
     if (!tenant) {
       return { ok: false, error: 'Tenant context was not found.' }
     }
 
     const policies = await this.tenants.listEnabledPolicyCodes(tenant.id)
-    const industry = tenant.industry_id
-      ? await this.tenants.findIndustryById(tenant.industry_id)
-      : undefined
     const companies: NonNullable<TenantContextResult['context']>['companies'] = []
     let ready = false
     let databaseError: string | undefined
@@ -92,16 +84,6 @@ export class ResolveTenantContextUseCase {
           slug: tenant.slug,
           name: tenant.name,
           status: tenant.status,
-          industryId: tenant.industry_id,
-          industry: industry
-            ? {
-                id: industry.id,
-                code: industry.code,
-                name: industry.name,
-                defaultFeatures: parseJsonArray(industry.default_features),
-                defaultUiSettings: parseJsonObject(industry.default_ui_settings),
-              }
-            : null,
         },
         database: {
           type: 'mariadb',

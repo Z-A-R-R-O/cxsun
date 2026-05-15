@@ -3,8 +3,19 @@ import type { TenantRecord, TenantUpsertInput } from "../domain/tenant"
 interface TenantApiRecord {
   id: number
   code: number
+  slug: string
   name: string
   status: "active" | "not_active" | "suspend"
+  db_type: string
+  db_host: string
+  db_port: number
+  db_name: string
+  db_user: string
+  db_secret_ref: string
+  company_count: number
+  active_company_count: number
+  company_concept_count: number
+  payload_settings: string
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -108,8 +119,19 @@ function toTenantRecord(record: TenantApiRecord): TenantRecord {
   return {
     id: record.id,
     code: record.code,
+    slug: record.slug,
     name: record.name,
     status: record.status,
+    dbType: record.db_type,
+    dbHost: record.db_host,
+    dbPort: record.db_port,
+    dbName: record.db_name,
+    dbUser: record.db_user,
+    dbSecretRef: record.db_secret_ref,
+    companyCount: Number(record.company_count ?? 0),
+    activeCompanyCount: Number(record.active_company_count ?? 0),
+    companyConceptCount: Number(record.company_concept_count ?? 0),
+    payloadSettings: record.payload_settings,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     deletedAt: record.deleted_at,

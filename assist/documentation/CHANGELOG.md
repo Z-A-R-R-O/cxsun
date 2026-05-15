@@ -2,13 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.14`
-- **Release tag:** `v-1.0.14`
-- **Changelog label:** `v 1.0.14`
+- **Current version:** `1.0.15`
+- **Release tag:** `v-1.0.15`
+- **Changelog label:** `v 1.0.15`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.15
+
+### [v 1.0.15] 2026-05-15 10:34 am - dashboard surface split and tenant domain management
+
+- Bumped workspace version to 1.0.15
+- Split frontend dashboard surfaces into tenant, admin, and super-admin route families with separate login gates and session storage
+- Added tenant-domain list, show, upsert, suspend, and restore flows under the super-admin surface
+- Added tenant-domain backend list/upsert support and registered platform database modules for tenant, domain, industry, auth, client, queue, and site data
+- Refactored super-admin navigation into Admin and Tenant groups, keeping Company in the tenant-database lane
+- Standardized master-list row actions, rounded 3-dot menus, and form tone across domain, industry, company, and client manager
+- Documented the product picture, tenant resolution flow, dashboard boundaries, and current architecture in assist context
 
 ## v-1.0.14
 

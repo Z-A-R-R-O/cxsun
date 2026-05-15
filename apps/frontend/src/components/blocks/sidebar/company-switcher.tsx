@@ -21,6 +21,7 @@ import {
 
 export function CompanySwitcher({
   companies,
+  label = "Companies",
   value,
   onValueChange,
 }: {
@@ -30,6 +31,7 @@ export function CompanySwitcher({
     period: string
     value: string
   }[]
+  label?: string
   value?: string
   onValueChange?: (value: string) => void
 }) {
@@ -70,7 +72,7 @@ export function CompanySwitcher({
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Companies
+              {label}
             </DropdownMenuLabel>
             {companies.map((company, index) => (
               <DropdownMenuItem

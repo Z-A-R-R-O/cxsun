@@ -1,11 +1,11 @@
 {
   "name": "@cxsun/frontend",
   "private": true,
-  "version": "1.0.14",
+  "version": "1.0.15",
   "type": "module",
   "scripts": {
     "dev": "node ../../apps/cli/preflight.mjs frontend",
-    "build": "tsc -b && vite build",
+    "build": "node ../../apps/cli/build-frontend.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"

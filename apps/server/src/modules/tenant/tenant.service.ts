@@ -37,8 +37,8 @@ export class TenantService {
     return this.restoreTenant.execute(id)
   }
 
-  context(tenantCode?: string | string[]) {
-    return this.resolveTenantContext.execute(tenantCode)
+  context(tenantCode?: string | string[], host?: string | string[]) {
+    return this.resolveTenantContext.execute(tenantCode, host)
   }
 
   events() {

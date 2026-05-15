@@ -1,5 +1,6 @@
 import { Inject } from '../../../core/decorators/inject.js'
 import { Injectable } from '../../../core/decorators/injectable.js'
+import type { TenantRequestHeaders } from '../../../core/tenant/tenant-context.service.js'
 import { signJwt } from '../../../infrastructure/auth/jwt.js'
 import { verifyPassword } from '../../../infrastructure/auth/password-hash.js'
 import type { LoginInput } from '../domain/auth.types.js'
@@ -11,7 +12,7 @@ export class AuthService {
     @Inject(AuthRepository) private readonly auth: AuthRepository,
   ) {}
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput, headers: TenantRequestHeaders = {}) {
     const email = input.email?.trim().toLowerCase()
     const password = input.password ?? ''
 
@@ -31,7 +32,8 @@ export class AuthService {
       return { ok: false, error: 'User does not have tenant access.' }
     }
 
-    const selectedTenant = tenants[0]
+    const domainTenantSlug = await this.auth.findTenantSlugByDomain(firstHeader(headers.host) ?? '')
+    const selectedTenant = tenants.find((tenant) => tenant.slug === domainTenantSlug) ?? tenants[0]
 
     const token = signJwt({
       sub: user.id,
@@ -49,4 +51,8 @@ export class AuthService {
       selectedTenant,
     }
   }
+}
+
+function firstHeader(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value
 }

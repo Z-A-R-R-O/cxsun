@@ -2,13 +2,15 @@
 
 import * as React from "react"
 import {
+  Bug,
   Building2,
   BriefcaseBusiness,
   Factory,
-  Home,
+  Globe2,
+  Headset,
   Landmark,
+  NotebookPen,
   RefreshCw,
-  Settings,
   ShieldCheck,
   UserRoundCog,
   Users,
@@ -28,96 +30,96 @@ import {
 } from "src/components/ui/sidebar"
 import { version } from "../../../../package.json"
 
-const data = {
-  navMain: [
-    {
-      title: "Overview",
-      url: "#",
-      icon: Home,
-      isActive: true,
-    },
-    {
-      title: "Organisation",
-      url: "#",
-      icon: Building2,
-      defaultOpen: true,
-      items: [
-        {
-          title: "Tenant",
-          url: "#",
-          icon: Users,
-          isActive: true,
-        },
-        {
-          title: "Industry",
-          url: "#",
-          icon: Factory,
-        },
-        {
-          title: "Company",
-          url: "#",
-          icon: Building2,
-        },
-        {
-          title: "Default Company",
-          url: "#",
-          icon: Landmark,
-        },
-      ],
-    },
-    {
-      title: "Master",
-      url: "#",
-      icon: BriefcaseBusiness,
-      items: [
-        {
-          title: "Catalog",
-          url: "#",
-        },
-        {
-          title: "Workflows",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Company Profile",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Admin",
-      url: "#",
-      icon: UserRoundCog,
-      items: [
-        {
-          title: "Users",
-          url: "#",
-        },
-        {
-          title: "Roles",
-          url: "#",
-          icon: ShieldCheck,
-        },
-      ],
-    },
-  ],
+export type DashboardMode = "super-admin" | "admin" | "tenant"
+export type DashboardPage =
+  | "overview"
+  | "tenant"
+  | "tenant-domain"
+  | "industry"
+  | "company"
+  | "client"
+  | "system-update"
+  | "user-manager"
+  | "helpdesk"
+  | "bugs"
+  | "tenant-roles"
+
+const superAdminNav = [
+  {
+    title: "Admin",
+    url: "#",
+    icon: Building2,
+    defaultOpen: true,
+    items: [
+      { title: "Tenant", url: "#", icon: Users },
+      { title: "Domain", url: "#", icon: Globe2 },
+      { title: "Industry", url: "#", icon: Factory },
+      { title: "Client Manager", url: "#", icon: NotebookPen },
+      { title: "System Update", url: "#", icon: RefreshCw },
+      { title: "User Manager", url: "#", icon: UserRoundCog },
+    ],
+  },
+  {
+    title: "Tenant",
+    url: "#",
+    icon: BriefcaseBusiness,
+    items: [
+      { title: "Company", url: "#", icon: Building2 },
+    ],
+  },
+] as const
+
+const adminNav = [
+  {
+    title: "Software Desk",
+    url: "#",
+    icon: Headset,
+    defaultOpen: true,
+    items: [
+      { title: "Helpdesk", url: "#", icon: Headset },
+      { title: "Company", url: "#", icon: Building2 },
+      { title: "Bugs", url: "#", icon: Bug },
+      { title: "Client Manager", url: "#", icon: NotebookPen },
+      { title: "System Update", url: "#", icon: RefreshCw },
+    ],
+  },
+] as const
+
+const tenantNav = [
+  {
+    title: "Tenant Workspace",
+    url: "#",
+    icon: Building2,
+    defaultOpen: true,
+    items: [
+      { title: "Company", url: "#", icon: Building2 },
+      { title: "Roles", url: "#", icon: ShieldCheck },
+      { title: "Default Company", url: "#", icon: Landmark },
+    ],
+  },
+] as const
+
+function dashboardPageUrl(basePath: string, page: DashboardPage) {
+  return page === "overview" ? basePath : `${basePath}/${page}`
 }
 
-export type DashboardPage = "overview" | "tenant" | "industry" | "company" | "system-update"
+function pageFromTitle(title: string): DashboardPage | undefined {
+  const pages: Record<string, DashboardPage> = {
+    Bugs: "bugs",
+    Company: "company",
+    "Client Manager": "client",
+    "Default Company": "company",
+    Domain: "tenant-domain",
+    Helpdesk: "helpdesk",
+    Industry: "industry",
+    Overview: "overview",
+    Roles: "tenant-roles",
+    "System Update": "system-update",
+    Tenant: "tenant",
+    "User Manager": "user-manager",
+  }
 
-function dashboardPageUrl(page: DashboardPage) {
-  return page === "overview" ? "/app" : `/app/${page}`
+  return pages[title]
 }
 
 export function AppSidebar({
@@ -126,7 +128,8 @@ export function AppSidebar({
   selectedTenant,
   tenants = [],
   user,
-  canManagePlatform = false,
+  basePath = "/app",
+  dashboardMode = "tenant",
   onTenantChange,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
@@ -135,62 +138,30 @@ export function AppSidebar({
   selectedTenant?: string
   tenants?: { slug: string; name: string; role: string }[]
   user?: { name: string; email: string }
-  canManagePlatform?: boolean
+  basePath?: "/app" | "/admin" | "/sa"
+  dashboardMode?: DashboardMode
   onTenantChange?: (tenantSlug: string) => void
 }) {
-  const navMain = data.navMain.map((item) => {
-    if (item.title === "Overview") {
-      return {
-        ...item,
-        url: dashboardPageUrl("overview"),
-        isActive: activePage === "overview",
-        onSelect: () => onNavigate?.("overview"),
-      }
-    }
+  const sourceNav =
+    dashboardMode === "super-admin"
+      ? superAdminNav
+      : dashboardMode === "admin"
+        ? adminNav
+        : tenantNav
 
-    if (item.title === "Organisation") {
-      return {
-        ...item,
-        defaultOpen: true,
-        items: item.items
-          ?.filter((subItem) =>
-            canManagePlatform || (subItem.title !== "Tenant" && subItem.title !== "Industry"),
-          )
-          .map((subItem) => {
-          const page = (
-            subItem.title === "Default Company"
-              ? "company"
-              : subItem.title.toLowerCase().replace(" ", "-")
-          ) as DashboardPage
-          return {
-            ...subItem,
-            url: dashboardPageUrl(page),
-            isActive: activePage === page,
-            onSelect: () => onNavigate?.(page),
-          }
-        }),
-      }
-    }
-
-    if (item.title === "Admin") {
-      return {
-        ...item,
-        defaultOpen: true,
-        items: [
-          ...(item.items ?? []),
-          {
-            title: "System Update",
-            url: dashboardPageUrl("system-update"),
-            icon: RefreshCw,
-            isActive: activePage === "system-update",
-            onSelect: () => onNavigate?.("system-update"),
-          },
-        ],
-      }
-    }
-
-    return item
-  })
+  const navMain = sourceNav.map((item) => ({
+      ...item,
+      defaultOpen: "defaultOpen" in item ? item.defaultOpen : true,
+      items: item.items.map((subItem) => {
+        const subPage = pageFromTitle(subItem.title) ?? "overview"
+        return {
+          ...subItem,
+          url: dashboardPageUrl(basePath, subPage),
+          isActive: activePage === subPage,
+          onSelect: () => onNavigate?.(subPage),
+        }
+      }),
+    }))
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -199,9 +170,10 @@ export function AppSidebar({
           companies={tenants.map((tenant) => ({
             name: tenant.name,
             logo: BrandLogo,
-            period: "FY 2026-27",
+            period: dashboardMode === "tenant" ? "Tenant DB" : tenant.role,
             value: tenant.slug,
           }))}
+          label={dashboardMode === "tenant" ? "Tenant workspace" : "Companies"}
           value={selectedTenant}
           onValueChange={onTenantChange}
         />

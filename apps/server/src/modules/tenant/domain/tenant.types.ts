@@ -6,13 +6,15 @@ export interface Tenant {
   slug: string
   name: string
   status: TenantStatus
-  industry_id: number | null
   db_type: 'mariadb'
   db_host: string
   db_port: number
   db_name: string
   db_user: string
   db_secret_ref: string
+  company_count: number
+  active_company_count: number
+  company_concept_count: number
   payload_settings: string
   created_at: string
   updated_at: string
@@ -25,7 +27,12 @@ export interface TenantUpsertInput {
   slug?: string | null
   name: string
   status: TenantStatus
-  industry_id?: number | null
+  db_type?: 'mariadb' | null
+  db_host?: string | null
+  db_port?: number | null
+  db_name?: string | null
+  db_user?: string | null
+  db_secret_ref?: string | null
   payload_settings?: string | null
 }
 
@@ -34,7 +41,12 @@ export interface TenantUpsertData {
   slug: string
   name: string
   status: TenantStatus
-  industry_id: number | null
+  db_type: 'mariadb'
+  db_host: string
+  db_port: number
+  db_name: string
+  db_user: string
+  db_secret_ref: string
   payload_settings: string
 }
 
