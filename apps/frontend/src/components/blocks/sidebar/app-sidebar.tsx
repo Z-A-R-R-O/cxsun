@@ -17,28 +17,18 @@ import {
 import { BrandLogo } from "src/components/blocks/branding/brand-logo"
 import { CompanySwitcher } from "src/components/blocks/sidebar/company-switcher"
 import { NavMain } from "src/components/blocks/sidebar/nav-main"
+import { NavUser } from "src/components/blocks/sidebar/nav-user"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarRail,
   SidebarSeparator,
 } from "src/components/ui/sidebar"
-import { APP_NAME } from "src/lib/branding"
+import { version } from "../../../../package.json"
 
 const data = {
-  companies: [
-    {
-      name: APP_NAME.toLowerCase(),
-      logo: BrandLogo,
-      period: "FY 2026-27",
-    },
-    {
-      name: `${APP_NAME} Commerce`,
-      logo: BrandLogo,
-      period: "Operations",
-    },
-  ],
   navMain: [
     {
       title: "Overview",
@@ -126,18 +116,33 @@ const data = {
 
 export type DashboardPage = "overview" | "tenant" | "industry" | "company" | "system-update"
 
+function dashboardPageUrl(page: DashboardPage) {
+  return page === "overview" ? "/app" : `/app/${page}`
+}
+
 export function AppSidebar({
   activePage = "overview",
   onNavigate,
+  selectedTenant,
+  tenants = [],
+  user,
+  canManagePlatform = false,
+  onTenantChange,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   activePage?: DashboardPage
   onNavigate?: (page: DashboardPage) => void
+  selectedTenant?: string
+  tenants?: { slug: string; name: string; role: string }[]
+  user?: { name: string; email: string }
+  canManagePlatform?: boolean
+  onTenantChange?: (tenantSlug: string) => void
 }) {
   const navMain = data.navMain.map((item) => {
     if (item.title === "Overview") {
       return {
         ...item,
+        url: dashboardPageUrl("overview"),
         isActive: activePage === "overview",
         onSelect: () => onNavigate?.("overview"),
       }
@@ -147,7 +152,11 @@ export function AppSidebar({
       return {
         ...item,
         defaultOpen: true,
-        items: item.items?.map((subItem) => {
+        items: item.items
+          ?.filter((subItem) =>
+            canManagePlatform || (subItem.title !== "Tenant" && subItem.title !== "Industry"),
+          )
+          .map((subItem) => {
           const page = (
             subItem.title === "Default Company"
               ? "company"
@@ -155,6 +164,7 @@ export function AppSidebar({
           ) as DashboardPage
           return {
             ...subItem,
+            url: dashboardPageUrl(page),
             isActive: activePage === page,
             onSelect: () => onNavigate?.(page),
           }
@@ -170,7 +180,7 @@ export function AppSidebar({
           ...(item.items ?? []),
           {
             title: "System Update",
-            url: "#system-update",
+            url: dashboardPageUrl("system-update"),
             icon: RefreshCw,
             isActive: activePage === "system-update",
             onSelect: () => onNavigate?.("system-update"),
@@ -184,13 +194,30 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader className="p-3 pb-2">
-        <CompanySwitcher companies={data.companies} />
+      <SidebarHeader className="p-0">
+        <CompanySwitcher
+          companies={tenants.map((tenant) => ({
+            name: tenant.name,
+            logo: BrandLogo,
+            period: "FY 2026-27",
+            value: tenant.slug,
+          }))}
+          value={selectedTenant}
+          onValueChange={onTenantChange}
+        />
       </SidebarHeader>
-      <SidebarSeparator className="mx-3" />
+      <SidebarSeparator className="mx-0 mt-1" />
       <SidebarContent className="gap-3 px-3 py-6">
         <NavMain items={navMain} />
       </SidebarContent>
+      {user ? (
+        <SidebarFooter className="border-t px-1.5 pb-1.5 pt-1.5">
+          <div className="px-1 pb-1 text-[11px] leading-none text-muted-foreground group-data-[collapsible=icon]:hidden">
+            v {version}
+          </div>
+          <NavUser user={user} />
+        </SidebarFooter>
+      ) : null}
       <SidebarRail />
     </Sidebar>
   )

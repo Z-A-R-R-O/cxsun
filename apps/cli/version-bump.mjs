@@ -131,7 +131,7 @@ function updateChangelog(rootDir, nextVersion, title) {
     '',
   ].join('\n')
 
-  content = content.replace(/\n---\n\n/, `\n---\n\n${entry}`)
+  content = content.replace(/(\r?\n---\r?\n\r?\n)/, `$1${entry}`)
   writeFileSync(file, content, 'utf8')
 }
 

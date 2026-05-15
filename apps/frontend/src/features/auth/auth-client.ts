@@ -56,7 +56,7 @@ export function authHeaders(session: AuthSession) {
   }
 }
 
-export async function login(input: { email: string; password: string; tenantCode?: string }) {
+export async function login(input: { email: string; password: string }) {
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
     body: JSON.stringify(input),
     cache: "no-store",

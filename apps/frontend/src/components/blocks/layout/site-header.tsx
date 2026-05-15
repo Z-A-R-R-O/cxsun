@@ -12,26 +12,31 @@ import {
 import { Separator } from "src/components/ui/separator"
 import { SidebarTrigger } from "src/components/ui/sidebar"
 import { ThemeToggle } from "src/components/blocks/theme/theme-toggle"
-import { APP_NAME } from "src/lib/branding"
 
 interface SiteHeaderProps {
   onBackHome?: () => void
+  onLogout?: () => void
 }
 
-export function SiteHeader({ onBackHome }: SiteHeaderProps) {
+export function SiteHeader({ onBackHome, onLogout }: SiteHeaderProps) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
-      <div className="flex w-full items-center gap-2 px-4 lg:px-5">
-        <SidebarTrigger className="-ml-1" />
+    <header className="flex h-12 shrink-0 items-center border-b transition-[width,height] ease-linear">
+      <div className="flex h-full w-full items-center gap-3 px-4 lg:px-5">
+        <SidebarTrigger className="-ml-1 size-9 rounded-sm [&_svg]:size-5" />
         <Separator
           orientation="vertical"
-          className="mr-2 data-[orientation=vertical]:h-4"
+          className="mx-1 self-stretch data-[orientation=vertical]:h-auto"
         />
-        <Breadcrumb>
-          <BreadcrumbList>
+        <Breadcrumb className="flex h-full items-center">
+          <BreadcrumbList className="items-center">
             <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="#" onClick={(event) => event.preventDefault()}>
-                {APP_NAME}
+              <BreadcrumbLink
+                aria-label="Home"
+                className="inline-flex items-center"
+                href="#"
+                onClick={(event) => event.preventDefault()}
+              >
+                <House className="size-4" />
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden md:block" />
@@ -50,6 +55,15 @@ export function SiteHeader({ onBackHome }: SiteHeaderProps) {
           >
             <House className="size-4" />
             <span>Home</span>
+          </Button>
+          <Button
+            className="h-8 rounded-md px-2.5"
+            onClick={onLogout}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Logout
           </Button>
           <ThemeToggle />
         </div>

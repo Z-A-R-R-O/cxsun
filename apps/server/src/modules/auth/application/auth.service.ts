@@ -31,14 +31,7 @@ export class AuthService {
       return { ok: false, error: 'User does not have tenant access.' }
     }
 
-    const requestedTenant = input.tenantCode?.trim()
-    const selectedTenant = requestedTenant
-      ? tenants.find((tenant) => tenant.slug === requestedTenant || String(tenant.code) === requestedTenant)
-      : tenants[0]
-
-    if (!selectedTenant) {
-      return { ok: false, error: 'User does not have access to the requested tenant.' }
-    }
+    const selectedTenant = tenants[0]
 
     const token = signJwt({
       sub: user.id,

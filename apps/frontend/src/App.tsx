@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
   Database,
@@ -14,6 +15,7 @@ import './assets/css/app.css'
 
 import { version } from '../package.json'
 import { BrandLogo } from 'src/components/blocks/branding/brand-logo'
+import { GlobalLoader } from 'src/components/blocks/loading/global-loader'
 import { ThemeProvider } from 'src/components/blocks/theme/theme-provider'
 import { ThemeToggle } from 'src/components/blocks/theme/theme-toggle'
 import { Toaster } from './components/ui/sonner'
@@ -23,7 +25,7 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { APP_NAME } from './lib/branding'
 import { cn } from './lib/utils'
 
-type View = 'landing' | 'dashboard' | 'login'
+type View = 'landing' | 'dashboard' | 'login' | 'forgot-password'
 
 interface SitePage {
   slug: 'home' | 'about' | 'services' | 'contact' | 'blog'
@@ -58,6 +60,11 @@ interface HealthStatus {
   version: string
 }
 
+type AppRoute = {
+  page: SitePage['slug']
+  view: View
+}
+
 interface PlatformFeature {
   label: string
   detail: string
@@ -75,6 +82,11 @@ const DashboardView = lazy(() =>
 const LoginForm = lazy(() =>
   import('src/components/blocks/auth/login-form').then((module) => ({
     default: module.LoginForm,
+  })),
+)
+const ForgotPasswordForm = lazy(() =>
+  import('src/components/blocks/auth/forgot-password-form').then((module) => ({
+    default: module.ForgotPasswordForm,
   })),
 )
 const platformFeatures: PlatformFeature[] = [
@@ -179,44 +191,119 @@ const fallbackContent: SiteContent = {
   ],
 }
 
+const sitePageSlugs = ['home', 'about', 'services', 'contact', 'blog'] as const
+
+function parseRoute(pathname = window.location.pathname): AppRoute {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/'
+  const [, firstSegment] = normalizedPath.split('/')
+
+  if (firstSegment === 'app') {
+    return { page: 'home', view: 'dashboard' }
+  }
+
+  if (firstSegment === 'login') {
+    return { page: 'home', view: 'login' }
+  }
+
+  if (firstSegment === 'forgot-password') {
+    return { page: 'home', view: 'forgot-password' }
+  }
+
+  if (sitePageSlugs.includes(firstSegment as SitePage['slug']) && firstSegment !== 'home') {
+    return { page: firstSegment as SitePage['slug'], view: 'landing' }
+  }
+
+  return { page: 'home', view: 'landing' }
+}
+
+function routePath(route: AppRoute) {
+  if (route.view === 'dashboard') return '/app'
+  if (route.view === 'login') return '/login'
+  if (route.view === 'forgot-password') return '/forgot-password'
+  return route.page === 'home' ? '/' : `/${route.page}`
+}
+
+function pushRoute(route: AppRoute) {
+  const nextPath = routePath(route)
+  if (window.location.pathname !== nextPath) {
+    window.history.pushState(null, '', nextPath)
+  }
+}
+
+async function fetchSiteContent() {
+  const response = await fetch(`${apiBaseUrl}/api/site`)
+  if (!response.ok) {
+    throw new Error(`Site content failed with status ${response.status}.`)
+  }
+  return (await response.json()) as SiteContent
+}
+
+async function fetchHealth() {
+  const response = await fetch(`${apiBaseUrl}/health`)
+  if (!response.ok) {
+    throw new Error(`Health check failed with status ${response.status}.`)
+  }
+  return (await response.json()) as HealthStatus
+}
+
+async function sendContactMessage(payload: { name: string; email: string; message: string }) {
+  const response = await fetch(`${apiBaseUrl}/api/site/contact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  const result = (await response.json()) as { ok: boolean; error?: string }
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error ?? `Contact failed with status ${response.status}.`)
+  }
+
+  return result
+}
+
 function App() {
-  const [activePage, setActivePage] = useState<SitePage['slug']>('home')
-  const [activeView, setActiveView] = useState<View>('landing')
-  const [content, setContent] = useState<SiteContent>(fallbackContent)
-  const [health, setHealth] = useState<HealthStatus | null>(null)
+  const [route, setRoute] = useState<AppRoute>(() => parseRoute())
   const [menuOpen, setMenuOpen] = useState(false)
   const [contactStatus, setContactStatus] = useState<string | null>(null)
+  const siteQuery = useQuery({
+    queryKey: ['site-content'],
+    queryFn: fetchSiteContent,
+  })
+  const healthQuery = useQuery({
+    queryKey: ['health'],
+    queryFn: fetchHealth,
+    refetchInterval: 60_000,
+  })
+  const contactMutation = useMutation({
+    mutationFn: sendContactMessage,
+    onSuccess: () => {
+      setContactStatus(`Message saved to the local ${APP_NAME} database.`)
+    },
+    onError: (error) => {
+      setContactStatus(error instanceof Error ? error.message : 'Unable to save the message.')
+    },
+  })
 
   useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      try {
-        const [siteResponse, healthResponse] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/site`),
-          fetch(`${apiBaseUrl}/health`),
-        ])
-
-        if (siteResponse.ok && !cancelled) {
-          setContent((await siteResponse.json()) as SiteContent)
-        }
-
-        if (healthResponse.ok && !cancelled) {
-          setHealth((await healthResponse.json()) as HealthStatus)
-        }
-      } catch {
-        if (!cancelled) {
-          setHealth(null)
-        }
-      }
+    function syncRouteFromLocation() {
+      setRoute(parseRoute())
     }
 
-    void load()
-
-    return () => {
-      cancelled = true
-    }
+    window.addEventListener('popstate', syncRouteFromLocation)
+    return () => window.removeEventListener('popstate', syncRouteFromLocation)
   }, [])
+
+  function navigate(nextRoute: AppRoute) {
+    setRoute(nextRoute)
+    pushRoute(nextRoute)
+    setMenuOpen(false)
+  }
+
+  const content = siteQuery.data ?? fallbackContent
+  const health = healthQuery.data ?? null
+  const activePage = route.page
+  const activeView = route.view
 
   const pagesBySlug = useMemo(
     () => Object.fromEntries(content.pages.map((page) => [page.slug, page])),
@@ -224,6 +311,14 @@ function App() {
   ) as Record<SitePage['slug'], SitePage>
 
   const page = pagesBySlug[activePage] ?? fallbackContent.pages[0]
+
+  if (siteQuery.isLoading && !siteQuery.data) {
+    return (
+      <TooltipProvider>
+        <GlobalLoader label="Preparing application" />
+      </TooltipProvider>
+    )
+  }
 
   async function submitContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -236,21 +331,11 @@ function App() {
       message: String(formData.get('message') ?? ''),
     }
 
-    const response = await fetch(`${apiBaseUrl}/api/site/contact`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    contactMutation.mutate(payload, {
+      onSuccess: () => {
+        form.reset()
+      },
     })
-
-    const result = (await response.json()) as { ok: boolean; error?: string }
-
-    if (result.ok) {
-      form.reset()
-      setContactStatus(`Message saved to the local ${APP_NAME} database.`)
-      return
-    }
-
-    setContactStatus(result.error ?? 'Unable to save the message.')
   }
 
   const nav = content.pages.map((item) => (
@@ -261,9 +346,7 @@ function App() {
       )}
       key={item.slug}
       onClick={() => {
-        setActivePage(item.slug)
-        setActiveView('landing')
-        setMenuOpen(false)
+        navigate({ page: item.slug, view: 'landing' })
       }}
       type="button"
     >
@@ -274,8 +357,8 @@ function App() {
   if (activeView === 'dashboard') {
     return (
       <TooltipProvider>
-        <Suspense fallback={<AppFallback label="Loading dashboard" />}>
-          <DashboardView onBackHome={() => setActiveView('landing')} />
+        <Suspense fallback={<GlobalLoader label="Loading dashboard" />}>
+          <DashboardView onBackHome={() => navigate({ page: 'home', view: 'landing' })} />
         </Suspense>
         <Toaster />
       </TooltipProvider>
@@ -289,7 +372,7 @@ function App() {
         <div className="cx-container flex h-16 items-center justify-between gap-4">
           <button
             className="flex items-center gap-3 text-left"
-            onClick={() => setActivePage('home')}
+            onClick={() => navigate({ page: 'home', view: 'landing' })}
             type="button"
           >
             <BrandLogo className="size-9" />
@@ -303,7 +386,7 @@ function App() {
             {nav}
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              onClick={() => setActiveView('dashboard')}
+              onClick={() => navigate({ page: 'home', view: 'dashboard' })}
               type="button"
             >
               Dashboard
@@ -313,7 +396,7 @@ function App() {
                 'rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground',
                 activeView === 'login' && 'bg-muted text-foreground',
               )}
-              onClick={() => setActiveView('login')}
+              onClick={() => navigate({ page: 'home', view: 'login' })}
               type="button"
             >
               Login
@@ -348,20 +431,14 @@ function App() {
             {nav}
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              onClick={() => {
-                setActiveView('dashboard')
-                setMenuOpen(false)
-              }}
+              onClick={() => navigate({ page: 'home', view: 'dashboard' })}
               type="button"
             >
               Dashboard
             </button>
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              onClick={() => {
-                setActiveView('login')
-                setMenuOpen(false)
-              }}
+              onClick={() => navigate({ page: 'home', view: 'login' })}
               type="button"
             >
               Login
@@ -371,11 +448,18 @@ function App() {
       </header>
 
       <main>
-        {activeView === 'login' ? (
+        {activeView === 'login' || activeView === 'forgot-password' ? (
           <section className="cx-container grid min-h-[calc(100svh-210px)] place-items-center py-16">
-            <div className="w-full max-w-md">
-              <Suspense fallback={<AppFallback label="Loading login" />}>
-                <LoginForm />
+            <div className="w-full max-w-[560px]">
+              <Suspense fallback={<GlobalLoader label="Loading account access" />}>
+                {activeView === 'forgot-password' ? (
+                  <ForgotPasswordForm onBackToLogin={() => navigate({ page: 'home', view: 'login' })} />
+                ) : (
+                  <LoginForm
+                    onAuthenticated={() => navigate({ page: 'home', view: 'dashboard' })}
+                    onForgotPassword={() => navigate({ page: 'home', view: 'forgot-password' })}
+                  />
+                )}
               </Suspense>
             </div>
           </section>
@@ -394,12 +478,12 @@ function App() {
             </p>
             <p className="mt-4 max-w-2xl leading-7">{page.body}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button onClick={() => setActivePage('services')} type="button">
+              <Button onClick={() => navigate({ page: 'services', view: 'landing' })} type="button">
                 Explore services
                 <ArrowRight size={17} />
               </Button>
               <Button
-                onClick={() => setActivePage('contact')}
+                onClick={() => navigate({ page: 'contact', view: 'landing' })}
                 type="button"
                 variant="outline"
               >
@@ -515,7 +599,7 @@ function App() {
                 <button
                   className="font-semibold hover:text-foreground"
                   key={item.slug}
-                  onClick={() => setActivePage(item.slug)}
+                  onClick={() => navigate({ page: item.slug, view: 'landing' })}
                   type="button"
                 >
                   {item.nav_label}
@@ -527,14 +611,6 @@ function App() {
     </div>
       <Toaster />
     </TooltipProvider>
-  )
-}
-
-function AppFallback({ label }: { label: string }) {
-  return (
-    <div className="grid min-h-[240px] place-items-center bg-background p-6 text-sm font-medium text-muted-foreground">
-      {label}
-    </div>
   )
 }
 

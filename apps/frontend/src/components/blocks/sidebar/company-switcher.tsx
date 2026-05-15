@@ -21,15 +21,20 @@ import {
 
 export function CompanySwitcher({
   companies,
+  value,
+  onValueChange,
 }: {
   companies: {
     name: string
     logo: React.ElementType
     period: string
+    value: string
   }[]
+  value?: string
+  onValueChange?: (value: string) => void
 }) {
   const { isMobile } = useSidebar()
-  const [activeCompany, setActiveCompany] = React.useState(companies[0])
+  const activeCompany = companies.find((company) => company.value === value) ?? companies[0]
 
   if (!activeCompany) {
     return null
@@ -42,10 +47,10 @@ export function CompanySwitcher({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="h-14 rounded-xl border bg-background/80 px-2 shadow-sm transition-[background,box-shadow] duration-300 hover:bg-sidebar-accent/80 hover:shadow-md data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-1"
+              className="h-14 rounded-t-lg rounded-b-none bg-background/80 px-2 shadow-none transition-[background,box-shadow] duration-300 hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:!p-0"
             >
-              <div className="flex aspect-square size-10 items-center justify-center rounded-xl border bg-background p-1.5 shadow-sm group-data-[collapsible=icon]:size-8">
-                <activeCompany.logo className="size-6 group-data-[collapsible=icon]:size-5" />
+              <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-background p-1.5 group-data-[collapsible=icon]:size-11 group-data-[collapsible=icon]:p-1">
+                <activeCompany.logo className="size-6 group-data-[collapsible=icon]:size-7" />
               </div>
               <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">
@@ -70,7 +75,7 @@ export function CompanySwitcher({
             {companies.map((company, index) => (
               <DropdownMenuItem
                 key={company.name}
-                onClick={() => setActiveCompany(company)}
+                onClick={() => onValueChange?.(company.value)}
                 className="gap-2 p-2"
               >
                 <div className="flex size-6 items-center justify-center rounded-md border p-1">
@@ -93,4 +98,3 @@ export function CompanySwitcher({
     </SidebarMenu>
   )
 }
-

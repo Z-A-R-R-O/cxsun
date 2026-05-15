@@ -16,6 +16,11 @@ export class CompaniesV1Controller {
     return this.companyService.list(headers)
   }
 
+  @Get(':id')
+  async get(@Headers() headers: TenantRequestHeaders, @Param('id') id: string) {
+    return this.companyService.get(headers, Number(id))
+  }
+
   @Post('upsert')
   async upsert(@Headers() headers: TenantRequestHeaders, @Body() body: CompanyUpsertInput) {
     return this.companyService.upsert(headers, body)
@@ -31,4 +36,3 @@ export class CompaniesV1Controller {
     return this.companyService.restore(headers, Number(id))
   }
 }
-

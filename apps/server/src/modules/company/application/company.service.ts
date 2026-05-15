@@ -18,6 +18,17 @@ export class CompanyService {
     return this.companies.list(context)
   }
 
+  async get(headers: TenantRequestHeaders, id: number) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    const company = await this.companies.findById(context, id)
+
+    if (!company) {
+      throw new NotFoundException('Company was not found.')
+    }
+
+    return company
+  }
+
   async upsert(headers: TenantRequestHeaders, input: CompanyUpsertInput) {
     const context = await this.tenantContext.resolve(headers, 'company.manage')
 
@@ -56,4 +67,3 @@ export class CompanyService {
     return restored ? { ok: true } : { ok: false, error: 'Company was not found.' }
   }
 }
-
