@@ -2,6 +2,13 @@ import { sql } from 'kysely'
 import { hashPassword } from '../../../infrastructure/auth/password-hash.js'
 import { nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
+const SUPER_ADMIN_EMAIL = 'sundar@sundar.com'
+const PLATFORM_ADMIN_EMAIL = 'admin@sundar.com'
+const SUPER_ADMIN_PASSWORD = 'Kalarani1@@'
+const PLATFORM_ADMIN_PASSWORD = 'Admin@123'
+const AARAN_TENANT_ADMIN_PASSWORD = 'Admin@123'
+const AARAN_USER_PASSWORD = 'User@123'
+
 export const authDatabaseModule: PlatformDatabaseModule = {
   name: 'auth-rbac',
   async migrate(database) {
@@ -60,7 +67,12 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       description: 'Manage tenant roles and policy assignments.',
     })
 
-    const allTenants = await database.selectFrom('tenants').selectAll().execute()
+    const allTenants = await database
+      .selectFrom('tenants')
+      .selectAll()
+      .where('status', '=', 'active')
+      .where('deleted_at', 'is', null)
+      .execute()
 
     for (const tenant of allTenants) {
       for (const policyCode of ['company.manage', 'rbac.manage']) {
@@ -69,20 +81,38 @@ export const authDatabaseModule: PlatformDatabaseModule = {
     }
 
     const superAdminId = await ensureUser(database, {
-      name: 'sundar',
-      email: 'sundar@sundar.com',
-      password: 'Kalarani1@@',
+      name: 'Sundar',
+      email: SUPER_ADMIN_EMAIL,
+      password: SUPER_ADMIN_PASSWORD,
     })
+    await ensureOnlySuperAdminUser(database, superAdminId)
 
     for (const tenant of allTenants) {
       await ensureUserTenant(database, superAdminId, tenant.id, 'super-admin')
     }
 
-    await ensureUserWithTenant(database, { name: 'Sundar Admin', email: 'sundar.admin@sundar.com', password: 'Sundar@123', tenantSlug: 'sundar', role: 'tenant-admin' })
-    await ensureUserWithTenant(database, { name: 'Software Admin', email: 'software.admin@sundar.com', password: 'Admin@123', tenantSlug: 'sundar', role: 'admin' })
-    await ensureUserWithTenant(database, { name: 'Sathish Admin', email: 'sathish.admin@sundar.com', password: 'Sundar@123', tenantSlug: 'sathish', role: 'tenant-admin' })
-    await ensureUserWithTenant(database, { name: 'Sampath Admin', email: 'sampath.admin@sundar.com', password: 'User@123', tenantSlug: 'sampath', role: 'tenant-admin' })
-    await ensureUserWithTenant(database, { name: 'Sathasivam Admin', email: 'sathasivam.admin@sundar.com', password: 'User@123', tenantSlug: 'sathasivam', role: 'tenant-admin' })
+    await ensureUserWithTenant(database, {
+      name: 'Software Admin',
+      email: PLATFORM_ADMIN_EMAIL,
+      password: PLATFORM_ADMIN_PASSWORD,
+      tenantSlug: 'aaran',
+      role: 'software-admin',
+    })
+    await ensureUserWithTenant(database, {
+      name: 'Aaran Admin',
+      email: 'aaranoffice@gmail.com',
+      password: AARAN_TENANT_ADMIN_PASSWORD,
+      tenantSlug: 'aaran',
+      role: 'admin',
+    })
+    await ensureUserWithTenant(database, {
+      name: 'Aaran User',
+      email: 'user.aaran@aaran.com',
+      password: AARAN_USER_PASSWORD,
+      tenantSlug: 'aaran',
+      role: 'user',
+    })
+    await retireLegacySeedUsers(database)
   },
 }
 
@@ -151,4 +181,39 @@ async function ensureUserTenant(database: PlatformDatabase, userId: number, tena
   }
 
   await database.insertInto('user_tenants').values({ user_id: userId, tenant_id: tenantId, role }).execute()
+}
+
+async function ensureOnlySuperAdminUser(database: PlatformDatabase, superAdminId: number) {
+  await database
+    .updateTable('user_tenants')
+    .set({ role: 'admin' })
+    .where('role', '=', 'super-admin')
+    .where('user_id', '!=', superAdminId)
+    .execute()
+}
+
+async function retireLegacySeedUsers(database: PlatformDatabase) {
+  for (const email of [
+    'sundar.admin@sundar.com',
+    'software.admin@sundar.com',
+    'sathish.admin@sundar.com',
+    'sampath.admin@sundar.com',
+    'sathasivam.admin@sundar.com',
+  ]) {
+    const user = await database
+      .selectFrom('users')
+      .select('id')
+      .where('email', '=', email)
+      .executeTakeFirst()
+
+    if (!user) {
+      continue
+    }
+
+    await database
+      .updateTable('users')
+      .set({ status: 'suspend', updated_at: nowIso() })
+      .where('id', '=', user.id)
+      .execute()
+  }
 }

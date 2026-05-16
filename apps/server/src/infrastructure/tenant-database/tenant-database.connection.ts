@@ -1,11 +1,13 @@
 import mysql from 'mysql2'
 import { createConnection } from 'mysql2/promise'
 import { Kysely, MysqlDialect, sql } from 'kysely'
+import { randomInt } from 'crypto'
 import type { TenantDatabaseSchema } from './tenant-database.schema.js'
-import type { Tenant } from '../../modules/tenant/domain/tenant.types.js'
+import type { Tenant } from '../../core/tenant/domain/tenant.types.js'
 import { getDatabase } from '../database/connection.js'
-import { migrateCommonModuleTables } from '../../modules/common/index.js'
-import { migrateContactMasterTable } from '../../modules/master/contact/index.js'
+import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
+import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
+import { migrateContactMasterTable, seedContactMasterTable } from '../../modules/master/contact/index.js'
 import { migrateProductMasterTable } from '../../modules/master/product/index.js'
 import { migrateOrderMasterTable } from '../../modules/master/order/index.js'
 
@@ -60,6 +62,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .createTable('companies')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('tenant_id', 'integer', (col) => col.notNull())
     .addColumn('industry_id', 'integer', (col) => col.notNull())
     .addColumn('code', 'varchar(64)', (col) => col.notNull())
@@ -96,6 +99,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await ensureCompanyColumns(database)
   await createCompanyChildTables(database)
   await migrateCommonModuleTables(database)
+  await migrateSalesEntryTables(database)
   await migrateContactMasterTable(database)
   await migrateProductMasterTable(database)
   await migrateOrderMasterTable(database)
@@ -104,6 +108,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .createTable('rbac_roles')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('code', 'varchar(64)', (col) => col.notNull().unique())
     .addColumn('name', 'varchar(191)', (col) => col.notNull())
     .addColumn('settings', 'json', (col) => col.notNull())
@@ -115,6 +120,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .createTable('rbac_policies')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('code', 'varchar(128)', (col) => col.notNull().unique())
     .addColumn('name', 'varchar(191)', (col) => col.notNull())
     .addColumn('description', 'text', (col) => col.notNull())
@@ -125,17 +131,19 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .createTable('rbac_role_policies')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('role_code', 'varchar(64)', (col) => col.notNull())
     .addColumn('policy_code', 'varchar(128)', (col) => col.notNull())
     .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
     .execute()
 
   await seedTenantDatabase(database, tenant)
+  await ensureTenantUuidColumns(database)
   await syncTenantCompanyMetrics(tenant)
 }
 
 function getTenantDatabasePassword(secretRef: string) {
-  return process.env[secretRef] ?? process.env.MARIADB_ROOT_PASSWORD ?? 'Computer.1'
+  return process.env[secretRef] ?? process.env.MARIADB_ROOT_PASSWORD
 }
 
 export async function syncTenantCompanyMetrics(tenant: Tenant): Promise<void> {
@@ -180,6 +188,7 @@ function toMetricNumber(value: number | string | bigint | null | undefined) {
 }
 
 async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
+  await seedCommonModuleTables(database)
   const years = await seedAccountingYears(database)
   const seededCompanies = tenantCompanyCatalog[tenant.slug] ?? [
     {
@@ -201,11 +210,15 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
     await ensureDefaultCompany(database, tenant, companyId, years.currentYearId, industryId)
   }
 
+  await seedContactMasterTable(database, tenant)
+
+  await retireLegacyRoles(database)
+
   for (const role of [
-    { code: 'owner', name: 'Owner' },
-    { code: 'super-admin', name: 'Super admin' },
-    { code: 'tenant-admin', name: 'Tenant admin' },
-    { code: 'tenant-user', name: 'Tenant user' },
+    { code: 'admin', name: 'Admin', settings: { system: true, canAssignRoles: ['manager', 'staff', 'user'] } },
+    { code: 'manager', name: 'Manager', settings: { system: true, canAssignRoles: ['staff', 'user'] } },
+    { code: 'staff', name: 'Staff', settings: { system: true, canEditData: true } },
+    { code: 'user', name: 'User', settings: { system: true, employee: true } },
   ]) {
     await ensureRole(database, role)
   }
@@ -225,11 +238,11 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
     await ensurePolicy(database, policy)
   }
 
-  for (const roleCode of ['owner', 'super-admin', 'tenant-admin', 'tenant-user']) {
+  for (const roleCode of ['admin', 'manager', 'staff']) {
     await ensureRolePolicy(database, roleCode, 'company.manage')
   }
 
-  for (const roleCode of ['owner', 'super-admin', 'tenant-admin']) {
+  for (const roleCode of ['admin']) {
     await ensureRolePolicy(database, roleCode, 'rbac.manage')
   }
 }
@@ -240,12 +253,11 @@ const tenantCompanyCatalog: Record<string, Array<{
   industryCode: string
   concept: string
 }>> = {
-  sundar: [
-    { code: 'CODEXSUN', name: 'Codexsun', industryCode: 'software', concept: 'Software brand portfolio.' },
+  aaran: [
     { code: 'AARAN_ASSOCIATES', name: 'Aaran Associates', industryCode: 'accountant', concept: 'Auditor office and bookkeeping practice.' },
     { code: 'AARAN_INFO_TECH', name: 'Aaran Info Tech', industryCode: 'computer', concept: 'Computer sales and service.' },
     { code: 'TIRUPUR_DIRECT', name: 'Tirupur Direct', industryCode: 'ecommerce', concept: 'Tirupur based garment ecommerce.' },
-    { code: 'AARAN_CONNECT', name: 'Aaran Connect', industryCode: 'marketing', concept: 'Buyer and seller connection network like IndiaMART.' },
+    { code: 'TENKASI_SPORTS', name: 'Tenkasi Sports', industryCode: 'ecommerce', concept: 'Sports goods sales and local commerce.' },
   ],
   sathish: [
     { code: 'GANAPATHI_PRINTING', name: 'Ganapathi Printing', industryCode: 'offset_printing', concept: 'Offset printing business.' },
@@ -328,11 +340,12 @@ async function ensureTenantCompany(
     return existing.id
   }
 
-  const result = await database.insertInto('companies').values(row).executeTakeFirst()
+  const result = await database.insertInto('companies').values({ ...row, uuid: nextPublicUuid() }).executeTakeFirst()
   return Number(result.insertId)
 }
 
 async function ensureCompanyColumns(database: TenantDatabase) {
+  await addColumnIfMissing(database, 'companies', 'uuid', 'CHAR(8) NULL AFTER id')
   await addColumnIfMissing(database, 'companies', 'tenant_id', 'INT NOT NULL DEFAULT 0')
   await addColumnIfMissing(database, 'companies', 'industry_id', 'INT NOT NULL DEFAULT 0')
   await addColumnIfMissing(database, 'companies', 'code', 'VARCHAR(64) NULL')
@@ -371,6 +384,7 @@ async function createCompanyChildTables(database: TenantDatabase) {
     .createTable('accounting_years')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('name', 'varchar(80)', (col) => col.notNull())
     .addColumn('start_date', 'date', (col) => col.notNull())
     .addColumn('end_date', 'date', (col) => col.notNull())
@@ -385,6 +399,7 @@ async function createCompanyChildTables(database: TenantDatabase) {
     .createTable('default_companies')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('tenant_id', 'integer', (col) => col.notNull())
     .addColumn('industry_id', 'integer', (col) => col.notNull())
     .addColumn('company_id', 'integer', (col) => col.notNull())
@@ -398,6 +413,7 @@ async function createCompanyChildTables(database: TenantDatabase) {
     .createTable('company_logos')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('company_id', 'integer', (col) => col.notNull())
     .addColumn('logo_url', 'varchar(500)', (col) => col.notNull())
     .addColumn('logo_type', 'varchar(80)', (col) => col.notNull())
@@ -410,6 +426,7 @@ async function createCompanyChildTables(database: TenantDatabase) {
     .createTable('address_book')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('owner_type', 'varchar(80)', (col) => col.notNull())
     .addColumn('owner_id', 'integer', (col) => col.notNull())
     .addColumn('address_type_id', 'varchar(80)')
@@ -445,6 +462,7 @@ async function createCompanyChildTables(database: TenantDatabase) {
     .createTable('company_bank_accounts')
     .ifNotExists()
     .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
     .addColumn('company_id', 'integer', (col) => col.notNull())
     .addColumn('bank_name', 'varchar(160)', (col) => col.notNull())
     .addColumn('account_number', 'varchar(80)', (col) => col.notNull())
@@ -463,6 +481,7 @@ async function createCompanyLookupTable(database: TenantDatabase, table: string,
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS \`${table}\` (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid CHAR(8) NULL,
       company_id INT NOT NULL,
       ${columns.map(([name, definition]) => `\`${name}\` ${definition}`).join(',\n      ')},
       is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -512,6 +531,7 @@ async function seedAccountingYears(database: TenantDatabase) {
     const result = await database
       .insertInto('accounting_years')
       .values({
+        uuid: nextPublicUuid(),
         name,
         start_date: startDate,
         end_date: endDate,
@@ -549,6 +569,7 @@ async function ensureDefaultCompany(
     .insertInto('default_companies')
     .values({
       tenant_id: tenant.id,
+      uuid: nextPublicUuid(),
       industry_id: industryId,
       company_id: companyId,
       accounting_year_id: accountingYearId,
@@ -561,8 +582,8 @@ async function seedCompanyChildren(database: TenantDatabase, companyId: number) 
   const logo = await database.selectFrom('company_logos').select('id').where('company_id', '=', companyId).executeTakeFirst()
   if (!logo) {
     await database.insertInto('company_logos').values([
-      { company_id: companyId, logo_url: '/storage/logo/logo.svg', logo_type: 'logo', is_active: true },
-      { company_id: companyId, logo_url: '/storage/logo/favicon.svg', logo_type: 'favicon', is_active: true },
+      { uuid: nextPublicUuid(), company_id: companyId, logo_url: '/storage/logo/logo.svg', logo_type: 'logo', is_active: true },
+      { uuid: nextPublicUuid(), company_id: companyId, logo_url: '/storage/logo/favicon.svg', logo_type: 'favicon', is_active: true },
     ]).execute()
   }
 
@@ -570,6 +591,7 @@ async function seedCompanyChildren(database: TenantDatabase, companyId: number) 
   if (!address) {
     await database.insertInto('address_book').values({
       owner_type: 'company',
+      uuid: nextPublicUuid(),
       owner_id: companyId,
       address_type_id: 'billing',
       address_line1: 'Primary business address',
@@ -591,7 +613,19 @@ function normalizeTenantCompanyCode(tenant: Tenant) {
   return tenant.slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 64)
 }
 
-async function ensureRole(database: TenantDatabase, role: { code: string; name: string }) {
+async function retireLegacyRoles(database: TenantDatabase) {
+  const legacyRoles = ['owner', 'super-admin', 'tenant-admin', 'tenant-user']
+  await database
+    .deleteFrom('rbac_role_policies')
+    .where('role_code', 'in', legacyRoles)
+    .execute()
+  await database
+    .deleteFrom('rbac_roles')
+    .where('code', 'in', legacyRoles)
+    .execute()
+}
+
+async function ensureRole(database: TenantDatabase, role: { code: string; name: string; settings: Record<string, unknown> }) {
   const existing = await database
     .selectFrom('rbac_roles')
     .select('id')
@@ -599,15 +633,25 @@ async function ensureRole(database: TenantDatabase, role: { code: string; name: 
     .executeTakeFirst()
 
   if (existing) {
+    await database
+      .updateTable('rbac_roles')
+      .set({
+        name: role.name,
+        settings: JSON.stringify(role.settings),
+        updated_at: new Date(),
+      })
+      .where('id', '=', existing.id)
+      .execute()
     return
   }
 
   await database
     .insertInto('rbac_roles')
     .values({
+      uuid: nextPublicUuid(),
       code: role.code,
       name: role.name,
-      settings: JSON.stringify({ system: true }),
+      settings: JSON.stringify(role.settings),
     })
     .execute()
 }
@@ -626,7 +670,7 @@ async function ensurePolicy(
     return
   }
 
-  await database.insertInto('rbac_policies').values(policy).execute()
+  await database.insertInto('rbac_policies').values({ ...policy, uuid: nextPublicUuid() }).execute()
 }
 
 async function ensureRolePolicy(database: TenantDatabase, roleCode: string, policyCode: string) {
@@ -643,6 +687,111 @@ async function ensureRolePolicy(database: TenantDatabase, roleCode: string, poli
 
   await database
     .insertInto('rbac_role_policies')
-    .values({ role_code: roleCode, policy_code: policyCode })
+    .values({ uuid: nextPublicUuid(), role_code: roleCode, policy_code: policyCode })
     .execute()
+}
+
+const tenantUuidTables = [
+  'companies',
+  'accounting_years',
+  'default_companies',
+  'company_logos',
+  'address_book',
+  'company_emails',
+  'company_phones',
+  'company_social_links',
+  'company_bank_accounts',
+  'rbac_roles',
+  'rbac_policies',
+  'rbac_role_policies',
+  'common_countries',
+  'common_states',
+  'common_districts',
+  'common_cities',
+  'common_pincodes',
+  'common_contact_groups',
+  'common_contact_types',
+  'common_address_types',
+  'common_bank_names',
+  'common_product_groups',
+  'common_product_categories',
+  'common_product_types',
+  'common_units',
+  'common_hsn_codes',
+  'common_taxes',
+  'common_brands',
+  'common_colours',
+  'common_sizes',
+  'common_currencies',
+  'common_order_types',
+  'common_styles',
+  'common_transports',
+  'common_warehouses',
+  'common_destinations',
+  'common_payment_terms',
+  'common_months',
+  'common_stock_rejection_types',
+  'sales_entries',
+  'sales_entry_items',
+  'sales_entry_comments',
+  'sales_entry_activities',
+  'masters_contacts',
+  'masters_products',
+  'masters_orders',
+] as const
+
+async function ensureTenantUuidColumns(database: TenantDatabase) {
+  for (const table of tenantUuidTables) {
+    const exists = await sql<{ TABLE_NAME: string }>`
+      SELECT TABLE_NAME
+      FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ${table}
+    `.execute(database)
+
+    if (!exists.rows.length) continue
+
+    await addColumnIfMissing(database, table, 'uuid', 'CHAR(8) NULL AFTER id')
+    await backfillUuidValues(database, table)
+
+    try {
+      await sql.raw(`ALTER TABLE \`${table}\` MODIFY \`uuid\` CHAR(8) NOT NULL`).execute(database)
+      await sql.raw(`ALTER TABLE \`${table}\` ADD UNIQUE KEY \`uk_${table}_uuid\` (\`uuid\`)`).execute(database)
+    } catch {
+      // Existing tenant databases may already have the NOT NULL column or unique key.
+    }
+  }
+}
+
+async function backfillUuidValues(database: TenantDatabase, table: string) {
+  const rows = await sql<{ id: number | string | bigint }>`
+    SELECT id FROM ${sql.table(table)} WHERE uuid IS NULL OR uuid = ''
+  `.execute(database)
+
+  for (const row of rows.rows) {
+    await sql`
+      UPDATE ${sql.table(table)}
+      SET uuid = ${await nextUniquePublicUuid(database, table)}
+      WHERE id = ${Number(row.id)}
+    `.execute(database)
+  }
+}
+
+async function nextUniquePublicUuid(database: TenantDatabase, table: string) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const uuid = nextPublicUuid()
+    const existing = await sql<{ id: number | string | bigint }>`
+      SELECT id FROM ${sql.table(table)} WHERE uuid = ${uuid} LIMIT 1
+    `.execute(database)
+
+    if (!existing.rows.length) {
+      return uuid
+    }
+  }
+
+  throw new Error(`Could not generate public uuid for ${table}.`)
+}
+
+function nextPublicUuid() {
+  return String(randomInt(10_000_000, 100_000_000))
 }

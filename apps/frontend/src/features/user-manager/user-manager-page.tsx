@@ -398,10 +398,11 @@ function PlatformUserUpsertPage({
               <TextField label={user ? "New password" : "Password"} value={form.password ?? ""} onChange={(value) => setField(setForm, "password", value)} />
               <FieldShell label="Role">
                 <select className="h-11 rounded-xl border border-border/70 bg-background px-3 text-sm" value={form.role} onChange={(event) => setField(setForm, "role", event.target.value)}>
-                  <option value="super-admin">super-admin</option>
                   <option value="admin">admin</option>
-                  <option value="tenant-admin">tenant-admin</option>
-                  <option value="tenant-user">tenant-user</option>
+                  <option value="manager">manager</option>
+                  <option value="staff">staff</option>
+                  <option value="user">user</option>
+                  {form.role === "software-admin" ? <option value="software-admin">software-admin</option> : null}
                 </select>
               </FieldShell>
               <SwitchRow checked={form.status === "active"} label="Active" description="Active users can authenticate when their role matches the surface." onChange={(checked) => setField(setForm, "status", checked ? "active" : "suspend")} />

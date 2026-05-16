@@ -3,7 +3,7 @@ import { ForbiddenException, NotFoundException, UnauthorizedException } from '..
 import { getDatabase } from '../../infrastructure/database/connection.js'
 import { getTenantDatabase } from '../../infrastructure/tenant-database/tenant-database.connection.js'
 import type { TenantDatabaseSchema } from '../../infrastructure/tenant-database/tenant-database.schema.js'
-import type { Tenant } from '../../modules/tenant/domain/tenant.types.js'
+import type { Tenant } from './domain/tenant.types.js'
 import { verifyJwt } from '../../infrastructure/auth/jwt.js'
 import type { Kysely } from 'kysely'
 

@@ -31,6 +31,11 @@ import { migrateStatesCommonTable } from './location/states/index.js'
 import { migrateDistrictsCommonTable } from './location/districts/index.js'
 import { migrateCitiesCommonTable } from './location/cities/index.js'
 import { migratePincodesCommonTable } from './location/pincodes/index.js'
+import { seedCountriesCommonTable } from './location/countries/index.js'
+import { seedStatesCommonTable } from './location/states/index.js'
+import { seedDistrictsCommonTable } from './location/districts/index.js'
+import { seedCitiesCommonTable } from './location/cities/index.js'
+import { seedPincodesCommonTable } from './location/pincodes/index.js'
 import { migrateContactGroupsCommonTable } from './contacts/contact-groups/index.js'
 import { migrateContactTypesCommonTable } from './contacts/contact-types/index.js'
 import { migrateAddressTypesCommonTable } from './contacts/address-types/index.js'
@@ -119,4 +124,12 @@ export async function migrateCommonModuleTables(database: Kysely<TenantDatabaseS
   await migrateAccountingYearCommonTable(database)
   await migrateMonthsCommonTable(database)
   await migrateStockRejectionTypesCommonTable(database)
+}
+
+export async function seedCommonModuleTables(database: Kysely<TenantDatabaseSchema>) {
+  await seedCountriesCommonTable(database)
+  await seedStatesCommonTable(database)
+  await seedDistrictsCommonTable(database)
+  await seedCitiesCommonTable(database)
+  await seedPincodesCommonTable(database)
 }

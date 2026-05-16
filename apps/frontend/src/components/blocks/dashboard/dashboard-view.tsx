@@ -24,6 +24,8 @@ import { UserManagerPage } from 'src/features/user-manager/user-manager-page'
 import { CommonDataPage } from 'src/features/master-data/interface/pages/common-data-page'
 import { MasterDataPage } from 'src/features/master-data/interface/pages/master-data-page'
 import { pageModuleKey, pageModuleKind } from 'src/features/master-data/application/master-data-service'
+import { ContactPage } from 'src/features/contact/contact-page'
+import { SalesPage } from 'src/features/sales/sales-page'
 import {
   appModulePages,
   defaultEnabledApps,
@@ -247,6 +249,10 @@ export function DashboardView({
           <SupportPage type="bugs" />
         ) : visiblePage === "tenant-roles" ? (
           <SupportPage type="tenant-roles" />
+        ) : visiblePage === "app-billing-sales" ? (
+          <SalesPage session={session} />
+        ) : moduleKey === "contacts" ? (
+          <ContactPage session={session} />
         ) : moduleKey && pageModuleKind(moduleKey) === "master" ? (
           <MasterDataPage moduleKey={moduleKey} session={session} />
         ) : moduleKey ? (

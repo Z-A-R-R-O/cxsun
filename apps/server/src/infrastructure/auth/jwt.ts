@@ -9,7 +9,14 @@ export interface AuthTokenPayload {
   exp?: number
 }
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'cxsun-local-dev-secret'
+const JWT_SECRET = process.env.JWT_SECRET
+
+function getJwtSecret(): string {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required')
+  }
+  return JWT_SECRET
+}
 
 export function signJwt(payload: AuthTokenPayload, expiresInSeconds = 24 * 60 * 60) {
   const header = { alg: 'HS256', typ: 'JWT' }
@@ -58,5 +65,5 @@ function base64UrlJson(value: unknown) {
 }
 
 function signature(unsigned: string) {
-  return createHmac('sha256', JWT_SECRET).update(unsigned).digest('base64url')
+  return createHmac('sha256', getJwtSecret()).update(unsigned).digest('base64url')
 }

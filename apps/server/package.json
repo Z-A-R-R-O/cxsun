@@ -7,8 +7,13 @@
     "dev": "node ../../apps/cli/preflight.mjs server",
     "build": "tsc",
     "start": "node ../../build/server/main.js",
+    "db": "tsx src/core/migration-manager/cli.ts",
+    "db:fresh": "tsx src/core/migration-manager/cli.ts fresh",
+    "db:migrate": "tsx src/core/migration-manager/cli.ts migrate",
+    "db:seed": "tsx src/core/migration-manager/cli.ts seed",
+    "db:setup": "tsx src/core/migration-manager/cli.ts setup",
     "lint": "eslint .",
-    "test:master-data": "tsx src/modules/master-data/tests/master-data-contract.test.ts",
+    "test:master-data": "tsx src/modules/foundation/master-data/tests/master-data-contract.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

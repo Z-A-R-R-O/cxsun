@@ -17,6 +17,10 @@
     "restart:active": "node apps/cli/restart-active.mjs",
     "build:server": "npm -w apps/server run build",
     "build:frontend": "npm -w apps/frontend run build",
+    "db:fresh": "npm -w apps/server run db:fresh --",
+    "db:migrate": "npm -w apps/server run db:migrate --",
+    "db:seed": "npm -w apps/server run db:seed --",
+    "db:setup": "npm -w apps/server run db:setup --",
     "version:bump": "node apps/cli/version-bump.mjs",
     "github:now": "node apps/cli/github-helper.mjs"
   },

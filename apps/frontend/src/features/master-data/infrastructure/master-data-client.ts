@@ -30,7 +30,7 @@ export async function listMasterDataRecords(session: AuthSession, moduleKey: str
   })
 
   if (!response.ok) {
-    throw new Error(`Master data list failed with status ${response.status}.`)
+    throw new Error(`Module record list failed with status ${response.status}.`)
   }
 
   return (await response.json()) as MasterDataRecord[]
@@ -48,13 +48,13 @@ export async function upsertMasterDataRecord(session: AuthSession, moduleKey: st
   })
 
   if (!response.ok) {
-    throw new Error(`Master data save failed with status ${response.status}.`)
+    throw new Error(`Module record save failed with status ${response.status}.`)
   }
 
   const result = (await response.json()) as { ok: boolean; record?: MasterDataRecord; error?: string }
 
   if (!result.ok || !result.record) {
-    throw new Error(result.error ?? "Master data save failed.")
+    throw new Error(result.error ?? "Module record save failed.")
   }
 
   return result.record
@@ -80,13 +80,13 @@ async function mutateMasterDataRecord(session: AuthSession, moduleKey: string, i
   })
 
   if (!response.ok) {
-    throw new Error(`Master data ${action} failed with status ${response.status}.`)
+    throw new Error(`Module record ${action} failed with status ${response.status}.`)
   }
 
   const result = (await response.json()) as { ok: boolean; error?: string }
 
   if (!result.ok) {
-    throw new Error(result.error ?? `Master data ${action} failed.`)
+    throw new Error(result.error ?? `Module record ${action} failed.`)
   }
 }
 
@@ -107,5 +107,5 @@ function moduleEndpoint(moduleKey: string) {
   if (moduleKey === "contacts") return "/api/v1/contacts"
   if (moduleKey === "products") return "/api/v1/products"
   if (moduleKey === "orders") return "/api/v1/orders"
-  return `/api/v1/master-data/${encodeURIComponent(moduleKey)}`
+  return `/api/v1/common/${encodeURIComponent(moduleKey)}`
 }

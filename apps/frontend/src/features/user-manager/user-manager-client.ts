@@ -78,7 +78,7 @@ export function emptyPlatformUser(tenantId: number): PlatformUserUpsertInput {
     name: "",
     email: "",
     password: "",
-    role: "tenant-user",
+    role: "user",
     status: "active",
   }
 }

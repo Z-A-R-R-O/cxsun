@@ -115,3 +115,41 @@ Add multi-theme support to the active Vite frontend, including blue, emerald, or
 - Keep the `master-data` API as a compatibility registry for frontend common list screens.
 - Wire standalone common modules into the app module and tenant provisioning path.
 - Verify contract coverage, backend typecheck/build, and frontend typecheck.
+
+### Phase 16: Frontend standalone common API routing
+
+- Keep `master-data/modules` as the frontend registry endpoint.
+- Route common record list, upsert, destroy, and restore calls to `/api/v1/common/<moduleKey>`.
+- Keep contact, product, and order record calls on their standalone master endpoints.
+- Verify frontend and backend typechecks plus the master-data contract.
+
+### Phase 17: Tenant sales entries
+
+- Add a standalone `entries/sales` backend module using modular, DDD, event, queue, interface, infrastructure, and migration folders.
+- Store sales entries and line items inside the tenant database only.
+- Publish create, update, delete, restore, comment, and tool events through the queue path.
+- Add a frontend sales list, print-preview show page, comments/tools/activity panel, and upsert flow under the tenant billing app.
+- Match the temp sales frontend more closely by using master autocomplete lookups for contact/product/common masters and a draft item row with preview-table edit/delete actions.
+- Verify tenant-isolated backend checks and frontend typecheck/build.
+
+### Phase 18: Standalone contact master
+
+- Replace the generic contact master-data implementation with an individual contact codebase and table set from the temp contact structure.
+- Store contact identity, tax, emails, phones, addresses, social links, bank accounts, and GST detail rows in standalone tenant tables.
+- Keep `/api/v1/contacts` as the public API, but serve full contact records from the contact module rather than shared master-data primitives.
+- Add a contact frontend feature with list, show, and animated-tab upsert UX matching the temp Details, Tax Details, Communication, Addresses, Finance, and More grouping.
+- Route contact dashboard pages to the standalone feature and keep sales contact lookup working against the richer contact payload.
+- Verify frontend/backend typecheck and active builds.
+
+### Phase 19: Backend structure upgrade
+
+- Move platform/core modules to `apps/server/src/core`: tenant, tenant-domain, industry, health, and system update.
+- Move backend shared helpers from `apps/server/src/common` to `apps/server/src/shared`.
+- Move reusable master-data registry into `apps/server/src/modules/foundation/master-data`.
+- Keep the reusable master-record engine under `apps/server/src/modules/foundation/master-record`.
+- Move Client Manager into `apps/server/src/modules/crm/client`.
+- Move Company into `apps/server/src/modules/master/company`.
+- Keep business common modules under `apps/server/src/modules/common/<group>/<module>`.
+- Keep tenant entries under `apps/server/src/modules/entries/<module>`.
+- Fix route guard metadata so class-level `@UseGuards` is honored.
+- Update assist architecture docs and changelog to reflect the upgraded structure.

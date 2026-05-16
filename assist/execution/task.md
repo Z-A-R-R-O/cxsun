@@ -149,3 +149,43 @@
 - [x] `15.4` Wire app imports and tenant provisioning to standalone common modules
 - [x] `15.5` Update contract coverage for standalone common module files
 - [x] `15.6` Run verification
+
+## Phase 16: Frontend standalone common API routing
+
+- [x] `16.1` Record frontend standalone API prompt
+- [x] `16.2` Route common frontend mutations and lists to standalone common APIs
+- [x] `16.3` Keep master-data as registry only for common modules
+- [x] `16.4` Run verification
+
+## Phase 17: Tenant sales entries
+
+- [x] `17.1` Record sales entry prompt
+- [x] `17.2` Add standalone tenant sales backend module
+- [x] `17.3` Wire sales migrations and app module
+- [x] `17.4` Add sales frontend list, print preview show, comments, tools, activity, and upsert
+- [x] `17.5` Run verification
+- [x] `17.6` Align sales upsert UX with temp animated tab voucher pattern
+- [x] `17.7` Wire master autocomplete lookups to sales contact and item draft inputs
+- [x] `17.8` Replace sales item editor with temp-style add/update draft and preview table
+
+## Phase 18: Standalone contact master
+
+- [x] `18.1` Record standalone contact prompt
+- [x] `18.2` Read temp contact migration, domain, API, and animated-tab frontend structure
+- [x] `18.3` Replace contact backend persistence with standalone contact and child tables
+- [x] `18.4` Add standalone contact frontend list, show, and animated-tab upsert
+- [x] `18.5` Route contact dashboard pages away from generic master-data UI
+- [x] `18.6` Keep sales contact lookup compatible with standalone contact records
+- [x] `18.7` Run frontend and backend verification
+
+## Phase 19: Backend structure upgrade
+
+- [x] `19.1` Move tenant, tenant-domain, industry, health, and system update into `core`
+- [x] `19.2` Move backend shared helpers from `src/common` to `src/shared`
+- [x] `19.3` Move master-data into `modules/foundation/master-data`
+- [x] `19.4` Move client manager into `modules/crm/client`
+- [x] `19.5` Move company into `modules/master/company`
+- [x] `19.6` Wire imports, platform database modules, package scripts, and app module boundaries
+- [x] `19.7` Fix class-level `@UseGuards` metadata handling
+- [x] `19.8` Recheck server/frontend typecheck and builds
+- [x] `19.9` Update assist changelog, architecture context, rules, and templates for the upgraded structure

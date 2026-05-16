@@ -53,6 +53,7 @@ export class UserManagerService {
     if (!name) return { ok: false, error: 'Name is required.' }
     if (!email || !email.includes('@')) return { ok: false, error: 'Valid email is required.' }
     if (!userId && !password) return { ok: false, error: 'Password is required for new users.' }
+    if (!role) return { ok: false, error: 'Role must be admin, manager, staff, user, or software-admin.' }
 
     return {
       access_id: accessId,
@@ -78,5 +79,7 @@ function normalizeStatus(value: unknown): PlatformUserStatus {
 
 function normalizeRole(value: unknown) {
   const role = String(value ?? '').trim()
-  return role || 'tenant-user'
+  if (!role) return 'user'
+  if (['admin', 'manager', 'staff', 'user', 'software-admin'].includes(role)) return role
+  return ''
 }

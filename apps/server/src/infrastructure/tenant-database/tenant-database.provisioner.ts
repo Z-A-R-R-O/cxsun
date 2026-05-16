@@ -1,7 +1,7 @@
 import { Injectable } from '../../core/decorators/injectable.js'
 import { getDatabase } from '../database/connection.js'
 import { provisionTenantDatabase } from './tenant-database.connection.js'
-import type { Tenant } from '../../modules/tenant/domain/tenant.types.js'
+import type { Tenant } from '../../core/tenant/domain/tenant.types.js'
 
 export interface TenantProvisionResult {
   tenant: string

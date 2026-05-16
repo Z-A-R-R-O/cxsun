@@ -9,10 +9,16 @@ export function UseGuards(
     target: any,
     propertyKey?: string | symbol,
   ) => {
-    const key = propertyKey ?? target
-    const existing: (new (...args: any[]) => any)[] =
-      Reflect.getMetadata(GUARDS_KEY, target, key) ?? []
+    if (propertyKey === undefined) {
+      const existing: (new (...args: any[]) => any)[] =
+        Reflect.getMetadata(GUARDS_KEY, target) ?? []
+      Reflect.defineMetadata(GUARDS_KEY, [...existing, ...guards], target)
+      return
+    }
 
-    Reflect.defineMetadata(GUARDS_KEY, [...existing, ...guards], target, key)
+    const existing: (new (...args: any[]) => any)[] =
+      Reflect.getMetadata(GUARDS_KEY, target, propertyKey) ?? []
+
+    Reflect.defineMetadata(GUARDS_KEY, [...existing, ...guards], target, propertyKey)
   }
 }

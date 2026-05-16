@@ -39,9 +39,21 @@ The active backend separates platform data from tenant data.
 
 - Platform SQLite stores site content, industries, tenants, tenant domains, users, user-tenant access, platform RBAC policy catalog, tenant policy toggles, clients, and queue jobs.
 - Tenant MariaDB databases store tenant-local companies, company child tables, accounting years, default company selection, and tenant-local RBAC role-policy assignments.
+- Application tables keep `id INT AUTO_INCREMENT PRIMARY KEY` for internal joins and `uuid CHAR(8) NOT NULL UNIQUE` for public/API references. Keep 8-character public IDs for now; plan 16-character public IDs later when growth requires it.
 - The request path for tenant data is `URL host/domain -> tenant_domains -> tenants -> JWT/user_tenants check -> tenant database`.
 - `TenantContextService` is the runtime gateway for tenant-owned APIs. Company APIs already use it and require authenticated requests.
 - `TenantDatabaseProvisioner` runs on server startup and prepares every MariaDB-backed tenant database before the API starts listening.
+
+Current backend boundary layout:
+
+- `apps/server/src/core`: framework/runtime primitives plus platform/core modules (`tenant`, `tenant-domain`, `industry`, `health`, `system/system-update`).
+- `apps/server/src/shared`: backend-only shared helpers such as filters, guards, and middleware.
+- `apps/server/src/infrastructure`: database, queue, tenant provisioning, auth helpers, and lifecycle adapters.
+- `apps/server/src/modules/foundation`: reusable engines and compatibility registries (`master-record`, `master-data`).
+- `apps/server/src/modules/common/<group>/<module>`: standalone common tenant modules.
+- `apps/server/src/modules/master/<module>`: standalone master modules (`company`, `contact`, `product`, `order`).
+- `apps/server/src/modules/crm/client`: Client Manager platform module.
+- `apps/server/src/modules/entries/sales`: tenant-isolated sales entries.
 
 Current important API surfaces:
 
@@ -53,6 +65,11 @@ Current important API surfaces:
 - `GET/POST /api/v1/industries`
 - `GET/POST /api/v1/tenants`
 - `GET/POST /api/v1/companies`
+- `GET/POST /api/v1/contacts`
+- `GET/POST /api/v1/products`
+- `GET/POST /api/v1/orders`
+- `GET/POST /api/v1/common/<moduleKey>`
+- `GET/POST /api/v1/entries/sales`
 
 ## Dashboard Boundaries
 
@@ -60,7 +77,7 @@ The active frontend dashboard is split by authenticated role:
 
 - `super-admin` sees two orchestration areas: Platform / Master Database for tenant, domain, industry, client manager, system update, and user manager; Tenant Database for tenant-owned modules such as company.
 - `admin` sees the software operations dashboard for helpdesk, bugs, client notes, and update/support work.
-- Tenant roles (`tenant-admin`, `tenant-user`, and future tenant-local roles) see only the tenant dashboard, currently focused on tenant database companies and tenant-local roles.
+- Tenant roles (`admin`, `manager`, `staff`, and `user`) see only the tenant dashboard, currently focused on tenant database companies and tenant-local roles. The `super-admin` role is reserved for the single platform owner account.
 
 Keep these boundaries explicit when adding pages. Do not add platform orchestration pages to the tenant dashboard.
 

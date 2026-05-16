@@ -67,7 +67,7 @@ export function authHeaders(session: AuthSession) {
 
 export function roleMatchesSurface(role: string, surface: AuthSurface): boolean {
   if (surface === "super-admin") return role === "super-admin"
-  if (surface === "admin") return ["admin", "software-admin", "support-admin", "helpdesk-admin"].includes(role)
+  if (surface === "admin") return ["software-admin", "support-admin", "helpdesk-admin"].includes(role)
   return !roleMatchesSurface(role, "super-admin") && !roleMatchesSurface(role, "admin")
 }
 

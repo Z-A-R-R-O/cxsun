@@ -12,6 +12,40 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 
 ## v-1.0.18
 
+### [v 1.0.18] 2026-05-16 - migration manager and tenant public ids
+
+- Added a core migration manager with CLI scripts for `db:migrate`, `db:seed`, `db:setup`, and `db:fresh`.
+- Added tenant database fresh/setup verification for Aaran and a clear failure path when requesting retired or missing tenants such as `sundar`.
+- Added `uuid CHAR(8) NOT NULL UNIQUE` public IDs across tenant tables while keeping integer `id` as the internal primary key.
+- Backfilled and enforced tenant UUID columns through provisioning, and updated company and sales insert paths to generate short public IDs.
+- Added rulebook guidance that tables use `id INT AUTO_INCREMENT PRIMARY KEY` internally and an 8-character public `uuid`, with a future 16-character migration path.
+
+### [v 1.0.18] 2026-05-16 - default tenant and user seed refresh
+
+- Refreshed platform seed users to one super-admin identity, one software admin identity, and Aaran tenant users.
+- Rewrote default tenant seeds around Aaran, Sathasivam, Sampath, and Sathish.
+- Moved local development domains to the Aaran tenant.
+- Seeded Aaran tenant companies as Aaran Associates, Aaran Info Tech, Tirupur Direct, and Tenkasi Sports.
+- Replaced tenant-local role seeds with admin, manager, staff, and user while hiding super-admin from user assignment.
+
+### [v 1.0.18] 2026-05-16 10:30 am - upgraded backend structure boundaries
+
+- Reorganized backend folders so platform/framework modules live under `apps/server/src/core`:
+  - `tenant`
+  - `tenant-domain`
+  - `industry`
+  - `health`
+  - `system/system-update`
+- Renamed top-level backend shared helpers from `apps/server/src/common` to `apps/server/src/shared` to avoid confusion with business common modules.
+- Moved reusable master-data compatibility API under `apps/server/src/modules/foundation/master-data` beside the `foundation/master-record` engine.
+- Moved Client Manager into `apps/server/src/modules/crm/client`.
+- Moved Company into `apps/server/src/modules/master/company`.
+- Kept business common modules under `apps/server/src/modules/common/<group>/<module>`.
+- Kept standalone tenant entries under `apps/server/src/modules/entries`, including `entries/sales`.
+- Updated application module imports, platform database module imports, and server scripts for the new structure.
+- Fixed class-level `@UseGuards(...)` metadata so class-protected controllers are enforced correctly by the bootstrap.
+- Rechecked stale moved paths and verified server/frontend typecheck and builds.
+
 ### [v 1.0.18] 2026-05-15 10:57 pm - standalone common modules and foundation structure
 
 - Bumped workspace version to 1.0.18

@@ -721,3 +721,96 @@ ok fine make the same for all common inside common/<group>/<module> pattern
 ok i have already told this make all modules standonly and also structure core and foundation modules in structure
 ```
 
+## Current Prompt
+
+```
+ok implement it
+```
+
+## Current Prompt
+
+```
+ok fine next make entries/sales module as same as in temp/sales structure , Modular + DDD + event + queue and ui and ux same effect
+
+List + show page as print preview + upsert
+show page has comments , tools and activities and alos make this pure teant isolated
+```
+
+## Current Prompt
+
+```
+copy ui and ux effect same from temp dont change this ux
+
+upsert form with animated tabs and each tabs have proper alignment of inputs so prepare as the same read carefully on temp frontend and do the same
+```
+
+## Current Prompt
+
+```
+still not completed get master auto complete lookup and wire it to our sales and sale item input and sale items preview in table  to complete and ux has not same tone fix this alos
+
+read twice frontend sales and prepare exactly for contact and sales
+```
+
+## Current Prompt
+
+```
+refer  temp get contact table and contact structure from temp with all fields and wire it in our app make contact as standalone not to share with master data keep it individual codebase with all animated tabs , fields , and ux and ui
+```
+
+## Current Prompt
+
+```
+write changelog and write this structure update in assist to new upgraded structures
+```
+
+## Current Prompt
+
+```
+read assist/readme.md and check all common modules are properly wired
+```
+
+## Current Prompt
+
+```
+find all user seeder data and refactor for default
+
+user | pass
+
+sundar@sundar.com  | Kalarani1@@ as super admin and only one super-admin in whole application
+
+admin@sundar.com  | Admin@123 as admin 
+
+rewrite tenant seeder
+
+tenants
+
+Aaran
+Sathasivam
+Sampath
+Sathish
+
+as tenant seeder
+
+user for Aaran
+
+aaranoffice@gmail.com as admin for Aaran
+user.aaran@aaran.com for user in aaran
+
+add company for aaran 
+as 
+
+Aaran Associates
+Aaran Info Tech
+Tirupur Direct
+Tenkasi Sports
+
+role 
+
+super admin - > hide this role on other uers 
+
+admin
+manager
+staff -> all staff who editer data
+user - > all empolyees
+```

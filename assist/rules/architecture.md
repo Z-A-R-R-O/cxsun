@@ -30,10 +30,10 @@ cxsun/
 │   │   └── src/                 # Frontend source
 │   └── server/                  # Active backend API
 │       └── src/
-│           ├── common/          # Shared backend guards, filters, middleware
-│           ├── core/            # Custom framework bootstrap, decorators, DI
-│           ├── infrastructure/  # Config, shutdown, and platform adapters
-│           └── modules/         # Domain modules
+│           ├── core/            # Framework/runtime and platform/core modules
+│           ├── shared/          # Shared backend filters, middleware, helpers
+│           ├── infrastructure/  # Database, queue, tenant provisioning, adapters
+│           └── modules/         # Business modules and foundation engines
 ├── packages/
 │   ├── shared/                  # Types, constants, pure utilities only
 │   ├── web/                     # Placeholder package
@@ -60,30 +60,43 @@ The backend lives in `apps/server/src`.
 ```
 apps/server/src/
 ├── main.ts
-├── common/
-│   ├── filters/
-│   ├── guards/
-│   └── middleware/
 ├── core/
 │   ├── decorators/
 │   ├── exceptions/
+│   ├── guards/
+│   ├── health/
+│   ├── industry/
 │   ├── interfaces/
+│   ├── system/
+│   ├── tenant/
+│   ├── tenant-domain/
 │   ├── bootstrap.ts
 │   └── container.ts
+├── shared/
+│   ├── filters/
+│   ├── guards/
+│   └── middleware/
 ├── infrastructure/
-│   ├── config.ts
+│   ├── database/
+│   ├── queue/
+│   ├── tenant-database/
 │   └── shutdown.ts
 └── modules/
-    └── <module>/
-        ├── domain/
-        ├── application/
-        ├── infrastructure/
-        ├── interface/
-        ├── <module>.module.ts
-        └── index.ts
+    ├── auth/
+    ├── common/<group>/<module>/
+    ├── crm/client/
+    ├── entries/sales/
+    ├── foundation/master-data/
+    ├── foundation/master-record/
+    ├── home/
+    ├── master/company/
+    ├── master/contact/
+    ├── master/order/
+    ├── master/product/
+    └── site/
 ```
 
-The current `health` module predates full DDD placement and still has flat controller/service files. For new or expanded business modules, prefer:
+For new or expanded business modules, prefer:
 
 - `domain/` for entities, value objects, and domain events.
 - `application/` for use cases, DTOs, and application services.
@@ -92,6 +105,31 @@ The current `health` module predates full DDD placement and still has flat contr
 - `index.ts` for the module public API.
 
 Avoid direct cross-module imports. Use explicit public module exports, application contracts, or events where module boundaries are involved.
+
+## Backend Placement Rules
+
+- Put framework runtime, decorators, DI, guards, and platform/core modules under `apps/server/src/core`.
+- Put small backend-only shared helpers under `apps/server/src/shared`; do not use `src/common` for this because `modules/common` is a business module boundary.
+- Put reusable engines and compatibility registries under `apps/server/src/modules/foundation`.
+- Put every common business module under `apps/server/src/modules/common/<group>/<module>`.
+- Put standalone master modules under `apps/server/src/modules/master/<module>`.
+- Put CRM/support modules under `apps/server/src/modules/crm/<module>`.
+- Put tenant transaction/entry modules under `apps/server/src/modules/entries/<module>`.
+- Keep internal folder moves API-stable unless the user explicitly requests a route change.
+
+## Database Identity Rules
+
+All application-owned tables must keep a compact internal primary key and a separate short public identifier:
+
+```sql
+id INT AUTO_INCREMENT PRIMARY KEY,
+uuid CHAR(8) NOT NULL UNIQUE
+```
+
+- Use `id` for internal joins, foreign keys, repository lookups, and database performance.
+- Use `uuid` for API payloads, frontend routing, public references, and anything exposed outside the persistence layer.
+- At present, public IDs are 8 characters. When scale or collision risk grows, move new public IDs to 16 characters with a planned migration.
+- Do not use the public `uuid` as the primary key unless the architecture rules are intentionally changed.
 
 ## Multi-Tenant Runtime
 
