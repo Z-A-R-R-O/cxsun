@@ -5,6 +5,13 @@ import { brandsCommonDefinition } from './definition.js'
 
 const brandsSeedRows = [
   { name: '-' },
+  { name: 'Aaran' },
+  { name: 'Codexsun' },
+  { name: 'Classic' },
+  { name: 'Premium' },
+  { name: 'Value' },
+  { name: 'Urban' },
+  { name: 'Elite' },
 ]
 
 export function seedBrandsCommonTable(database: Kysely<TenantDatabaseSchema>) {

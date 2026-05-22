@@ -5,6 +5,13 @@ import { stockRejectionTypesCommonDefinition } from './definition.js'
 
 const stockRejectionTypesSeedRows = [
   { name: '-' },
+  { name: 'Damaged' },
+  { name: 'Short Quantity' },
+  { name: 'Quality Issue' },
+  { name: 'Wrong Item' },
+  { name: 'Expired' },
+  { name: 'Customer Return' },
+  { name: 'Transport Damage' },
 ]
 
 export function seedStockRejectionTypesCommonTable(database: Kysely<TenantDatabaseSchema>) {

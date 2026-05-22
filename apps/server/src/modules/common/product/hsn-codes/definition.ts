@@ -7,8 +7,9 @@ export const hsnCodesCommonDefinition: MasterDataModuleDefinition = {
   tableName: 'common_hsn_codes',
   idPrefix: 'hsn',
   group: 'product',
-  defaultSortKey: 'name',
+  defaultSortKey: 'code',
   columns: [
-    { key: 'name', label: 'Name', type: 'string', required: true, nullable: false },
+    { key: 'code', label: 'HSN Code', type: 'string', required: true, nullable: false },
+    { key: 'description', label: 'Description', type: 'string', required: true, nullable: false },
   ],
 }

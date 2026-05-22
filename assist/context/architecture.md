@@ -16,6 +16,7 @@ Read `assist/context/product-picture.md` alongside this file for the product-lev
 | 2026-05-15 | Split dashboards into super-admin, admin, and tenant modes. | Platform orchestration, software support operations, and tenant-isolated company/RBAC work have different responsibilities and should not share one mixed dashboard. |
 | 2026-05-16 | Keep framework/platform modules in `core`, reusable record engines in `modules/foundation`, and business modules in bounded module groups. | The backend now separates core runtime, shared helpers, foundation primitives, CRM, master, common, and entries so modules can be reused, dropped, or enhanced independently. |
 | 2026-05-16 | Use `id INT AUTO_INCREMENT PRIMARY KEY` plus `uuid CHAR(8) NOT NULL UNIQUE` on application tables. | Numeric IDs stay fast and stable for internal joins, while short uppercase alphanumeric public UUIDs hide sequence IDs from APIs and UI. Move public UUIDs to 16 characters later when scale requires it. |
+| 2026-05-22 | Route user-facing frontend modules to feature-owned standalone pages. | Product, contact, company, sales, and future modules should keep custom UI behavior inside their own feature pages instead of expanding generic master-data/common-data pages with module-specific branches. |
 
 ## Active Workspaces
 
@@ -58,6 +59,7 @@ Run targeted checks during development, or `npm run check` before finalizing mea
 - Put tenant database connection, provisioning, and tenant-local schema types under `apps/server/src/infrastructure/tenant-database`.
 - Use `TenantContextService` for tenant-owned APIs. It resolves `x-tenant-code`, JWT tenant code, or host/domain to a tenant, verifies user access, checks tenant policy, and returns the tenant-local database handle.
 - Put active frontend UI work under `apps/frontend/src`.
+- Route concrete frontend module pages to standalone feature-owned pages under `apps/frontend/src/features/<module>/`; keep generic master/common pages limited to reusable primitives or fallback behavior.
 - Put frontend CSS under `apps/frontend/src/assets/css`.
 - Use Kysely with SQLite for platform persistence at `storage/database/cxsun.sqlite`.
 - Use Kysely with MariaDB for tenant-owned data such as companies, company child tables, accounting years, default company records, and tenant-local RBAC role-policy mappings.

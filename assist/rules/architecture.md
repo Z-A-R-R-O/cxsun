@@ -192,6 +192,14 @@ apps/frontend/src/
 
 Keep UI feature code in `apps/frontend` until a separate reusable package is intentionally introduced.
 
+## Frontend Module Page Routing
+
+- Every concrete user-facing module page must be routed to its own feature-owned page component under `apps/frontend/src/features/<module>/`.
+- Route module pages explicitly from the dashboard/router to that feature page. Do not hide module ownership behind a generic page switch.
+- Shared pages and registries, such as master-data or common-data screens, may provide reusable primitives and generic fallback behavior only.
+- Do not grow generic pages with module-specific `if/else` branches for columns, filters, lookups, form layout, tabs, print behavior, or detail views.
+- When a module needs custom behavior, create or extend that module's standalone page instead. Keep product code in product, contact code in contact, company code in company, sales code in sales, and so on.
+
 ## Cross-App Communication
 
 ```

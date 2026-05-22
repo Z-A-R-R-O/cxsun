@@ -50,6 +50,17 @@ export function seedCitiesCommonTable(database: Kysely<TenantDatabaseSchema>) {
   return seedMasterRecordDefinition(
     database,
     citiesCommonDefinition,
-    citiesRows.map((row) => ({ name: row.name })),
+    citiesRows.map((row) => ({ name: row.name, district_id: districtId(row.districtCode) })),
   )
 }
+
+function districtId(code: string) {
+  return Math.max(1, citiesDistrictCodes.indexOf(code) + 1)
+}
+
+const citiesDistrictCodes = [
+  '-', 'TN-CHN', 'TN-CBE', 'TN-MDU', 'TN-TPR', 'TN-TRY', 'TN-SLM', 'TN-ERD', 'TN-TNV', 'TN-TTK',
+  'TN-VLR', 'TN-DGL', 'TN-TNJ', 'TN-KKI', 'TN-KGI', 'TN-KPM', 'TN-CUD', 'TN-KRR', 'TN-VNR',
+  'TN-TVR', 'TN-TRYR', 'TN-CHG', 'KA-BLR', 'MH-MUM', 'DL-ND', 'TG-HYD', 'GJ-AHM', 'WB-KOL',
+  'PB-LDH', 'RJ-JPR', 'UP-LKO', 'KL-ERN', 'GA-NGA', 'BR-PAT', 'MP-IND',
+]

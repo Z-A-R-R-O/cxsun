@@ -5,6 +5,14 @@ import { contactGroupsCommonDefinition } from './definition.js'
 
 const contactGroupsSeedRows = [
   { name: '-' },
+  { name: 'Retail Customers' },
+  { name: 'Wholesale Customers' },
+  { name: 'Suppliers' },
+  { name: 'Transport Partners' },
+  { name: 'Service Providers' },
+  { name: 'Employees' },
+  { name: 'Agents' },
+  { name: 'Distributors' },
 ]
 
 export function seedContactGroupsCommonTable(database: Kysely<TenantDatabaseSchema>) {

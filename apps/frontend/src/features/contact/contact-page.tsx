@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { AlertCircle, ArrowLeft, Check, CheckCircle2, ChevronDown, Mail, MapPin, Pencil, Phone, Plus, RefreshCw, RotateCw, Save, Trash2, X } from "lucide-react"
+import { AlertCircle, ArrowLeft, Check, CheckCircle2, ChevronDown, Pencil, Plus, RefreshCw, RotateCw, Save, Trash2, X } from "lucide-react"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "src/components/ui/dropdown-menu"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
@@ -16,6 +15,7 @@ import {
   MasterListPageFrame,
   MasterListPaginationCard,
   MasterListRowActions,
+  MasterListShowCard,
   MasterListTableCard,
   MasterListToolbarCard,
   MasterListUpsertCard,
@@ -25,6 +25,13 @@ import {
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { destroyContact, emptyAddress, emptyContact, listContacts, restoreContact, upsertContact, type ContactAddress, type ContactBankAccount, type ContactEmail, type ContactGstDetail, type ContactInput, type ContactPhone, type ContactRecord, type ContactSocialLink } from "./contact-client"
+import { CityAutocompleteLookup } from "src/features/master-data/interface/components/city-autocomplete-lookup"
+import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
+import { CountryAutocompleteLookup } from "src/features/master-data/interface/components/country-autocomplete-lookup"
+import { DistrictAutocompleteLookup } from "src/features/master-data/interface/components/district-autocomplete-lookup"
+import { StateAutocompleteLookup } from "src/features/master-data/interface/components/state-autocomplete-lookup"
+import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 
 type ContactView = { mode: "list" } | { mode: "show"; contact: ContactRecord } | { mode: "upsert"; contact: ContactRecord | null }
 
@@ -107,12 +114,12 @@ export function ContactPage({ session }: { session: AuthSession }) {
   }
 
   if (view.mode === "upsert") {
-    return <ContactUpsertPage contact={view.contact} isSaving={upsertMutation.isPending} onBack={() => setView(view.contact ? { mode: "show", contact: view.contact } : { mode: "list" })} onSubmit={save} />
+    return <ContactUpsertPage contact={view.contact} isSaving={upsertMutation.isPending} session={session} onBack={() => setView(view.contact ? { mode: "show", contact: view.contact } : { mode: "list" })} onSubmit={save} />
   }
 
   if (view.mode === "show") {
     const contact = contacts.find((item) => item.uuid === view.contact.uuid) ?? view.contact
-    return <ContactShowPage contact={contact} onBack={() => setView({ mode: "list" })} onEdit={() => setView({ mode: "upsert", contact })} onRestore={() => void restore(contact)} onSuspend={() => void suspend(contact)} />
+    return <ContactShowPage contact={contact} session={session} onBack={() => setView({ mode: "list" })} onEdit={() => setView({ mode: "upsert", contact })} onRestore={() => void restore(contact)} onSuspend={() => void suspend(contact)} />
   }
 
   return (
@@ -171,18 +178,32 @@ export function ContactPage({ session }: { session: AuthSession }) {
   )
 }
 
-function ContactShowPage({ contact, onBack, onEdit, onRestore, onSuspend }: { contact: ContactRecord; onBack(): void; onEdit(): void; onRestore(): void; onSuspend(): void }) {
+function ContactShowPage({ contact, onBack, onEdit, onRestore, onSuspend, session }: { contact: ContactRecord; onBack(): void; onEdit(): void; onRestore(): void; onSuspend(): void; session: AuthSession }) {
+  const labels = useCommonRecordLabels(session)
   return (
-    <MasterListPageFrame title={contact.name} description="Contact profile with identity, tax, communication, address, and finance details." technicalName="page.master.contacts.show" action={<div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={onBack} className="rounded-md"><ArrowLeft className="size-4" />Back</Button><Button type="button" onClick={onEdit} className="rounded-md"><Pencil className="size-4" />Edit</Button>{contact.isActive ? <Button type="button" variant="destructive" onClick={onSuspend} className="rounded-md"><Trash2 className="size-4" />Suspend</Button> : <Button type="button" variant="outline" onClick={onRestore} className="rounded-md"><RotateCw className="size-4" />Restore</Button>}</div>}>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="rounded-md border-border/70"><CardContent className="p-6"><div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/70 pb-5"><div><p className="font-mono text-xs text-muted-foreground">{contact.code} / {contact.uuid}</p><h2 className="mt-1 text-2xl font-bold">{contact.name}</h2><p className="text-sm text-muted-foreground">{contact.legalName || contact.ledgerName || contactTypeLabel(contact.contactTypeId)}</p></div><StatusBadge active={contact.isActive} /></div><div className="grid gap-4 py-5 md:grid-cols-2"><Info label="GSTIN" value={contact.gstin} /><Info label="PAN" value={contact.pan} /><Info label="Opening balance" value={formatMoney(contact.openingBalance)} /><Info label="Credit limit" value={formatMoney(contact.creditLimit)} /><Info label="Website" value={contact.website} /><Info label="MSME" value={[contact.msmeType, contact.msmeNo].filter(Boolean).join(" / ")} /></div><SectionTitle>Addresses</SectionTitle><div className="grid gap-3 md:grid-cols-2">{contact.addresses.length ? contact.addresses.map((address) => <AddressCard key={address.id ?? address.addressLine1} address={address} />) : <p className="text-sm text-muted-foreground">No address configured.</p>}</div></CardContent></Card>
-        <div className="space-y-4"><MiniPanel title="Communication" icon={<Phone className="size-4" />} rows={[["Phone", contact.primaryPhone], ["Email", contact.primaryEmail]]} /><MiniPanel title="Tax Flags" icon={<CheckCircle2 className="size-4" />} rows={[["TDS", contact.tdsAvailable ? "Yes" : "No"], ["TCS", contact.tcsAvailable ? "Yes" : "No"], ["TAN", contact.tan]]} /><MiniPanel title="Bank Accounts" icon={<Mail className="size-4" />} rows={contact.bankAccounts.map((bank) => [bank.bankName, `${bank.accountNumber} / ${bank.ifsc}`])} /></div>
+    <MasterListPageFrame title={`${contact.code} - ${contact.name}`} description={contact.legalName || contact.description || "Contact profile and connected tables."} technicalName="page.master.contacts.show" action={<div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={onBack} className="h-9 rounded-md"><ArrowLeft className="size-4" />Back</Button><Button type="button" onClick={onEdit} className="h-9 rounded-md"><Pencil className="size-4" />Edit</Button>{contact.isActive ? <Button type="button" variant="destructive" onClick={onSuspend} className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button> : <Button type="button" variant="outline" onClick={onRestore} className="h-9 rounded-md"><RotateCw className="size-4" />Restore</Button>}</div>}>
+      <div className="grid gap-4">
+        <ContactShowCard title="Contact profile">
+          <DetailTable rows={[["Name", contact.name], ["Code", contact.code], ["Legal name", contact.legalName], ["Contact type", labels.contactTypes(contact.contactTypeId)], ["Ledger", contact.ledgerName], ["Website", contact.website], ["Description", contact.description], ["Status", <StatusBadge key="status" active={contact.isActive} />]]} />
+        </ContactShowCard>
+        <ContactShowCard title="Compliance">
+          <DetailTable rows={[["GSTIN", contact.gstin], ["PAN", contact.pan], ["TAN", contact.tan], ["MSME", [contact.msmeType, contact.msmeNo].filter(Boolean).join(" / ")], ["TDS", contact.tdsAvailable ? "Yes" : "No"], ["TCS", contact.tcsAvailable ? "Yes" : "No"]]} />
+        </ContactShowCard>
+        <ContactShowCard title="Accounts">
+          <DetailTable rows={[["Opening balance", formatMoney(contact.openingBalance)], ["Credit limit", formatMoney(contact.creditLimit)], ["Balance type", contact.balanceType]]} />
+        </ContactShowCard>
+        <SubTable title="Addresses" rows={contact.addresses.map((address) => [address.addressLine1, [address.addressLine2, labels.cities(address.cityId), labels.districts(address.districtId), labels.states(address.stateId), labels.countries(address.countryId), labels.pincodes(address.pincodeId)].filter(Boolean).join(", "), address.isDefault ? "Default" : ""])} />
+        <SubTable title="Emails" rows={contact.emails.map((email) => [email.email, email.emailType, email.isPrimary ? "Primary" : ""])} />
+        <SubTable title="Phones" rows={contact.phones.map((phone) => [phone.phoneNumber, phone.phoneType, phone.isPrimary ? "Primary" : ""])} />
+        <SubTable title="Bank accounts" rows={contact.bankAccounts.map((bank) => [bank.bankName, bank.accountNumber, bank.ifsc])} />
+        <SubTable title="GST Details" rows={contact.gstDetails.map((gst) => [gst.gstin, gst.state, gst.isDefault ? "Default" : ""])} />
+        <SubTable title="Social links" rows={contact.socialLinks.map((link) => [link.platform, link.url, link.isActive ? "Active" : "Disabled"])} />
       </div>
     </MasterListPageFrame>
   )
 }
 
-function ContactUpsertPage({ contact, isSaving, onBack, onSubmit }: { contact: ContactRecord | null; isSaving: boolean; onBack(): void; onSubmit(input: ContactInput): Promise<void> }) {
+function ContactUpsertPage({ contact, isSaving, onBack, onSubmit, session }: { contact: ContactRecord | null; isSaving: boolean; onBack(): void; onSubmit(input: ContactInput): Promise<void>; session: AuthSession }) {
   const [form, setForm] = useState<ContactInput>(() => contact ? contactToInput(contact) : emptyContact())
   const [submitted, setSubmitted] = useState(false)
   const nameError = submitted && !String(form.name ?? "").trim()
@@ -201,19 +222,15 @@ function ContactUpsertPage({ contact, isSaving, onBack, onSubmit }: { contact: C
     void onSubmit(form)
   }
 
-  function setContactType(value: string) {
-    const option = contactTypeOptions.find((item) => item.value === value)
-    setForm((current) => ({ ...current, contactTypeId: option?.value ?? null, ledgerId: option?.ledgerId ?? null, ledgerName: option?.ledgerName ?? null }))
-  }
   return (
     <MasterListPageFrame title={contact ? "Edit contact" : "New contact"} description="Update contact identity, tax, communication, address, and finance details." technicalName="page.master.contacts.upsert" action={<Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-4"><ArrowLeft className="size-4" />Back</Button>}>
       {missingFields.length ? <ValidationBanner missingFields={missingFields} /> : null}
       <MasterListUpsertLayout><MasterListUpsertCard className="overflow-hidden p-0 [&>div]:p-0"><form onSubmit={(event) => { event.preventDefault(); submitContact() }}><AnimatedTabs className="[&>div:first-child]:rounded-none [&>div:first-child]:border-x-0 [&>div:first-child]:border-t-0 [&>div:first-child]:border-b [&>div:first-child]:border-border/70 [&>div:first-child]:bg-card [&>div:first-child]:px-4 [&>div:first-child]:py-0.5 [&>div:first-child]:shadow-none md:[&>div:first-child]:px-6 [&>div:first-child_button]:min-h-8 [&>div:first-child_button]:py-1 [&>div:last-child]:mx-auto [&>div:last-child]:mt-6 [&>div:last-child]:w-full [&>div:last-child]:px-4 [&>div:last-child]:pb-4 md:[&>div:last-child]:px-6" tabs={[
-        { value: "details", label: "Details", content: <TabPanel><div className="grid gap-5 md:grid-cols-2"><Field error={nameError} label="Name *" value={form.name ?? ""} onChange={(value) => setForm((current) => ({ ...current, name: value, legalName: shouldAutoFillLegalName(current) ? titleCaseName(value) : current.legalName }))} /><Field label="Code" value={form.code ?? ""} placeholder="C-0001 auto generated" onChange={(value) => setForm((current) => ({ ...current, code: value.toUpperCase() }))} /><Field label="Legal name" value={form.legalName ?? ""} onChange={(value) => setForm((current) => ({ ...current, legalName: value }))} /><SelectField error={contactTypeError} label="Contact Type *" value={form.contactTypeId ?? ""} placeholder="Select contact type" options={contactTypeOptions} onChange={setContactType} /><Field numeric label="Opening balance" value={String(form.openingBalance ?? 0)} onChange={(value) => setForm((current) => ({ ...current, openingBalance: Number(value || 0) }))} /><Field numeric label="Credit limit" value={String(form.creditLimit ?? 0)} onChange={(value) => setForm((current) => ({ ...current, creditLimit: Number(value || 0) }))} /><div className="md:col-span-2"><ToggleCard checked={Boolean(form.isActive)} label="Active" description="Active contacts are available in contact workflows." onChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} /></div></div></TabPanel> },
-        { value: "tax", label: "Tax Details", content: <TabPanel><div className="grid gap-5 md:grid-cols-2"><Field label="GSTIN" value={form.gstin ?? ""} onChange={(value) => setForm((current) => ({ ...current, gstin: value.toUpperCase() }))} /><Field label="PAN" value={form.pan ?? ""} onChange={(value) => setForm((current) => ({ ...current, pan: value.toUpperCase() }))} /><Field label="MSME No" value={form.msmeNo ?? ""} onChange={(value) => setForm((current) => ({ ...current, msmeNo: value }))} /><SelectField label="MSME Category" value={form.msmeType ?? ""} placeholder="Select MSME category" options={msmeOptions} onChange={(value) => setForm((current) => ({ ...current, msmeType: value }))} /><Field label="TAN No" value={form.tan ?? ""} onChange={(value) => setForm((current) => ({ ...current, tan: value.toUpperCase() }))} /><div className="grid gap-4 md:grid-cols-2"><ToggleCard checked={Boolean(form.tdsAvailable)} label="TDS Available" description="Enable TDS applicability." onChange={(checked) => setForm((current) => ({ ...current, tdsAvailable: checked }))} /><ToggleCard checked={Boolean(form.tcsAvailable)} label="TCS Available" description="Enable TCS applicability." onChange={(checked) => setForm((current) => ({ ...current, tcsAvailable: checked }))} /></div><Collection title="GST Details" onAdd={() => setForm((current) => ({ ...current, gstDetails: [...current.gstDetails, { gstin: "", state: "", isDefault: current.gstDetails.length === 0 }] }))}>{form.gstDetails.map((item, index) => <GstRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, gstDetails: updateAt(current.gstDetails, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, gstDetails: current.gstDetails.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></div></TabPanel> },
+        { value: "details", label: "Details", content: <TabPanel><div className="grid gap-5 md:grid-cols-2"><Field error={nameError} label="Name *" value={form.name ?? ""} onChange={(value) => setForm((current) => ({ ...current, name: value, legalName: shouldAutoFillLegalName(current) ? titleCaseName(value) : current.legalName }))} /><Field label="Code" value={form.code ?? ""} placeholder="C-0001 auto generated" onChange={(value) => setForm((current) => ({ ...current, code: value.toUpperCase() }))} /><Field label="Legal name" value={form.legalName ?? ""} onChange={(value) => setForm((current) => ({ ...current, legalName: value }))} /><ContactTypeLookup error={contactTypeError} session={session} value={form.contactTypeId ?? ""} onChange={(value, label) => setForm((current) => ({ ...current, contactTypeId: value, ledgerId: value, ledgerName: label }))} /><Field numeric label="Opening balance" value={String(form.openingBalance ?? 0)} onChange={(value) => setForm((current) => ({ ...current, openingBalance: Number(value || 0) }))} /><Field numeric label="Credit limit" value={String(form.creditLimit ?? 0)} onChange={(value) => setForm((current) => ({ ...current, creditLimit: Number(value || 0) }))} /><div className="md:col-span-2"><ToggleCard checked={Boolean(form.isActive)} label="Active" onChange={(checked) => setForm((current) => ({ ...current, isActive: checked }))} /></div></div></TabPanel> },
+        { value: "tax", label: "Tax Details", content: <TabPanel><div className="grid gap-5 md:grid-cols-2"><Field label="GSTIN" value={form.gstin ?? ""} onChange={(value) => setForm((current) => ({ ...current, gstin: value.toUpperCase() }))} /><Field label="PAN" value={form.pan ?? ""} onChange={(value) => setForm((current) => ({ ...current, pan: value.toUpperCase() }))} /><Field label="MSME No" value={form.msmeNo ?? ""} onChange={(value) => setForm((current) => ({ ...current, msmeNo: value }))} /><SelectField label="MSME Category" value={form.msmeType ?? ""} placeholder="Select MSME category" options={msmeOptions} onChange={(value) => setForm((current) => ({ ...current, msmeType: value }))} /><Field label="TAN No" value={form.tan ?? ""} onChange={(value) => setForm((current) => ({ ...current, tan: value.toUpperCase() }))} /><div className="grid gap-4 md:grid-cols-2"><ToggleCard checked={Boolean(form.tdsAvailable)} label="TDS Available" description="Enable TDS applicability." onChange={(checked) => setForm((current) => ({ ...current, tdsAvailable: checked }))} /><ToggleCard checked={Boolean(form.tcsAvailable)} label="TCS Available" description="Enable TCS applicability." onChange={(checked) => setForm((current) => ({ ...current, tcsAvailable: checked }))} /></div><Collection title="GST Details" onAdd={() => setForm((current) => ({ ...current, gstDetails: [...current.gstDetails, { gstin: "", state: "", isDefault: current.gstDetails.length === 0 }] }))}>{form.gstDetails.map((item, index) => <GstRow key={index} item={item} session={session} onChange={(patch) => setForm((current) => ({ ...current, gstDetails: updateAt(current.gstDetails, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, gstDetails: current.gstDetails.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></div></TabPanel> },
         { value: "communication", label: "Communication", content: <TabPanel><Collection title="Contact Emails" onAdd={() => setForm((current) => ({ ...current, emails: [...current.emails, { email: "", emailType: "", isPrimary: false }] }))}>{form.emails.map((item, index) => <EmailRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, emails: updateAt(current.emails, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, emails: current.emails.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection><Collection title="Contact Phones" onAdd={() => setForm((current) => ({ ...current, phones: [...current.phones, { phoneNumber: "", phoneType: "", isPrimary: false }] }))}>{form.phones.map((item, index) => <PhoneRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, phones: updateAt(current.phones, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, phones: current.phones.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></TabPanel> },
-        { value: "addresses", label: "Addresses", content: <TabPanel><Collection title="Addresses" onAdd={() => setForm((current) => ({ ...current, addresses: [...current.addresses, { ...emptyAddress(), isDefault: current.addresses.length === 0 }] }))}>{form.addresses.map((item, index) => <AddressRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, addresses: updateAt(current.addresses, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, addresses: current.addresses.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></TabPanel> },
-        { value: "finance", label: "Finance", content: <TabPanel><Collection title="Bank Accounts" onAdd={() => setForm((current) => ({ ...current, bankAccounts: [...current.bankAccounts, { bankName: "", accountNumber: "", accountHolderName: "", ifsc: "", branch: "", isPrimary: current.bankAccounts.length === 0 }] }))}>{form.bankAccounts.map((item, index) => <BankRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, bankAccounts: updateAt(current.bankAccounts, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, bankAccounts: current.bankAccounts.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></TabPanel> },
+        { value: "addresses", label: "Addresses", content: <TabPanel><Collection title="Addresses" onAdd={() => setForm((current) => ({ ...current, addresses: [...current.addresses, { ...emptyAddress(), isDefault: current.addresses.length === 0 }] }))}>{form.addresses.map((item, index) => <AddressRow key={index} item={item} session={session} onChange={(patch) => setForm((current) => ({ ...current, addresses: updateAt(current.addresses, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, addresses: current.addresses.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></TabPanel> },
+        { value: "finance", label: "Finance", content: <TabPanel><Collection title="Bank Accounts" onAdd={() => setForm((current) => ({ ...current, bankAccounts: [...current.bankAccounts, { bankName: "", accountNumber: "", accountHolderName: "", ifsc: "", branch: "", isPrimary: current.bankAccounts.length === 0 }] }))}>{form.bankAccounts.map((item, index) => <BankRow key={index} item={item} session={session} onChange={(patch) => setForm((current) => ({ ...current, bankAccounts: updateAt(current.bankAccounts, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, bankAccounts: current.bankAccounts.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></TabPanel> },
         { value: "more", label: "More", content: <TabPanel><div className="grid gap-5 md:grid-cols-2"><Field label="Website" value={form.website ?? ""} onChange={(value) => setForm((current) => ({ ...current, website: value }))} /><TextField label="Description" value={form.description ?? ""} onChange={(value) => setForm((current) => ({ ...current, description: value }))} /><Collection title="Social Links" onAdd={() => setForm((current) => ({ ...current, socialLinks: [...current.socialLinks, { platform: "", url: "", isActive: true }] }))}>{form.socialLinks.map((item, index) => <SocialRow key={index} item={item} onChange={(patch) => setForm((current) => ({ ...current, socialLinks: updateAt(current.socialLinks, index, patch) }))} onRemove={() => setForm((current) => ({ ...current, socialLinks: current.socialLinks.filter((_, itemIndex) => itemIndex !== index) }))} />)}</Collection></div></TabPanel> },
       ]} /><div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6"><Button type="submit" disabled={isSaving} className="h-10 rounded-md px-5"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button><Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-5"><X className="size-4" />Cancel</Button></div></form></MasterListUpsertCard></MasterListUpsertLayout>
     </MasterListPageFrame>
@@ -242,19 +259,52 @@ function SelectField({ error = false, label, onChange, options, placeholder, val
   const selected = options.find((option) => option.value === value)
   return <div className="grid gap-2"><Label className={cn("text-sm font-medium text-muted-foreground", error && "text-destructive")}>{label}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-invalid={error} className={cn("h-11 w-full justify-between rounded-xl border-input bg-background px-3 text-left font-normal", error && "border-destructive ring-2 ring-destructive/25")}><span className={selected ? "truncate" : "truncate text-muted-foreground"}>{selected?.label ?? placeholder}</span><ChevronDown className="size-4 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="z-[120] w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl p-1 shadow-xl">{options.map((option) => <DropdownMenuItem key={option.value} className="flex cursor-pointer justify-between rounded-lg" onSelect={() => onChange(option.value)}><span>{option.label}</span>{option.value === value ? <Check className="size-4 text-emerald-600" /> : null}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></div>
 }
-function ToggleCard({ checked, description, label, onChange }: { checked: boolean; description: string; label: string; onChange(value: boolean): void }) {
-  return <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", checked ? "border-emerald-300 bg-emerald-50/90 text-emerald-950" : "border-border/70 bg-muted/10")}><span><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted-foreground">{description}</span></span><Switch checked={checked} onCheckedChange={onChange} /></label>
+function ContactTypeLookup({ error, onChange, session, value }: { error: boolean; onChange(value: string | null, label: string | null): void; session: AuthSession; value: string }) {
+  return (
+    <div className="grid gap-2">
+      <CommonRecordAutocompleteLookup
+        className={cn(error && "[&_input]:border-destructive [&_input]:ring-2 [&_input]:ring-destructive/25")}
+        label="Contact Type *"
+        moduleKey="contactTypes"
+        placeholder="Search contact type"
+        session={session}
+        value={value}
+        onChange={(selectedValue, record) => onChange(selectedValue === null ? null : String(selectedValue), record ? getCommonRecordName(record) : null)}
+      />
+    </div>
+  )
+}
+function ToggleCard({ checked, description, label, onChange }: { checked: boolean; description?: string; label: string; onChange(value: boolean): void }) {
+  return <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", checked ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}><span><span className="flex items-center gap-1.5 text-sm font-medium">{checked ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : null}{label}</span>{description ? <span className="block text-xs text-muted-foreground">{description}</span> : null}</span><Switch checked={checked} onCheckedChange={onChange} /></label>
 }
 function TabPanel({ children }: { children: ReactNode }) { return <div className="space-y-5">{children}</div> }
-function Collection({ children, onAdd, title }: { children: ReactNode; onAdd(): void; title: string }) { return <section className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:col-span-2 md:p-5"><div className="flex items-start justify-between gap-4"><h3 className="text-base font-semibold">{title}</h3><Button type="button" variant="outline" className="rounded-xl" onClick={onAdd}><Plus className="size-4" />Add</Button></div><div className="space-y-3">{children}</div></section> }
-function Row({ children, onRemove }: { children: ReactNode; onRemove(): void }) { return <div className="rounded-2xl border border-border/70 bg-background/65 p-4"><div className="mb-4 flex justify-end"><Button type="button" variant="ghost" className="h-8 rounded-lg" onClick={onRemove}><Trash2 className="size-4" />Remove</Button></div><div className="grid gap-5 md:grid-cols-3">{children}</div></div> }
+function Collection({ children, onAdd, title }: { children: ReactNode; onAdd(): void; title: string }) { return <section className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:col-span-2 md:p-5"><div className="mb-4 flex items-start justify-between gap-4"><h3 className="text-base font-semibold text-foreground">{title}</h3><Button type="button" variant="outline" className="h-8 rounded-lg px-3" onClick={onAdd}><Plus className="size-4" />Add</Button></div><div className="space-y-4">{children}</div></section> }
+function Row({ children, columns = 3, onRemove }: { children: ReactNode; columns?: 2 | 3; onRemove(): void }) { return <div className="rounded-2xl border border-border/70 bg-background/65 p-4"><div className="mb-4 flex justify-end"><Button type="button" variant="ghost" className="h-8 gap-2 rounded-lg" onClick={onRemove}><Trash2 className="size-4" />Remove</Button></div><div className={cn("grid gap-x-6 gap-y-5", columns === 2 ? "md:grid-cols-2" : "md:grid-cols-3")}>{children}</div></div> }
 function Primary({ checked, label, onChange }: { checked: boolean; label: string; onChange(value: boolean): void }) { return <label className="flex cursor-pointer items-center gap-3 pt-7 text-sm font-medium"><input type="checkbox" className="size-4" checked={checked} onChange={(event) => onChange(event.target.checked)} />{label}</label> }
 function EmailRow({ item, onChange, onRemove }: { item: ContactEmail; onChange(patch: Partial<ContactEmail>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Email" value={item.email} onChange={(email) => onChange({ email })} /><Field label="Email Type" value={item.emailType} onChange={(emailType) => onChange({ emailType })} /><Primary checked={item.isPrimary} label="Primary email" onChange={(isPrimary) => onChange({ isPrimary })} /></Row> }
 function PhoneRow({ item, onChange, onRemove }: { item: ContactPhone; onChange(patch: Partial<ContactPhone>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Phone" value={item.phoneNumber} onChange={(phoneNumber) => onChange({ phoneNumber })} /><Field label="Phone Type" value={item.phoneType} onChange={(phoneType) => onChange({ phoneType })} /><Primary checked={item.isPrimary} label="Primary phone" onChange={(isPrimary) => onChange({ isPrimary })} /></Row> }
-function AddressRow({ item, onChange, onRemove }: { item: ContactAddress; onChange(patch: Partial<ContactAddress>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Address line 1" value={item.addressLine1} onChange={(addressLine1) => onChange({ addressLine1 })} /><Field label="Address line 2" value={item.addressLine2 ?? ""} onChange={(addressLine2) => onChange({ addressLine2 })} /><Field label="City" value={item.cityId ?? ""} onChange={(cityId) => onChange({ cityId })} /><Field label="District" value={item.districtId ?? ""} onChange={(districtId) => onChange({ districtId })} /><Field label="State" value={item.stateId ?? ""} onChange={(stateId) => onChange({ stateId })} /><Field label="Pincode" value={item.pincodeId ?? ""} onChange={(pincodeId) => onChange({ pincodeId })} /><Primary checked={item.isDefault} label="Default address" onChange={(isDefault) => onChange({ isDefault })} /></Row> }
-function BankRow({ item, onChange, onRemove }: { item: ContactBankAccount; onChange(patch: Partial<ContactBankAccount>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Bank name" value={item.bankName} onChange={(bankName) => onChange({ bankName })} /><Field label="Account number" value={item.accountNumber} onChange={(accountNumber) => onChange({ accountNumber })} /><Field label="Holder name" value={item.accountHolderName} onChange={(accountHolderName) => onChange({ accountHolderName })} /><Field label="IFSC" value={item.ifsc} onChange={(ifsc) => onChange({ ifsc })} /><Field label="Branch" value={item.branch ?? ""} onChange={(branch) => onChange({ branch })} /><Primary checked={item.isPrimary} label="Primary bank" onChange={(isPrimary) => onChange({ isPrimary })} /></Row> }
-function GstRow({ item, onChange, onRemove }: { item: ContactGstDetail; onChange(patch: Partial<ContactGstDetail>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="GSTIN" value={item.gstin} onChange={(gstin) => onChange({ gstin: gstin.toUpperCase() })} /><Field label="State" value={item.state} onChange={(state) => onChange({ state })} /><Primary checked={item.isDefault} label="Default GST" onChange={(isDefault) => onChange({ isDefault })} /></Row> }
-function SocialRow({ item, onChange, onRemove }: { item: ContactSocialLink; onChange(patch: Partial<ContactSocialLink>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Platform" value={item.platform} onChange={(platform) => onChange({ platform })} /><Field label="URL" value={item.url} onChange={(url) => onChange({ url })} /><ToggleCard checked={item.isActive} label="Active" description="Show this social link." onChange={(isActive) => onChange({ isActive })} /></Row> }
+function AddressRow({ item, onChange, onRemove, session }: { item: ContactAddress; onChange(patch: Partial<ContactAddress>): void; onRemove(): void; session: AuthSession }) {
+  return (
+    <Row columns={2} onRemove={onRemove}>
+      <CommonRecordAutocompleteLookup label="Address Type" moduleKey="addressTypes" session={session} value={item.addressTypeId} onChange={(value) => onChange({ addressTypeId: value === null ? null : String(value) })} />
+      <Field label="Address line 1" value={item.addressLine1} onChange={(addressLine1) => onChange({ addressLine1 })} />
+      <Field label="Address line 2" value={item.addressLine2 ?? ""} onChange={(addressLine2) => onChange({ addressLine2 })} />
+      <CountryAutocompleteLookup session={session} value={item.countryId} onChange={(value) => onChange({ countryId: value === null ? null : String(value), stateId: null, districtId: null, cityId: null, pincodeId: null })} />
+      <StateAutocompleteLookup countryId={item.countryId} session={session} value={item.stateId} onChange={(value) => onChange({ stateId: value === null ? null : String(value), districtId: null, cityId: null, pincodeId: null })} />
+      <DistrictAutocompleteLookup session={session} stateId={item.stateId} value={item.districtId} onChange={(value) => onChange({ districtId: value === null ? null : String(value), cityId: null, pincodeId: null })} />
+      <CityAutocompleteLookup districtId={item.districtId} session={session} value={item.cityId} onChange={(value) => onChange({ cityId: value === null ? null : String(value), pincodeId: null })} />
+      <CommonRecordAutocompleteLookup label="Pincode" moduleKey="pincodes" optionFilter={(record) => matchesReference(record.city_id, item.cityId)} placeholder="Search pincode" session={session} value={item.pincodeId} onChange={(value) => onChange({ pincodeId: value === null ? null : String(value) })} />
+      <Primary checked={item.isDefault} label="Default address" onChange={(isDefault) => onChange({ isDefault })} />
+    </Row>
+  )
+}
+function BankRow({ item, onChange, onRemove, session }: { item: ContactBankAccount; onChange(patch: Partial<ContactBankAccount>): void; onRemove(): void; session: AuthSession }) {
+  return <Row columns={2} onRemove={onRemove}><CommonRecordAutocompleteLookup label="Bank name" moduleKey="bankNames" session={session} value={item.bankName} onChange={(_, record) => onChange({ bankName: record ? getCommonRecordName(record) : "" })} /><Field label="Account number" value={item.accountNumber} onChange={(accountNumber) => onChange({ accountNumber })} /><Field label="Holder name" value={item.accountHolderName} onChange={(accountHolderName) => onChange({ accountHolderName })} /><Field label="IFSC" value={item.ifsc} onChange={(ifsc) => onChange({ ifsc })} /><Field label="Branch" value={item.branch ?? ""} onChange={(branch) => onChange({ branch })} /><Primary checked={item.isPrimary} label="Primary bank" onChange={(isPrimary) => onChange({ isPrimary })} /></Row>
+}
+function GstRow({ item, onChange, onRemove, session }: { item: ContactGstDetail; onChange(patch: Partial<ContactGstDetail>): void; onRemove(): void; session: AuthSession }) {
+  return <Row onRemove={onRemove}><Field label="GSTIN" value={item.gstin} onChange={(gstin) => onChange({ gstin: gstin.toUpperCase() })} /><StateAutocompleteLookup session={session} value={item.state} onChange={(value, record) => onChange({ state: record ? getCommonRecordName(record) : value === null ? "" : String(value) })} /><Primary checked={item.isDefault} label="Default GST" onChange={(isDefault) => onChange({ isDefault })} /></Row>
+}
+function SocialRow({ item, onChange, onRemove }: { item: ContactSocialLink; onChange(patch: Partial<ContactSocialLink>): void; onRemove(): void }) { return <Row onRemove={onRemove}><Field label="Platform" value={item.platform} onChange={(platform) => onChange({ platform })} /><Field label="URL" value={item.url} onChange={(url) => onChange({ url })} /><ToggleCard checked={item.isActive} label="Active" onChange={(isActive) => onChange({ isActive })} /></Row> }
 function StatusBadge({ active }: { active: boolean }) {
   return (
     <Badge
@@ -270,10 +320,13 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 function ListHeader({ children, className }: { children: ReactNode; className?: string }) { return <th className={cn("border-b border-border/70 px-4 py-3.5 text-left font-medium text-foreground", className)}>{children}</th> }
-function Info({ label, value }: { label: string; value?: string | null }) { return <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 text-sm">{value || "-"}</p></div> }
-function SectionTitle({ children }: { children: ReactNode }) { return <h3 className="mb-3 border-t border-border/70 pt-5 text-base font-semibold">{children}</h3> }
-function AddressCard({ address }: { address: ContactAddress }) { return <div className="rounded-md border border-border/70 p-3 text-sm"><MapPin className="mb-2 size-4 text-muted-foreground" /><p>{address.addressLine1}</p><p className="text-muted-foreground">{[address.addressLine2, address.cityId, address.stateId, address.pincodeId].filter(Boolean).join(", ")}</p></div> }
-function MiniPanel({ icon, rows, title }: { icon: ReactNode; rows: Array<[string, string | null | undefined]>; title: string }) { return <Card className="rounded-md border-border/70"><CardHeader><CardTitle className="flex items-center gap-2 text-base">{icon}{title}</CardTitle></CardHeader><CardContent className="space-y-2">{rows.length ? rows.map(([label, value]) => <Info key={label} label={label} value={value} />) : <p className="text-sm text-muted-foreground">No details configured.</p>}</CardContent></Card> }
+function ContactShowCard({ children, title }: { children: ReactNode; title: string }) { return <MasterListShowCard title={title} className="gap-0 py-0 [&>div:first-child]:px-4 [&>div:first-child]:py-3">{children}</MasterListShowCard> }
+function DetailTable({ rows }: { rows: Array<[string, ReactNode]> }) {
+  return <div className="-mx-5 -mb-5 -mt-5 overflow-hidden rounded-b-md border-t border-border/70"><table className="w-full border-collapse text-sm"><tbody>{rows.map(([label, value]) => <tr key={label} className="border-b border-border/60 last:border-b-0"><th className="w-44 border-r border-border/70 bg-muted/35 px-3 py-2.5 text-left align-top text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</th><td className="px-3 py-2.5 align-top font-medium text-foreground">{value || "Not set"}</td></tr>)}</tbody></table></div>
+}
+function SubTable({ rows, title }: { title: string; rows: Array<Array<ReactNode>> }) {
+  return <ContactShowCard title={title}>{rows.length ? <div className="-mx-5 -mb-5 -mt-5 overflow-hidden rounded-b-md border-t border-border/70"><table className="w-full border-collapse text-sm"><tbody>{rows.map((row, index) => <tr key={index} className="border-b border-border/60 last:border-b-0">{row.map((cell, cellIndex) => <td key={cellIndex} className={cn("px-3 py-2.5 align-top text-muted-foreground", cellIndex === 0 && "border-r border-border/70 bg-muted/35 font-medium text-foreground")}>{cell || "Not set"}</td>)}</tr>)}</tbody></table></div> : <div className="-mx-5 -mb-5 -mt-5 border-t border-border/70 px-3 py-8 text-center text-sm text-muted-foreground">No rows added.</div>}</ContactShowCard>
+}
 function updateAt<T>(items: T[], index: number, patch: Partial<T>) { return items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }
 function contactToInput(contact: ContactRecord): ContactInput { return { ...contact, addresses: contact.addresses.length ? contact.addresses : emptyContact().addresses, emails: contact.emails.length ? contact.emails : emptyContact().emails, phones: contact.phones.length ? contact.phones : emptyContact().phones, socialLinks: contact.socialLinks, bankAccounts: contact.bankAccounts, gstDetails: contact.gstDetails } }
 function contactTypeLabel(value: string | null) { return contactTypeOptions.find((item) => item.value === value)?.label ?? value ?? "-" }
@@ -286,3 +339,38 @@ function filterContacts(contacts: ContactRecord[], statusFilter: string) {
 function formatMoney(value: number) { return new Intl.NumberFormat(undefined, { currency: "INR", maximumFractionDigits: 2, style: "currency" }).format(Number(value ?? 0)) }
 function shouldAutoFillLegalName(contact: ContactInput) { return !String(contact.legalName ?? "").trim() || String(contact.legalName ?? "") === titleCaseName(String(contact.name ?? "")) }
 function titleCaseName(value: string) { return value.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase()) }
+
+function matchesReference(recordValue: unknown, selectedValue: unknown) {
+  return selectedValue === null || selectedValue === undefined || selectedValue === "" || String(recordValue) === String(selectedValue)
+}
+
+function useCommonRecordLabels(session: AuthSession) {
+  const modules = ["contactTypes", "countries", "states", "districts", "cities", "pincodes"] as const
+  const queries = modules.map((moduleKey) => useQuery({ queryKey: ["common-labels", session.selectedTenant.slug, moduleKey], queryFn: () => listMasterDataRecords(session, moduleKey) }))
+  const maps = Object.fromEntries(modules.map((moduleKey, index) => [moduleKey, buildLabelMap(queries[index].data ?? [])])) as Record<(typeof modules)[number], Map<string, string>>
+
+  return {
+    cities: (value: unknown) => labelFrom(maps.cities, value),
+    contactTypes: (value: unknown) => labelFrom(maps.contactTypes, value),
+    countries: (value: unknown) => labelFrom(maps.countries, value),
+    districts: (value: unknown) => labelFrom(maps.districts, value),
+    pincodes: (value: unknown) => labelFrom(maps.pincodes, value),
+    states: (value: unknown) => labelFrom(maps.states, value),
+  }
+}
+
+function buildLabelMap(records: MasterDataRecord[]) {
+  const map = new Map<string, string>()
+  for (const record of records) {
+    const label = getCommonRecordName(record)
+    for (const key of [record.id, record.uuid, record.name, record.code]) {
+      if (key !== null && key !== undefined && key !== "") map.set(String(key), label)
+    }
+  }
+  return map
+}
+
+function labelFrom(map: ReadonlyMap<string, string>, value: unknown) {
+  if (value === null || value === undefined || value === "") return ""
+  return map.get(String(value)) ?? String(value)
+}

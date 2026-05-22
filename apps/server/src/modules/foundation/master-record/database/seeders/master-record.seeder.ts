@@ -30,11 +30,26 @@ export async function seedMasterRecordDefinition(
   for (const row of rows) {
     const existing = await dynamic
       .selectFrom(definition.tableName)
-      .select('id')
+      .selectAll()
       .where(definition.defaultSortKey, '=', row[definition.defaultSortKey])
       .executeTakeFirst()
 
-    if (existing) continue
+    if (existing) {
+      const patch = missingSeedValues(existing, row)
+
+      if (Object.keys(patch).length > 0) {
+        await dynamic
+          .updateTable(definition.tableName)
+          .set({
+            ...patch,
+            updated_at: timestamp,
+          })
+          .where('id', '=', existing.id)
+          .execute()
+      }
+
+      continue
+    }
 
     await dynamic
       .insertInto(definition.tableName)
@@ -51,3 +66,18 @@ export async function seedMasterRecordDefinition(
 }
 
 export { seedMasterRecordDefinition as seedMasterDataDefinition }
+
+function missingSeedValues(existing: Record<string, unknown>, row: Record<string, unknown>) {
+  const patch: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(row)) {
+    if (value === undefined) continue
+
+    const currentValue = existing[key]
+    if (currentValue === null || currentValue === undefined || currentValue === '') {
+      patch[key] = value
+    }
+  }
+
+  return patch
+}

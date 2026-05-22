@@ -5,6 +5,13 @@ import { productTypesCommonDefinition } from './definition.js'
 
 const productTypesSeedRows = [
   { name: '-' },
+  { name: 'Stock Item' },
+  { name: 'Service Item' },
+  { name: 'Non Stock Item' },
+  { name: 'Bundle' },
+  { name: 'Raw Material' },
+  { name: 'Semi Finished' },
+  { name: 'Finished Product' },
 ]
 
 export function seedProductTypesCommonTable(database: Kysely<TenantDatabaseSchema>) {

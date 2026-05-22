@@ -5,7 +5,6 @@ import { countriesCommonDefinition } from './definition.js'
 
 const countriesSeedRows = [
   { code: 'IN', name: 'India', phone_code: '+91' },
-  { code: '-', name: '-', phone_code: '-' },
   { code: 'US', name: 'United States', phone_code: '+1' },
   { code: 'GB', name: 'United Kingdom', phone_code: '+44' },
   { code: 'SG', name: 'Singapore', phone_code: '+65' },

@@ -5,6 +5,13 @@ import { orderTypesCommonDefinition } from './definition.js'
 
 const orderTypesSeedRows = [
   { name: '-' },
+  { name: 'Sales Order' },
+  { name: 'Purchase Order' },
+  { name: 'Quotation' },
+  { name: 'Proforma Invoice' },
+  { name: 'Delivery Challan' },
+  { name: 'Sales Return' },
+  { name: 'Purchase Return' },
 ]
 
 export function seedOrderTypesCommonTable(database: Kysely<TenantDatabaseSchema>) {

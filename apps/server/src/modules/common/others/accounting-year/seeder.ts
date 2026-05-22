@@ -5,6 +5,10 @@ import { accountingYearCommonDefinition } from './definition.js'
 
 const accountingYearSeedRows = [
   { name: '-' },
+  { name: '2024-2025' },
+  { name: '2025-2026' },
+  { name: '2026-2027' },
+  { name: '2027-2028' },
 ]
 
 export function seedAccountingYearCommonTable(database: Kysely<TenantDatabaseSchema>) {

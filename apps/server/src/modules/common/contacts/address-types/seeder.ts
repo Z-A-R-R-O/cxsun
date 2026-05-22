@@ -5,6 +5,14 @@ import { addressTypesCommonDefinition } from './definition.js'
 
 const addressTypesSeedRows = [
   { name: '-' },
+  { name: 'Billing' },
+  { name: 'Shipping' },
+  { name: 'Registered Office' },
+  { name: 'Branch Office' },
+  { name: 'Warehouse' },
+  { name: 'Factory' },
+  { name: 'Home' },
+  { name: 'Work' },
 ]
 
 export function seedAddressTypesCommonTable(database: Kysely<TenantDatabaseSchema>) {

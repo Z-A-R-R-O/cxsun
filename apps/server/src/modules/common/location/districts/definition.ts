@@ -10,5 +10,6 @@ export const districtsCommonDefinition: MasterDataModuleDefinition = {
   defaultSortKey: 'name',
   columns: [
     { key: 'name', label: 'Name', type: 'string', required: true, nullable: false },
+    { key: 'state_id', label: 'State', type: 'number', numberMode: 'integer', required: true, nullable: false },
   ],
 }

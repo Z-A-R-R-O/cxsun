@@ -58,6 +58,8 @@
 - Use events or explicit public contracts for cross-module behavior.
 - Do not import another module's internals directly.
 - Keep `@cxsun/shared` limited to types, constants, and pure utilities.
+- Frontend module pages must be standalone feature pages routed explicitly from the dashboard/router.
+- Keep module-specific UI logic inside that module's feature folder. Do not add product/contact/company/sales-specific switches to generic master-data or common-data pages.
 
 ## Database Identity
 

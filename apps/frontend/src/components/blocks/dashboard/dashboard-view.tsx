@@ -21,11 +21,13 @@ import { IndustryPage } from 'src/features/industry/industry-page'
 import { ClientPage } from 'src/features/client/client-page'
 import { TenantDomainPage } from 'src/features/tenant-domain/tenant-domain-page'
 import { UserManagerPage } from 'src/features/user-manager/user-manager-page'
-import { CommonDataPage } from 'src/features/master-data/interface/pages/common-data-page'
+import { CommonDataPage } from 'src/features/master-data/interface/pages/common-module-pages'
 import { MasterDataPage } from 'src/features/master-data/interface/pages/master-data-page'
 import { pageModuleKey, pageModuleKind } from 'src/features/master-data/application/master-data-service'
 import { ContactPage } from 'src/features/contact/contact-page'
+import { ProductPage } from 'src/features/product/product-page'
 import { SalesPage } from 'src/features/sales/sales-page'
+import { DocumentSettingsPage, SalesSettingsPage } from 'src/features/settings/settings-page'
 import {
   appModulePages,
   defaultEnabledApps,
@@ -251,8 +253,14 @@ export function DashboardView({
           <SupportPage type="tenant-roles" />
         ) : visiblePage === "app-billing-sales" ? (
           <SalesPage session={session} />
+        ) : visiblePage === "app-billing-settings" ? (
+          <SalesSettingsPage session={session} />
+        ) : visiblePage === "app-billing-document-settings" ? (
+          <DocumentSettingsPage session={session} />
         ) : moduleKey === "contacts" ? (
           <ContactPage session={session} />
+        ) : moduleKey === "products" ? (
+          <ProductPage session={session} />
         ) : moduleKey && pageModuleKind(moduleKey) === "master" ? (
           <MasterDataPage moduleKey={moduleKey} session={session} />
         ) : moduleKey ? (

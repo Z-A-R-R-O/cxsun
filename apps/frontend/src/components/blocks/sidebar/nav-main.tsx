@@ -38,7 +38,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
                   asChild
                   isActive={item.isActive}
                   tooltip={item.title}
-                  className="h-10 rounded-xl px-3 font-semibold transition-[background,color,box-shadow,transform] duration-300 hover:bg-sidebar-accent/80 hover:shadow-sm data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-sm [&_svg]:size-4"
+                  className="h-10 rounded-xl px-3 font-semibold transition-[background,color,box-shadow,transform] duration-300 ease-out hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-md data-active:bg-sidebar-foreground data-active:text-sidebar data-active:shadow-md [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300"
                 >
                   <a href={item.url} onClick={handleSelect(item.onSelect)}>
                     {item.icon ? <item.icon /> : null}
@@ -60,15 +60,15 @@ export function NavMain({ items }: { items: NavItem[] }) {
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton
                     tooltip={item.title}
-                    className="h-10 rounded-xl px-3 font-semibold transition-[background,color,box-shadow] duration-300 hover:bg-sidebar-accent/80 hover:shadow-sm data-[state=open]:bg-transparent [&_svg]:size-4"
+                    className="h-10 rounded-xl px-3 font-semibold transition-[background,color,box-shadow,transform] duration-300 ease-out hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-md data-[state=open]:bg-sidebar-foreground/10 data-[state=open]:text-sidebar-foreground [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300"
                   >
                     {item.icon ? <item.icon /> : null}
                     <span>{item.title}</span>
-                    <ChevronRight className="ml-auto size-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                    <ChevronRight className="ml-auto size-4 text-current opacity-70 transition-[transform,color,opacity] duration-300 group-data-[state=open]/collapsible:rotate-90 group-hover/collapsible:opacity-100" />
                   </SidebarMenuButton>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                  <SidebarMenuSub className="mx-0 mt-1 gap-1 border-l-0 px-6 py-0 group-data-[collapsible=icon]:hidden">
+                <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-out data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <SidebarMenuSub className="mx-0 mt-1 gap-1 border-l-0 px-3 py-0 group-data-[collapsible=icon]:hidden">
                     {item.items.map((subItem) => <NestedSubItem key={subItem.title} item={subItem} />)}
                   </SidebarMenuSub>
                 </CollapsibleContent>
@@ -90,16 +90,16 @@ function NestedSubItem({ item }: { item: NavItem }) {
         <SidebarMenuSubItem>
           <CollapsibleTrigger asChild>
             <button
-              className="flex h-9 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium text-muted-foreground transition-[background,color,box-shadow] duration-300 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground data-[state=open]:text-sidebar-accent-foreground [&_svg]:size-4"
+              className="flex min-h-9 w-full items-center gap-1.5 rounded-xl px-2 py-2 text-left text-xs font-medium leading-tight text-muted-foreground transition-[background,color,box-shadow,transform] duration-300 ease-out hover:translate-x-0.5 hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-sm data-[state=open]:bg-sidebar-foreground/10 data-[state=open]:text-sidebar-foreground [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300"
               type="button"
             >
               {item.icon ? <item.icon /> : null}
-              <span className="min-w-0 flex-1 truncate">{item.title}</span>
-              <ChevronRight className="size-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]/nested-collapsible:rotate-90" />
+              <span className="min-w-0 flex-1 whitespace-normal break-words">{item.title}</span>
+              <ChevronRight className="size-4 text-current opacity-70 transition-[transform,color,opacity] duration-300 group-data-[state=open]/nested-collapsible:rotate-90 group-hover/nested-collapsible:opacity-100" />
             </button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-            <SidebarMenuSub className="ml-4 mt-1 gap-1 border-l px-3 py-1">
+          <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-out data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+            <SidebarMenuSub className="ml-2 mt-1 gap-1 border-l px-2 py-1">
               {item.items.map((child) => <NestedSubItem key={child.title} item={child} />)}
             </SidebarMenuSub>
           </CollapsibleContent>
@@ -113,11 +113,11 @@ function NestedSubItem({ item }: { item: NavItem }) {
       <SidebarMenuSubButton
         asChild
         isActive={item.isActive}
-        className="h-9 rounded-xl px-3 font-medium text-muted-foreground transition-[background,color,box-shadow] duration-300 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-sm [&_svg]:size-4"
+        className="min-h-9 rounded-xl px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-[background,color,box-shadow,transform] duration-300 ease-out hover:translate-x-0.5 hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-sm data-active:bg-sidebar-foreground data-active:text-sidebar data-active:shadow-md [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300 [&>a]:items-start [&>a]:gap-1.5 hover:[&_svg]:text-sidebar data-active:[&>a_svg]:!text-sidebar data-[active=true]:[&>a_svg]:!text-sidebar"
       >
         <a href={item.url} onClick={handleSelect(item.onSelect)}>
           {item.icon ? <item.icon /> : null}
-          <span>{item.title}</span>
+          <span className="whitespace-normal break-words">{item.title}</span>
         </a>
       </SidebarMenuSubButton>
     </SidebarMenuSubItem>

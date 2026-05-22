@@ -7,8 +7,9 @@ export const taxesCommonDefinition: MasterDataModuleDefinition = {
   tableName: 'common_taxes',
   idPrefix: 'tax',
   group: 'product',
-  defaultSortKey: 'name',
+  defaultSortKey: 'rate_percent',
   columns: [
-    { key: 'name', label: 'Name', type: 'string', required: true, nullable: false },
+    { key: 'rate_percent', label: 'Tax %', type: 'number', numberMode: 'decimal', required: true, nullable: false },
+    { key: 'description', label: 'Description', type: 'string', required: true, nullable: false },
   ],
 }

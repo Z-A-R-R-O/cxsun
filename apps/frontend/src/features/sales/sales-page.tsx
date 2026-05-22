@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, CheckCircle2, MessageSquare, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Trash2, X } from "lucide-react"
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, MessageSquare, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Trash2, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
+import type { AnimatedTab } from "src/components/ui/animated-tabs"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { Textarea } from "src/components/ui/textarea"
@@ -23,6 +24,10 @@ import {
 } from "src/components/blocks/lists/master-list"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
+import { listCompanies } from "src/features/company/company-client"
+import { isSoftwareSettingEnabled } from "src/features/settings/software-settings"
+import type { SoftwareSettingsState } from "src/features/settings/software-settings"
+import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
 import {
   addSalesComment,
   destroySalesEntry,
@@ -40,15 +45,51 @@ import {
   type SalesEntryInput,
   type SalesEntryItem,
 } from "./sales-client"
+import { SalesInvoiceDocument, type SalesPrintCopy } from "./sales-print-page"
 
 type SalesView = { mode: "list" } | { mode: "show"; entry: SalesEntry } | { mode: "upsert"; entry: SalesEntry | null }
+type SalesColumnId = "invoice" | "date" | "customer" | "status" | "payment" | "total" | "balance" | "updated"
+
+const salesPrintCopyOptions: readonly { label: string; value: SalesPrintCopy }[] = [
+  { label: "Original", value: "original" },
+  { label: "Duplicate", value: "duplicate" },
+  { label: "Office Copy", value: "triplicate" },
+]
+const salesStatusFilters = [
+  { id: "all", label: "All sales" },
+  { id: "draft", label: "draft" },
+  { id: "posted", label: "posted" },
+  { id: "cancelled", label: "cancelled" },
+]
+const defaultSalesColumnVisibility: Record<SalesColumnId, boolean> = {
+  balance: false,
+  customer: true,
+  date: true,
+  invoice: true,
+  payment: true,
+  status: true,
+  total: true,
+  updated: false,
+}
+const salesColumnCatalog: Array<{ id: SalesColumnId; label: string }> = [
+  { id: "invoice", label: "Invoice" },
+  { id: "date", label: "Date" },
+  { id: "customer", label: "Customer" },
+  { id: "status", label: "Status" },
+  { id: "payment", label: "Payment" },
+  { id: "total", label: "Total" },
+  { id: "balance", label: "Balance" },
+  { id: "updated", label: "Updated" },
+]
 
 export function SalesPage({ session }: { session: AuthSession }) {
   const queryClient = useQueryClient()
   const [view, setView] = useState<SalesView>({ mode: "list" })
   const [searchValue, setSearchValue] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
   const queryKey = ["sales-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listSalesEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: SalesEntryInput) => upsertSalesEntry(session, input) })
@@ -57,7 +98,7 @@ export function SalesPage({ session }: { session: AuthSession }) {
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: SalesEntry; body: string }) => addSalesComment(session, entry, body) })
   const toolMutation = useMutation({ mutationFn: ({ entry, tool }: { entry: SalesEntry; tool: string }) => runSalesTool(session, entry, tool) })
   const entries = entriesQuery.data ?? []
-  const filteredEntries = useMemo(() => searchSales(entries, searchValue), [entries, searchValue])
+  const filteredEntries = useMemo(() => filterSales(searchSales(entries, searchValue), statusFilter).sort((left, right) => String(left.invoice_no).localeCompare(String(right.invoice_no))), [entries, searchValue, statusFilter])
   const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
@@ -69,11 +110,12 @@ export function SalesPage({ session }: { session: AuthSession }) {
     await queryClient.invalidateQueries({ queryKey })
   }
 
-  async function save(input: SalesEntryInput) {
+  async function save(input: SalesEntryInput, printAfterSave = false) {
     const entry = await upsertMutation.mutateAsync(input)
     toast.success(input.uuid ? "Sales entry updated" : "Sales entry created", { description: entry.invoice_no })
     await refresh()
     setView({ mode: "show", entry })
+    if (printAfterSave) window.setTimeout(() => window.print(), 300)
   }
 
   async function destroy(entry: SalesEntry) {
@@ -93,19 +135,21 @@ export function SalesPage({ session }: { session: AuthSession }) {
   }
 
   if (view.mode === "show") {
+    const entry = entries.find((entry) => entry.uuid === view.entry.uuid) ?? view.entry
     return (
       <SalesShowPage
-        entry={entries.find((entry) => entry.uuid === view.entry.uuid) ?? view.entry}
+        entry={entry}
         isWorking={commentMutation.isPending || toolMutation.isPending}
+        session={session}
         onBack={() => setView({ mode: "list" })}
         onComment={async (entry, body) => {
           const updated = await commentMutation.mutateAsync({ entry, body })
           await refresh()
           setView({ mode: "show", entry: updated })
         }}
-        onDestroy={() => void destroy(view.entry)}
-        onEdit={() => setView({ mode: "upsert", entry: view.entry })}
-        onRestore={() => void restore(view.entry)}
+        onDestroy={() => void destroy(entry)}
+        onEdit={() => setView({ mode: "upsert", entry })}
+        onRestore={() => void restore(entry)}
         onTool={async (entry, tool) => {
           const updated = await toolMutation.mutateAsync({ entry, tool })
           toast.success(`${tool} queued`, { description: "The activity was recorded for this sales entry." })
@@ -119,8 +163,8 @@ export function SalesPage({ session }: { session: AuthSession }) {
   return (
     <MasterListPageFrame
       title="Sales"
-      description="Tenant-isolated sales entries with queue events, print preview, comments, tools, and activity history."
-      technicalName="page.entries.sales"
+      description="Create and review sales invoices."
+      technicalName="page.entries.sales.list"
       action={
         <div className="flex items-center gap-2">
           <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
@@ -129,7 +173,21 @@ export function SalesPage({ session }: { session: AuthSession }) {
       }
     >
       <MasterListToolbarCard
-        searchPlaceholder="Search invoice, customer, status, amount"
+        columns={salesColumnCatalog.map((column) => ({
+          id: column.id,
+          label: column.label,
+          checked: visibleColumns[column.id],
+          disabled: column.id === "invoice",
+          onCheckedChange: (checked) => setVisibleColumns((current) => ({ ...current, [column.id]: checked })),
+        }))}
+        filterOptions={salesStatusFilters}
+        filterValue={statusFilter}
+        onFilterValueChange={(value) => {
+          setStatusFilter(value)
+          setCurrentPage(1)
+        }}
+        onShowAllColumns={() => setVisibleColumns(defaultSalesColumnVisibility)}
+        searchPlaceholder="Search invoice, customer, date, reference, or status"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -141,27 +199,31 @@ export function SalesPage({ session }: { session: AuthSession }) {
           <table className="w-full min-w-[920px] border-collapse text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <ListHeader>Invoice</ListHeader>
-                <ListHeader>Date</ListHeader>
-                <ListHeader>Customer</ListHeader>
-                <ListHeader className="text-right">Total</ListHeader>
-                <ListHeader className="text-right">Balance</ListHeader>
-                <ListHeader>Status</ListHeader>
+                {visibleColumns.invoice ? <ListHeader>Invoice</ListHeader> : null}
+                {visibleColumns.date ? <ListHeader>Date</ListHeader> : null}
+                {visibleColumns.customer ? <ListHeader>Customer</ListHeader> : null}
+                {visibleColumns.status ? <ListHeader>Status</ListHeader> : null}
+                {visibleColumns.payment ? <ListHeader>Payment</ListHeader> : null}
+                {visibleColumns.total ? <ListHeader className="text-right">Total</ListHeader> : null}
+                {visibleColumns.balance ? <ListHeader className="text-right">Balance</ListHeader> : null}
+                {visibleColumns.updated ? <ListHeader>Updated</ListHeader> : null}
                 <ListHeader className="text-right">Action</ListHeader>
               </tr>
             </thead>
             <tbody>
               {pageEntries.map((entry) => (
                 <tr key={entry.uuid} className={cn("border-b border-border/70", !isActive(entry) && "bg-muted/20 text-muted-foreground")}>
-                  <td className="px-4 py-2">
+                  {visibleColumns.invoice ? <td className="px-4 py-2">
                     <button className="font-semibold hover:underline" onClick={() => setView({ mode: "show", entry })} type="button">{entry.invoice_no}</button>
                     <div className="font-mono text-xs text-muted-foreground">{entry.uuid}</div>
-                  </td>
-                  <td className="px-4 py-2">{formatDate(entry.invoice_date)}</td>
-                  <td className="px-4 py-2">{entry.customer_name}</td>
-                  <td className="px-4 py-2 text-right font-semibold">{formatMoney(entry.grand_total)}</td>
-                  <td className="px-4 py-2 text-right">{formatMoney(entry.balance_amount)}</td>
-                  <td className="px-4 py-2"><StatusBadge entry={entry} /></td>
+                  </td> : null}
+                  {visibleColumns.date ? <td className="px-4 py-2">{formatDate(entry.invoice_date)}</td> : null}
+                  {visibleColumns.customer ? <td className="px-4 py-2">{entry.customer_name}</td> : null}
+                  {visibleColumns.status ? <td className="px-4 py-2"><StatusBadge entry={entry} /></td> : null}
+                  {visibleColumns.payment ? <td className="px-4 py-2 text-muted-foreground">{entry.payment_status}</td> : null}
+                  {visibleColumns.total ? <td className="px-4 py-2 text-right font-semibold">{formatMoney(entry.grand_total)}</td> : null}
+                  {visibleColumns.balance ? <td className="px-4 py-2 text-right">{formatMoney(entry.balance_amount)}</td> : null}
+                  {visibleColumns.updated ? <td className="px-4 py-2 text-muted-foreground">{formatDate(entry.updated_at)}</td> : null}
                   <td className="px-4 py-1.5 text-right">
                     <MasterListRowActions
                       title={entry.invoice_no}
@@ -198,7 +260,7 @@ export function SalesPage({ session }: { session: AuthSession }) {
   )
 }
 
-function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onRestore, onTool }: {
+function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onRestore, onTool, session }: {
   entry: SalesEntry
   isWorking: boolean
   onBack(): void
@@ -207,92 +269,63 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
   onEdit(): void
   onRestore(): void
   onTool(entry: SalesEntry, tool: string): Promise<void>
+  session: AuthSession
 }) {
   const [comment, setComment] = useState("")
+  const [printCopies, setPrintCopies] = useState<readonly SalesPrintCopy[]>(["original"])
+  const [softwareSettings] = useCompanySoftwareSettings(session)
+  const companyQuery = useQuery({ queryKey: ["sales-print-company", session.selectedTenant.slug], queryFn: () => listCompanies(session) })
+  const printCompany = (companyQuery.data ?? []).find((company) => company.isPrimary) ?? companyQuery.data?.[0] ?? null
+  const selectedPrintCopies = salesPrintCopyOptions.map((option) => option.value).filter((copy) => printCopies.includes(copy))
+  const customTerms = softwareSettings.salesPrintingOptions.customTerms
+
+  function togglePrintCopy(copy: SalesPrintCopy) {
+    setPrintCopies((currentCopies) => {
+      if (!currentCopies.includes(copy)) return [...currentCopies, copy]
+      if (currentCopies.length === 1) return currentCopies
+      return currentCopies.filter((currentCopy) => currentCopy !== copy)
+    })
+  }
 
   return (
-    <MasterListPageFrame
-      title={`${entry.invoice_no} - ${entry.customer_name}`}
-      description="Print-preview sales voucher with comments, tools, and activity."
-      technicalName="page.entries.sales.show"
-      action={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={onBack} type="button" variant="outline" className="h-9 rounded-md"><ArrowLeft className="size-4" />Back</Button>
-          <Button onClick={onEdit} type="button" className="h-9 rounded-md"><Save className="size-4" />Edit</Button>
-          <Button onClick={() => window.print()} type="button" variant="outline" className="h-9 rounded-md"><Printer className="size-4" />Print</Button>
+    <main className="theme-shell mx-auto min-h-screen w-[94%] pb-8 pt-8 text-black sm:w-[92%] lg:w-[90%] print:fixed print:inset-0 print:z-[9999] print:min-h-0 print:w-full print:overflow-visible print:bg-white print:p-0">
+      <div className="mx-auto mb-3 flex w-full flex-wrap items-center justify-between gap-3 print:hidden">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.customer_name}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{entry.invoice_no}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex min-h-10 flex-wrap items-center gap-1 rounded-xl border border-border bg-card px-2 py-1 text-sm shadow-sm">
+            {salesPrintCopyOptions.map((option) => (
+              <label key={option.value} className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                <input type="checkbox" className="size-3.5 accent-primary" checked={printCopies.includes(option.value)} onChange={() => togglePrintCopy(option.value)} />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          <Button className="rounded-xl" onClick={() => window.print()} type="button"><Printer className="size-4" />Print</Button>
+          <Button type="button" variant="outline" className="rounded-xl" onClick={onEdit}><Pencil className="size-4" />Edit</Button>
+          <Button type="button" variant="outline" className="rounded-xl" onClick={onBack}><ArrowLeft className="size-4" />Back</Button>
+          <Button type="button" variant="outline" className="rounded-xl" disabled><ChevronLeft className="size-4" />Prev</Button>
+          <Button type="button" variant="outline" className="rounded-xl" disabled><ChevronRight className="size-4" />Next</Button>
           {isActive(entry) ? (
-            <Button onClick={onDestroy} type="button" variant="destructive" className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button>
+            <Button onClick={onDestroy} type="button" variant="destructive" className="rounded-xl"><Trash2 className="size-4" />Suspend</Button>
           ) : (
-            <Button onClick={onRestore} type="button" variant="outline" className="h-9 rounded-md"><RotateCcw className="size-4" />Restore</Button>
+            <Button onClick={onRestore} type="button" variant="outline" className="rounded-xl"><RotateCcw className="size-4" />Restore</Button>
           )}
         </div>
-      }
-    >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="rounded-md border-border/70 bg-white text-slate-950 shadow-sm">
-          <CardContent className="p-8">
-            <div className="flex items-start justify-between gap-6 border-b border-slate-200 pb-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tax Invoice</p>
-                <h2 className="mt-1 text-2xl font-bold">CXSun Tenant Company</h2>
-                <p className="mt-1 max-w-md text-sm text-slate-600">Tenant isolated billing document generated from the selected tenant database.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">{entry.invoice_no}</p>
-                <p className="text-sm text-slate-500">{formatDate(entry.invoice_date)}</p>
-                <StatusBadge entry={entry} />
-              </div>
+      </div>
+      <section className="mx-auto w-fit max-w-full overflow-hidden rounded-md border border-border/70 bg-card shadow-sm print:contents">
+        <div className="grid gap-4 overflow-x-auto p-3 print:contents sm:p-4">
+          {selectedPrintCopies.map((copy, index) => (
+            <div key={copy} className={index === selectedPrintCopies.length - 1 ? "print:contents" : "print:break-after-page"}>
+              <SalesInvoiceDocument company={printCompany} copy={copy} customTerms={customTerms} record={entry} />
             </div>
-            <div className="grid gap-4 border-b border-slate-200 py-5 md:grid-cols-2">
-              <PreviewBlock title="Bill To">{entry.customer_name}<br />{entry.billing_address || "Billing address not set"}</PreviewBlock>
-              <PreviewBlock title="Ship To">{entry.shipping_address || entry.billing_address || "Shipping address not set"}<br />{entry.place_of_supply || "Place of supply not set"}</PreviewBlock>
-            </div>
-            <div className="overflow-x-auto py-5">
-              <table className="w-full min-w-[720px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-slate-300 bg-slate-50">
-                    <PrintHeader>#</PrintHeader>
-                    <PrintHeader>Item</PrintHeader>
-                    <PrintHeader className="text-right">Qty</PrintHeader>
-                    <PrintHeader className="text-right">Rate</PrintHeader>
-                    <PrintHeader className="text-right">Tax</PrintHeader>
-                    <PrintHeader className="text-right">Total</PrintHeader>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entry.items.map((item, index) => (
-                    <tr key={`${item.id ?? index}`} className="border-b border-slate-100">
-                      <td className="px-3 py-3 text-slate-500">{index + 1}</td>
-                      <td className="px-3 py-3">
-                        <div className="font-semibold">{item.product_name}</div>
-                        <div className="text-xs text-slate-500">{item.description || item.hsn_code || "No description"}</div>
-                      </td>
-                      <td className="px-3 py-3 text-right">{item.quantity} {item.unit}</td>
-                      <td className="px-3 py-3 text-right">{formatMoney(item.rate)}</td>
-                      <td className="px-3 py-3 text-right">{formatMoney(item.tax_amount ?? 0)}</td>
-                      <td className="px-3 py-3 text-right font-semibold">{formatMoney(item.line_total ?? 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid gap-5 border-t border-slate-200 pt-5 md:grid-cols-[1fr_280px]">
-              <div className="text-sm text-slate-600">
-                <p className="font-semibold text-slate-900">Terms</p>
-                <p className="mt-1">{entry.terms || "No terms configured."}</p>
-                {entry.notes ? <p className="mt-4"><span className="font-semibold text-slate-900">Notes:</span> {entry.notes}</p> : null}
-              </div>
-              <div className="rounded-md border border-slate-200">
-                <AmountRow label="Subtotal" value={entry.subtotal} />
-                <AmountRow label="Discount" value={entry.discount_total} />
-                <AmountRow label="Tax" value={entry.tax_total} />
-                <AmountRow label="Round Off" value={entry.round_off} />
-                <AmountRow label="Grand Total" value={entry.grand_total} strong />
-                <AmountRow label="Balance" value={entry.balance_amount} strong />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
+      </section>
+      <div className="mx-auto mt-4 grid w-full gap-4 xl:grid-cols-[minmax(0,1fr)_360px] print:hidden">
+        <div />
         <div className="space-y-4">
           <Card className="rounded-md border-border/70">
             <CardHeader><CardTitle className="flex items-center gap-2 text-base"><MessageSquare className="size-4" />Comments</CardTitle></CardHeader>
@@ -320,7 +353,7 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
           </Card>
         </div>
       </div>
-    </MasterListPageFrame>
+    </main>
   )
 }
 
@@ -329,7 +362,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   isSaving: boolean
   session: AuthSession
   onBack(): void
-  onSubmit(input: SalesEntryInput): Promise<void>
+  onSubmit(input: SalesEntryInput, printAfterSave?: boolean): Promise<void>
 }) {
   const [draft, setDraft] = useState<SalesEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptySalesEntry())
   const totals = useMemo(() => calculateDraftTotals(draft.items, Number(draft.paid_amount ?? 0)), [draft.items, draft.paid_amount])
@@ -338,6 +371,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   const hsnCodesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listSalesCommonLookups(session, "hsnCodes") })
   const unitsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "units"], queryFn: () => listSalesCommonLookups(session, "units") })
   const taxesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "taxes"], queryFn: () => listSalesCommonLookups(session, "taxes") })
+  const [softwareSettings] = useCompanySoftwareSettings(session)
 
   return (
     <MasterListPageFrame
@@ -356,6 +390,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
                 hsnCodes={hsnCodesQuery.data ?? []}
                 products={productsQuery.data ?? []}
                 setForm={setDraft}
+                softwareSettings={softwareSettings}
                 taxes={taxesQuery.data ?? []}
                 totals={totals}
                 units={unitsQuery.data ?? []}
@@ -363,7 +398,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
             </div>
             <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6">
               <Button type="submit" disabled={isSaving} className="rounded-md"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button>
-              <Button type="button" disabled={isSaving} variant="secondary" onClick={() => void onSubmit({ ...draft, status: "posted" })} className="rounded-md"><Printer className="size-4" />Save & Print</Button>
+              <Button type="button" disabled={isSaving} variant="secondary" onClick={() => void onSubmit({ ...draft, status: "posted" }, true)} className="rounded-md"><Printer className="size-4" />Save & Print</Button>
               <Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>
             </div>
           </form>
@@ -373,12 +408,13 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   )
 }
 
-function SalesVoucherTabs({ contacts, form, hsnCodes, products, setForm, taxes, totals, units }: {
+function SalesVoucherTabs({ contacts, form, hsnCodes, products, setForm, softwareSettings, taxes, totals, units }: {
   contacts: SalesLookupOption[]
   form: SalesEntryInput
   hsnCodes: SalesLookupOption[]
   products: SalesLookupOption[]
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
+  softwareSettings: SoftwareSettingsState
   taxes: SalesLookupOption[]
   totals: DraftTotals
   units: SalesLookupOption[]
@@ -417,7 +453,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, products, setForm, taxes, 
     if (editingItemIndex !== null && editingItemIndex > index) setEditingItemIndex(editingItemIndex - 1)
   }
 
-  const tabs = [
+  const tabs: AnimatedTab[] = [
     {
       value: "details",
       label: "Details",
@@ -446,16 +482,16 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, products, setForm, taxes, 
       label: "Address",
       content: <SalesAddressTab form={form} setForm={setForm} />,
     },
-    {
+    ...(isSoftwareSettingEnabled(softwareSettings, "sales-use-eway") ? [{
       value: "eway",
       label: "E-way",
       content: <SalesDocumentTab form={form} setForm={setForm} type="eway" />,
-    },
-    {
+    }] : []),
+    ...(isSoftwareSettingEnabled(softwareSettings, "sales-use-einvoice") ? [{
       value: "einvoice",
       label: "E-invoice",
       content: <SalesDocumentTab form={form} setForm={setForm} type="einvoice" />,
-    },
+    }] : []),
     {
       value: "terms",
       label: "Terms",
@@ -945,18 +981,6 @@ function calculateDraftTotals(items: SalesEntryItem[], paidAmount: number): Draf
   }
 }
 
-function PreviewBlock({ children, title }: { children: ReactNode; title: string }) {
-  return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p><div className="mt-1 text-sm leading-6">{children}</div></div>
-}
-
-function PrintHeader({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cn("px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600", className)}>{children}</th>
-}
-
-function AmountRow({ label, strong, value }: { label: string; strong?: boolean; value: number }) {
-  return <div className={cn("flex justify-between border-b border-slate-200 px-4 py-2 text-sm last:border-b-0", strong && "bg-slate-50 font-bold")}><span>{label}</span><span>{formatMoney(value)}</span></div>
-}
-
 function SideNote({ body, meta, title }: { body: string; meta: string; title: string }) {
   return <div className="rounded-md border border-border/70 bg-muted/20 p-3"><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-sm text-muted-foreground">{body}</p><p className="mt-2 text-xs text-muted-foreground">{meta}</p></div>
 }
@@ -978,7 +1002,12 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
 function searchSales(entries: SalesEntry[], searchValue: string) {
   const term = searchValue.trim().toLowerCase()
   if (!term) return entries
-  return entries.filter((entry) => [entry.invoice_no, entry.uuid, entry.customer_name, entry.status, entry.payment_status, String(entry.grand_total)].some((value) => value.toLowerCase().includes(term)))
+  return entries.filter((entry) => [entry.invoice_no, entry.uuid, entry.customer_name, entry.invoice_date, entry.reference_no, entry.status, entry.payment_status, String(entry.grand_total)].some((value) => String(value ?? "").toLowerCase().includes(term)))
+}
+
+function filterSales(entries: SalesEntry[], statusFilter: string) {
+  if (statusFilter === "all") return entries
+  return entries.filter((entry) => entry.status === statusFilter)
 }
 
 function isActive(entry: SalesEntry) {

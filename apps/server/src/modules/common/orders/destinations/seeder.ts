@@ -5,6 +5,14 @@ import { destinationsCommonDefinition } from './definition.js'
 
 const destinationsSeedRows = [
   { name: '-' },
+  { name: 'Local Delivery' },
+  { name: 'Tiruppur' },
+  { name: 'Coimbatore' },
+  { name: 'Chennai' },
+  { name: 'Bengaluru' },
+  { name: 'Mumbai' },
+  { name: 'Delhi' },
+  { name: 'Hyderabad' },
 ]
 
 export function seedDestinationsCommonTable(database: Kysely<TenantDatabaseSchema>) {

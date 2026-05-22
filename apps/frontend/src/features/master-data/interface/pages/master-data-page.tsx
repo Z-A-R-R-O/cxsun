@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { ArrowLeft, CheckCircle2, Pencil, Plus, RefreshCw, RotateCcw, Save, Trash2, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
+import { AnimatedTabs } from "src/components/ui/animated-tabs"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { Switch } from "src/components/ui/switch"
@@ -42,6 +43,7 @@ export function MasterDataPage({ moduleKey, session }: { moduleKey: string; sess
   const restoreMutation = useMutation({ mutationFn: (record: MasterDataRecord) => restoreMasterDataRecord(session, moduleKey, record.uuid) })
   const definition = modulesQuery.data?.find((module) => module.key === moduleKey) ?? null
   const records = recordsQuery.data ?? []
+  const listColumns = definition ? definition.columns.slice(0, 5) : []
   const filteredRecords = useMemo(() => searchRecords(records, searchValue), [records, searchValue])
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / rowsPerPage))
   const pageRecords = filteredRecords.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
@@ -124,7 +126,7 @@ export function MasterDataPage({ moduleKey, session }: { moduleKey: string; sess
               <tr>
                 <ListHeader>#</ListHeader>
                 <ListHeader>UUID</ListHeader>
-                {definition?.columns.slice(0, 5).map((column) => <ListHeader key={column.key}>{column.label}</ListHeader>)}
+                {listColumns.map((column) => <ListHeader key={column.key}>{column.label}</ListHeader>)}
                 <ListHeader>Status</ListHeader>
                 <ListHeader>Updated</ListHeader>
                 <ListHeader className="text-right">Action</ListHeader>
@@ -135,7 +137,7 @@ export function MasterDataPage({ moduleKey, session }: { moduleKey: string; sess
                 <tr key={record.uuid} className={cn("border-b border-border/70", !isActive(record) && "bg-muted/20 text-muted-foreground")}>
                   <td className="px-4 py-2 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{record.uuid}</td>
-                  {definition?.columns.slice(0, 5).map((column) => (
+                  {listColumns.map((column) => (
                     <td key={column.key} className="px-4 py-2">
                       {column.key === "name" ? (
                         <button className="cursor-pointer font-medium hover:underline" onClick={() => setSelectedRecord(record)} type="button">
@@ -242,21 +244,27 @@ function MasterDataUpsertPage({ definition, isSaving, onBack, onSubmit, record }
       title={record ? `Edit ${definition.label}` : `New ${definition.label}`}
       description="Save tenant master data into its own module table."
       technicalName={`page.master.${definition.key}.upsert`}
-      action={<Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>}
+      action={<Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-4"><X className="size-4" />Cancel</Button>}
     >
       <MasterListUpsertLayout>
-        <MasterListUpsertCard>
-          <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void submit() }}>
-            <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
-              {definition.columns.map((column) => <EditorField key={column.key} column={column} draft={draft} setDraft={setDraft} />)}
-              <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", draft.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}>
-                <span className="text-sm font-medium">Active</span>
-                <Switch checked={Boolean(draft.is_active)} onCheckedChange={(checked) => setDraft((current) => ({ ...current, is_active: checked }))} />
-              </label>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" disabled={isSaving} className="rounded-md"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button>
-              <Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>
+        <MasterListUpsertCard className="overflow-hidden p-0 [&>div]:p-0">
+          <form onSubmit={(event) => { event.preventDefault(); void submit() }}>
+            <AnimatedTabs
+              className="[&>div:first-child]:rounded-none [&>div:first-child]:border-x-0 [&>div:first-child]:border-t-0 [&>div:first-child]:border-b [&>div:first-child]:border-border/70 [&>div:first-child]:bg-card [&>div:first-child]:px-4 [&>div:first-child]:py-0.5 [&>div:first-child]:shadow-none md:[&>div:first-child]:px-6 [&>div:first-child_button]:min-h-8 [&>div:first-child_button]:py-1 [&>div:last-child]:mx-auto [&>div:last-child]:mt-6 [&>div:last-child]:w-full [&>div:last-child]:px-4 [&>div:last-child]:pb-4 md:[&>div:last-child]:px-6"
+              tabs={[{
+                value: "details",
+                label: "Details",
+                content: (
+                  <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+                    {definition.columns.map((column) => <EditorField key={column.key} column={column} draft={draft} setDraft={setDraft} />)}
+                    <ActiveField draft={draft} setDraft={setDraft} />
+                  </div>
+                ),
+              }]}
+            />
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6">
+              <Button type="submit" disabled={isSaving} className="h-10 rounded-md px-5"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button>
+              <Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-5"><X className="size-4" />Cancel</Button>
             </div>
           </form>
         </MasterListUpsertCard>
@@ -289,6 +297,25 @@ function EditorField({ column, draft, setDraft }: {
         onChange={(event) => setDraft((current) => ({ ...current, [column.key]: column.type === "number" ? Number(event.target.value || 0) : event.target.value }))}
       />
     </div>
+  )
+}
+
+function ActiveField({ draft, setDraft }: {
+  draft: MasterDataUpsertInput
+  setDraft(updater: (current: MasterDataUpsertInput) => MasterDataUpsertInput): void
+}) {
+  const checked = Boolean(draft.is_active)
+
+  return (
+    <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-4 py-3", checked ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}>
+      <span>
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          {checked ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : null}
+          Active
+        </span>
+      </span>
+      <Switch checked={checked} onCheckedChange={(nextChecked) => setDraft((current) => ({ ...current, is_active: nextChecked }))} />
+    </label>
   )
 }
 

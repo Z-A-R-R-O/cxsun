@@ -5,6 +5,16 @@ import { bankNamesCommonDefinition } from './definition.js'
 
 const bankNamesSeedRows = [
   { name: '-' },
+  { name: 'State Bank of India' },
+  { name: 'HDFC Bank' },
+  { name: 'ICICI Bank' },
+  { name: 'Axis Bank' },
+  { name: 'Indian Bank' },
+  { name: 'Canara Bank' },
+  { name: 'Bank of Baroda' },
+  { name: 'Union Bank of India' },
+  { name: 'Kotak Mahindra Bank' },
+  { name: 'IDFC First Bank' },
 ]
 
 export function seedBankNamesCommonTable(database: Kysely<TenantDatabaseSchema>) {

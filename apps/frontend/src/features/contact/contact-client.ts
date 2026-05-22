@@ -69,6 +69,12 @@ export type ContactInput = Partial<ContactRecord> & {
   gstDetails: ContactGstDetail[]
 }
 
+type RawContactRecord = Partial<ContactRecord> & {
+  created_at?: unknown
+  deleted_at?: unknown
+  updated_at?: unknown
+}
+
 export function emptyContact(): ContactInput {
   return {
     code: "",
@@ -118,7 +124,8 @@ export function emptyAddress(): ContactAddress {
 export async function listContacts(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/contacts`, { cache: "no-store", headers: authHeaders(session) })
   if (!response.ok) throw new Error(`Contact list failed with status ${response.status}.`)
-  return (await response.json()) as ContactRecord[]
+  const records = (await response.json()) as RawContactRecord[]
+  return records.map(normalizeContactRecord)
 }
 
 export async function upsertContact(session: AuthSession, input: ContactInput) {
@@ -131,7 +138,7 @@ export async function upsertContact(session: AuthSession, input: ContactInput) {
   if (!response.ok) throw new Error(`Contact save failed with status ${response.status}.`)
   const result = (await response.json()) as { ok: boolean; record?: ContactRecord; error?: string }
   if (!result.ok || !result.record) throw new Error(result.error ?? "Contact save failed.")
-  return result.record
+  return normalizeContactRecord(result.record)
 }
 
 export async function destroyContact(session: AuthSession, contact: ContactRecord) {
@@ -154,3 +161,48 @@ async function mutateContact(session: AuthSession, idOrUuid: string, action: "de
   if (!result.ok) throw new Error(result.error ?? `Contact ${action} failed.`)
 }
 
+function normalizeContactRecord(record: RawContactRecord): ContactRecord {
+  const fallbackCode = String(record.code ?? record.uuid ?? record.id ?? "")
+  const fallbackName = String(record.name ?? record.legalName ?? (fallbackCode || "Contact"))
+
+  return {
+    id: Number(record.id ?? 0),
+    uuid: String(record.uuid ?? fallbackCode),
+    tenant_id: Number(record.tenant_id ?? 0),
+    company_id: Number(record.company_id ?? 0),
+    code: fallbackCode,
+    contactTypeId: record.contactTypeId ?? null,
+    ledgerId: record.ledgerId ?? null,
+    ledgerName: record.ledgerName ?? null,
+    name: fallbackName,
+    legalName: record.legalName ?? null,
+    pan: record.pan ?? null,
+    gstin: record.gstin ?? null,
+    msmeType: record.msmeType ?? null,
+    msmeNo: record.msmeNo ?? null,
+    tan: record.tan ?? null,
+    tdsAvailable: Boolean(record.tdsAvailable),
+    tcsAvailable: Boolean(record.tcsAvailable),
+    openingBalance: Number(record.openingBalance ?? 0),
+    balanceType: record.balanceType ?? null,
+    creditLimit: Number(record.creditLimit ?? 0),
+    website: record.website ?? null,
+    description: record.description ?? null,
+    primaryEmail: record.primaryEmail ?? null,
+    primaryPhone: record.primaryPhone ?? null,
+    isActive: record.isActive !== false,
+    createdAt: String(record.createdAt ?? record.created_at ?? ""),
+    updatedAt: String(record.updatedAt ?? record.updated_at ?? ""),
+    deletedAt: nullableString(record.deletedAt ?? record.deleted_at),
+    addresses: Array.isArray(record.addresses) ? record.addresses : [],
+    emails: Array.isArray(record.emails) ? record.emails : [],
+    phones: Array.isArray(record.phones) ? record.phones : [],
+    socialLinks: Array.isArray(record.socialLinks) ? record.socialLinks : [],
+    bankAccounts: Array.isArray(record.bankAccounts) ? record.bankAccounts : [],
+    gstDetails: Array.isArray(record.gstDetails) ? record.gstDetails : [],
+  }
+}
+
+function nullableString(value: unknown) {
+  return value === null || value === undefined ? null : String(value)
+}

@@ -5,6 +5,16 @@ import { coloursCommonDefinition } from './definition.js'
 
 const coloursSeedRows = [
   { name: '-' },
+  { name: 'Black' },
+  { name: 'White' },
+  { name: 'Blue' },
+  { name: 'Navy' },
+  { name: 'Red' },
+  { name: 'Green' },
+  { name: 'Yellow' },
+  { name: 'Grey' },
+  { name: 'Brown' },
+  { name: 'Multi Colour' },
 ]
 
 export function seedColoursCommonTable(database: Kysely<TenantDatabaseSchema>) {

@@ -5,6 +5,12 @@ import { currenciesCommonDefinition } from './definition.js'
 
 const currenciesSeedRows = [
   { name: '-' },
+  { name: 'INR - Indian Rupee' },
+  { name: 'USD - US Dollar' },
+  { name: 'EUR - Euro' },
+  { name: 'GBP - British Pound' },
+  { name: 'SGD - Singapore Dollar' },
+  { name: 'AED - UAE Dirham' },
 ]
 
 export function seedCurrenciesCommonTable(database: Kysely<TenantDatabaseSchema>) {

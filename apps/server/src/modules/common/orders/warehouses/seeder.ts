@@ -5,6 +5,13 @@ import { warehousesCommonDefinition } from './definition.js'
 
 const warehousesSeedRows = [
   { name: '-' },
+  { name: 'Main Warehouse' },
+  { name: 'Finished Goods Store' },
+  { name: 'Raw Material Store' },
+  { name: 'Packing Store' },
+  { name: 'Returns Store' },
+  { name: 'Damaged Stock Store' },
+  { name: 'Branch Warehouse' },
 ]
 
 export function seedWarehousesCommonTable(database: Kysely<TenantDatabaseSchema>) {

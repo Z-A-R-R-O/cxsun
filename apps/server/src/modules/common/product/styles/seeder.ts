@@ -5,6 +5,15 @@ import { stylesCommonDefinition } from './definition.js'
 
 const stylesSeedRows = [
   { name: '-' },
+  { name: 'Regular' },
+  { name: 'Slim Fit' },
+  { name: 'Relaxed Fit' },
+  { name: 'Formal' },
+  { name: 'Casual' },
+  { name: 'Printed' },
+  { name: 'Plain' },
+  { name: 'Checked' },
+  { name: 'Striped' },
 ]
 
 export function seedStylesCommonTable(database: Kysely<TenantDatabaseSchema>) {

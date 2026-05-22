@@ -5,6 +5,14 @@ import { productCategoriesCommonDefinition } from './definition.js'
 
 const productCategoriesSeedRows = [
   { name: '-' },
+  { name: 'Textiles' },
+  { name: 'Garments' },
+  { name: 'Electronics' },
+  { name: 'Stationery' },
+  { name: 'Hardware' },
+  { name: 'Food Products' },
+  { name: 'Footwear' },
+  { name: 'Accessories' },
 ]
 
 export function seedProductCategoriesCommonTable(database: Kysely<TenantDatabaseSchema>) {

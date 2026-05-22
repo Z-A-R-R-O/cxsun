@@ -7,6 +7,8 @@ import { getDatabase } from '../database/connection.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
 import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
+import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
+import { migrateDocumentSettingsTables } from '../../modules/settings/document-settings/index.js'
 import { migrateContactMasterTable, seedContactMasterTable } from '../../modules/master/contact/index.js'
 import { migrateProductMasterTable, seedProductMasterTable } from '../../modules/master/product/index.js'
 import { migrateOrderMasterTable, seedOrderMasterTable } from '../../modules/master/order/index.js'
@@ -100,6 +102,8 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await createCompanyChildTables(database)
   await migrateCommonModuleTables(database)
   await migrateSalesEntryTables(database)
+  await migrateCompanySettingsTables(database)
+  await migrateDocumentSettingsTables(database)
   await migrateContactMasterTable(database)
   await migrateProductMasterTable(database)
   await migrateOrderMasterTable(database)
@@ -737,6 +741,8 @@ const tenantUuidTables = [
   'sales_entry_items',
   'sales_entry_comments',
   'sales_entry_activities',
+  'company_settings',
+  'document_number_settings',
   'masters_contacts',
   'masters_products',
   'masters_orders',

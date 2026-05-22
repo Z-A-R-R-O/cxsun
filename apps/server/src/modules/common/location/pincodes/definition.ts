@@ -9,6 +9,7 @@ export const pincodesCommonDefinition: MasterDataModuleDefinition = {
   group: 'location',
   defaultSortKey: 'name',
   columns: [
-    { key: 'name', label: 'Name', type: 'string', required: true, nullable: false },
+    { key: 'name', label: 'Pincode Number', type: 'string', required: true, nullable: false },
+    { key: 'city_id', label: 'City', type: 'number', numberMode: 'integer', required: true, nullable: false },
   ],
 }

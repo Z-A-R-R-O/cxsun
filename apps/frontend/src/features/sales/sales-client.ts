@@ -211,10 +211,12 @@ function recordToSalesLookupOption(record: MasterDataRecord, moduleKey: "contact
   const code = readString(record.code)
   const name = readString(record.name)
   const description = readString(record.description)
+  const taxRate = readNumber(record.rate_percent)
   const primaryAddress = Array.isArray(record.addresses) ? record.addresses.find((item) => Boolean((item as Record<string, unknown>).isDefault)) ?? record.addresses[0] : null
   const addressText = primaryAddress ? contactAddressText(primaryAddress as Record<string, unknown>) : description
-  const label = [code, name].filter(Boolean).join(" - ") || name || code || String(record.uuid ?? record.id)
-  const taxRate = readNumber(record.rate_percent)
+  const label = moduleKey === "taxes"
+    ? [`${taxRate ?? 0}%`, description].filter(Boolean).join(" - ")
+    : [code, name].filter(Boolean).join(" - ") || name || code || String(record.uuid ?? record.id)
   const unit = readString(record.symbol) || name || code
 
   return {

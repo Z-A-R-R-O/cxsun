@@ -925,3 +925,149 @@ and also consolidate folder inside modules not too much blob and filename with n
 ```
 read assist readme.md and check for common modules at present we have modified 
 ```
+
+## Current Prompt
+
+```
+in common / states at pop up upsert make country as autocomplete lookupbox with country name for reference look at temp/ master autocomplete lookup
+```
+
+## Current Prompt
+
+```
+make dropdown to top and fixed height not to hide inside and make one more thing make each modules separately as modular monolithic to rework or scale later not in single common data
+```
+
+## Current Prompt
+
+```
+make this control country auto complete as individual component with create new record feature and can re use across on all application
+```
+
+## Current Prompt
+
+```
+make districts connect with states and cities connect with districts  and pincode connect with cities 
+
+make all with same pattern auto complete lookup
+```
+
+## Current Prompt
+
+```
+you have build only country make all component individual  for reusability for all, make each in new files
+
+district , states, cities
+```
+
+## Current Prompt
+
+```
+make seeder for all common with relavent data and refresh database so we  can check
+```
+
+## Current Prompt
+
+```
+read assist -> readme and continue to work
+```
+
+## Current Prompt
+
+```
+reset tenant databases and refresh with seeder
+```
+
+## Current Prompt
+
+```
+make hsncodes with code and describtions  separately in table and backend and frontend  add 8 digit codes for seeder mainly knitted dyed fabrics , hosier fabrics , cotton tshirts , trousers , womens, and garment aided
+```
+
+## Current Prompt
+
+```
+same for taxes number as name and descriptions field so we can get tax calculation field easy make this as float or decimal
+```
+
+## Current Prompt
+
+```
+now fix contact , company ,product masters with common with autocomplete where ever it needed 
+```
+
+## Current Prompt
+
+```
+in contact
+react-dom_client.js?v=fed149fd:14337 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+chext_driver.js:539 Initialized driver at: Thu May 21 2026 21:47:22 GMT+0530 (India Standard Time)
+chext_loader.js:73 Initialized chextloader at: 1779380243044
+contact-page.tsx:183 Uncaught TypeError: Cannot read properties of undefined (reading 'length')
+    at ContactShowPage (contact-page.tsx:183:1044)
+...
+```
+
+## Current Prompt
+
+```
+search pincode make only number 141001 Ludhiana as 141001
+```
+
+## Current Prompt
+
+```
+now fix company addresses with selected address and when india selected only show states in india and when tamilnadu selected show districts in tamilnadu and when district selected show cities belong to district and same for pincode 
+
+make this line up for all location refered like contact and companies at present and also make show in show page not id
+```
+
+## Current Prompt
+
+```
+make contact form in same tone of company list + show + upsert with same ux
+```
+
+## Current Prompt
+
+```
+make address and finance bank accounts to two coloumns
+```
+
+## Current Prompt
+
+```
+make company upsert form same tone for animated tab like in contact upsert 
+
+on top slim as same in contact form and also make product in this same tone
+```
+
+## Current Prompt
+
+```
+remove inner card from company make it as same as contact upsert
+```
+
+## Current Prompt
+
+```
+remove extra  inner card wrappers from address on company
+```
+
+## Current Prompt
+
+```
+now copy same from temp for sales + show + upsert + print files and wire it exact
+```
+
+## Current Prompt
+
+```
+read assist/readme and rules and copy all the settings and sales setting from temp to our application and wire it
+```
+
+## Current Prompt
+
+```
+make rule all module page is to routed as its own feature and standalone page
+```

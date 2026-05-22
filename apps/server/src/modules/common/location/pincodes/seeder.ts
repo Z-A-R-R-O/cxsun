@@ -67,6 +67,19 @@ export function seedPincodesCommonTable(database: Kysely<TenantDatabaseSchema>) 
   return seedMasterRecordDefinition(
     database,
     pincodesCommonDefinition,
-    pincodesRows.map((row) => ({ name: row.area_name === '-' ? '-' : `${row.code} ${row.area_name}` })),
+    pincodesRows.map((row) => ({
+      city_id: cityId(row.cityCode),
+      name: row.code,
+    })),
   )
 }
+
+function cityId(code: string) {
+  return Math.max(1, cityCodes.indexOf(code) + 1)
+}
+
+const cityCodes = [
+  '-', 'MAA', 'CBE', 'MDU', 'TPR', 'TRY', 'SLM', 'ERD', 'TNV', 'TTK', 'VLR', 'DGL', 'TNJ', 'HSR',
+  'NGL', 'AVD', 'TBM', 'KPM', 'CUD', 'KRR', 'SVK', 'KMU', 'MTP', 'PLD', 'UDT', 'DHP', 'KGL',
+  'BLR', 'BOM', 'DEL', 'HYD', 'AMD', 'CCU', 'LDH', 'JAI', 'LKO', 'COK', 'GOI', 'PAT', 'IDR',
+]

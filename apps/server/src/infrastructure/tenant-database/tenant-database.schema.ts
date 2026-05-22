@@ -350,11 +350,8 @@ export interface TenantCommonHsnCodesTable {
 export interface TenantCommonTaxesTable {
   id: Generated<number>
   uuid: string
-  code: string
-  name: string
-  tax_type: string
   rate_percent: number
-  description: string | null
+  description: string
   is_active: boolean
   created_at: Generated<Date>
   updated_at: Generated<Date>
@@ -592,6 +589,31 @@ export interface TenantSalesEntryActivitiesTable {
   created_at: Generated<Date>
 }
 
+export interface TenantCompanySettingsTable {
+  id: Generated<number>
+  uuid: string
+  company_id: number
+  setting_key: string
+  values_json: string
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
+export interface TenantDocumentNumberSettingsTable {
+  id: Generated<number>
+  uuid: string
+  company_id: number
+  accounting_year_id: number
+  entry_kind: string
+  prefix: string
+  separator: string
+  next_number: number
+  padding: number
+  auto_enabled: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
 export interface TenantMastersContactsTable {
   id: Generated<number>
   uuid: string
@@ -609,6 +631,16 @@ export interface TenantMastersProductsTable {
   uuid: string
   code: string
   name: string
+  product_group_id: number | null
+  product_category_id: number | null
+  product_type_id: number | null
+  hsn_code_id: number | null
+  brand_id: number | null
+  colour_id: number | null
+  size_id: number | null
+  unit_id: number | null
+  tax_id: number | null
+  style_id: number | null
   description: string | null
   is_active: boolean
   created_at: Generated<Date>
@@ -672,6 +704,8 @@ export interface TenantDatabaseSchema {
   sales_entry_items: TenantSalesEntryItemsTable
   sales_entry_comments: TenantSalesEntryCommentsTable
   sales_entry_activities: TenantSalesEntryActivitiesTable
+  company_settings: TenantCompanySettingsTable
+  document_number_settings: TenantDocumentNumberSettingsTable
   masters_contacts: TenantMastersContactsTable
   masters_products: TenantMastersProductsTable
   masters_orders: TenantMastersOrdersTable

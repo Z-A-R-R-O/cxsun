@@ -5,6 +5,16 @@ import { unitsCommonDefinition } from './definition.js'
 
 const unitsSeedRows = [
   { name: '-' },
+  { name: 'Nos' },
+  { name: 'Pcs' },
+  { name: 'Kg' },
+  { name: 'Gram' },
+  { name: 'Meter' },
+  { name: 'Litre' },
+  { name: 'Box' },
+  { name: 'Packet' },
+  { name: 'Pair' },
+  { name: 'Dozen' },
 ]
 
 export function seedUnitsCommonTable(database: Kysely<TenantDatabaseSchema>) {

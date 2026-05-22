@@ -5,6 +5,14 @@ import { contactTypesCommonDefinition } from './definition.js'
 
 const contactTypesSeedRows = [
   { name: '-' },
+  { name: 'Customer' },
+  { name: 'Supplier' },
+  { name: 'Customer and Supplier' },
+  { name: 'Transporter' },
+  { name: 'Employee' },
+  { name: 'Broker' },
+  { name: 'Consultant' },
+  { name: 'Bank' },
 ]
 
 export function seedContactTypesCommonTable(database: Kysely<TenantDatabaseSchema>) {

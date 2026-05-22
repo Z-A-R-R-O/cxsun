@@ -5,6 +5,18 @@ import { sizesCommonDefinition } from './definition.js'
 
 const sizesSeedRows = [
   { name: '-' },
+  { name: 'XS' },
+  { name: 'S' },
+  { name: 'M' },
+  { name: 'L' },
+  { name: 'XL' },
+  { name: 'XXL' },
+  { name: 'Free Size' },
+  { name: '28' },
+  { name: '30' },
+  { name: '32' },
+  { name: '34' },
+  { name: '36' },
 ]
 
 export function seedSizesCommonTable(database: Kysely<TenantDatabaseSchema>) {

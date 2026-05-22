@@ -8,7 +8,6 @@ import { AnimatedTabs } from "src/components/ui/animated-tabs"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
-import { Separator } from "src/components/ui/separator"
 import { Switch } from "src/components/ui/switch"
 import {
   MasterListEmptyState,
@@ -25,6 +24,13 @@ import {
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { listIndustries, type IndustryRecord } from "src/features/industry/industry-client"
+import { CityAutocompleteLookup } from "src/features/master-data/interface/components/city-autocomplete-lookup"
+import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
+import { CountryAutocompleteLookup } from "src/features/master-data/interface/components/country-autocomplete-lookup"
+import { DistrictAutocompleteLookup } from "src/features/master-data/interface/components/district-autocomplete-lookup"
+import { StateAutocompleteLookup } from "src/features/master-data/interface/components/state-autocomplete-lookup"
+import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 import {
   destroyCompany,
   emptyCompany,
@@ -195,6 +201,7 @@ export function CompanyPage({ session }: { session: AuthSession }) {
       <CompanyUpsertPage
         company={upsertState.company}
         industries={industriesQuery.data ?? []}
+        session={session}
         onBack={() => setUpsertState(null)}
         onSubmit={saveCompany}
       />
@@ -206,6 +213,7 @@ export function CompanyPage({ session }: { session: AuthSession }) {
       <CompanyShowPage
         company={selectedCompany}
         canManagePlatform={canManagePlatform}
+        session={session}
         onBack={() => setSelectedCompany(null)}
         onDestroy={() => void destroy(selectedCompany)}
         onEdit={() => openEditPage(selectedCompany, "show")}
@@ -330,6 +338,7 @@ function CompanyShowPage({
   onDestroy,
   onEdit,
   onRestore,
+  session,
 }: {
   canManagePlatform: boolean
   company: CompanyRecord
@@ -337,7 +346,9 @@ function CompanyShowPage({
   onDestroy(): void
   onEdit(): void
   onRestore(): void
+  session: AuthSession
 }) {
+  const labels = useCommonRecordLabels(session)
   return (
     <MasterListPageFrame
       title={`${company.code} - ${company.name}`}
@@ -400,8 +411,8 @@ function CompanyShowPage({
             ]}
           />
         </CompanyShowCard>
-        <SubTable title="Addresses" rows={company.addresses.map((address) => [address.addressLine1, [address.cityId, address.stateId, address.pincodeId].filter(Boolean).join(", "), address.isDefault ? "Default" : ""])} />
-        <SubTable title="Bank accounts" rows={company.bankAccounts.map((bank) => [bank.bankName, bank.accountNumber, bank.ifsc])} />
+        <SubTable title="Addresses" rows={company.addresses.map((address) => [address.addressLine1, [labels.addressTypes(address.addressTypeId), labels.cities(address.cityId), labels.districts(address.districtId), labels.states(address.stateId), labels.countries(address.countryId), labels.pincodes(address.pincodeId)].filter(Boolean).join(", "), address.isDefault ? "Default" : ""])} />
+        <SubTable title="Bank accounts" rows={company.bankAccounts.map((bank) => [labels.bankNames(bank.bankName), bank.accountNumber, bank.ifsc])} />
         <SubTable title="Emails" rows={company.emails.map((email) => [email.email, email.emailType, email.isActive ? "Active" : "Disabled"])} />
         <SubTable title="Phones" rows={company.phones.map((phone) => [phone.phoneNumber, phone.phoneType, phone.isPrimary ? "Primary" : ""])} />
         <SubTable title="Social links" rows={company.socialLinks.map((link) => [link.platform, link.url, link.isActive ? "Active" : "Disabled"])} />
@@ -415,11 +426,13 @@ function CompanyUpsertPage({
   industries,
   onBack,
   onSubmit,
+  session,
 }: {
   company: CompanyRecord | null
   industries: IndustryRecord[]
   onBack(): void
   onSubmit(input: CompanyUpsertInput): Promise<void>
+  session: AuthSession
 }) {
   const [form, setForm] = useState<CompanyUpsertInput>(emptyCompany())
   const [tab, setTab] = useState<FormTab>("identity")
@@ -458,16 +471,15 @@ function CompanyUpsertPage({
       description={isEdit ? "Update company code, identity, tenant, industry, and active status." : "Create a tenant and industry specific company record."}
       technicalName="page.company.upsert"
       action={
-        <Button type="button" variant="outline" onClick={onBack} className="rounded-xl">
+        <Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-4">
           <X className="size-4" />
           Cancel
         </Button>
       }
     >
       <MasterListUpsertLayout>
-        <MasterListUpsertCard>
+        <MasterListUpsertCard className="overflow-hidden p-0 [&>div]:p-0">
           <form
-            className="space-y-6"
             onSubmit={(event) => {
               event.preventDefault()
               event.stopPropagation()
@@ -475,17 +487,17 @@ function CompanyUpsertPage({
             }}
           >
             <AnimatedTabs
+              className="[&>div:first-child]:rounded-none [&>div:first-child]:border-x-0 [&>div:first-child]:border-t-0 [&>div:first-child]:border-b [&>div:first-child]:border-border/70 [&>div:first-child]:bg-card [&>div:first-child]:px-4 [&>div:first-child]:py-0.5 [&>div:first-child]:shadow-none md:[&>div:first-child]:px-6 [&>div:first-child_button]:min-h-8 [&>div:first-child_button]:py-1 [&>div:last-child]:mx-auto [&>div:last-child]:mt-6 [&>div:last-child]:w-full [&>div:last-child]:px-4 [&>div:last-child]:pb-4 md:[&>div:last-child]:px-6"
               value={tab}
               onValueChange={(value) => setTab(value as FormTab)}
-              tabs={buildCompanyUpsertTabs({ company, form, industries, setForm })}
+              tabs={buildCompanyUpsertTabs({ company, form, industries, session, setForm })}
             />
-            <Separator />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" disabled={isSaving} className="rounded-xl">
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6">
+              <Button type="submit" disabled={isSaving} className="h-10 rounded-md px-5">
                 <Save className={cn("size-4", isSaving && "animate-spin")} />
                 {isEdit ? "Update company" : "Create company"}
               </Button>
-              <Button type="button" variant="outline" onClick={onBack} className="rounded-xl">
+              <Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-5">
                 <X className="size-4" />
                 Cancel
               </Button>
@@ -501,11 +513,13 @@ function buildCompanyUpsertTabs({
   company,
   form,
   industries,
+  session,
   setForm,
 }: {
   company: CompanyRecord | null
   form: CompanyUpsertInput
   industries: IndustryRecord[]
+  session: AuthSession
   setForm: Dispatch<SetStateAction<CompanyUpsertInput>>
 }) {
   return [
@@ -513,7 +527,7 @@ function buildCompanyUpsertTabs({
       value: "identity",
       label: "Details",
       content: (
-        <div className="space-y-6 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+        <div className="space-y-5">
           <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
             <TextField label="Company code" value={form.code} inputClassName="font-mono uppercase" onChange={(value) => setFormField(setForm, "code", normalizeCode(value))} />
             <TextField label="Company name" value={form.name} onChange={(value) => setFormField(setForm, "name", value)} />
@@ -536,9 +550,9 @@ function buildCompanyUpsertTabs({
             </FieldShell>
             <TextField label="Tagline" value={form.tagline} onChange={(value) => setFormField(setForm, "tagline", value)} className="md:col-span-2" />
           </div>
-          <div className="grid gap-4 pt-2 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <SwitchRow checked={form.isPrimary} label="Primary" description="Primary company is used for shared suite context." onChange={(checked) => setFormField(setForm, "isPrimary", checked)} />
-            <SwitchRow checked={form.isActive} label="Active" description="Active companies can be selected in workflows." onChange={(checked) => setForm((current) => ({ ...current, isActive: checked, status: checked ? "active" : "suspend" }))} />
+            <SwitchRow checked={form.isActive} label="Active" onChange={(checked) => setForm((current) => ({ ...current, isActive: checked, status: checked ? "active" : "suspend" }))} />
           </div>
         </div>
       ),
@@ -576,7 +590,7 @@ function buildCompanyUpsertTabs({
               </>
             )} />
           </CollectionCard>
-          <div className="grid gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:grid-cols-2 md:p-5">
+          <div className="grid gap-5 md:grid-cols-2">
             <TextField label="Website" value={form.website} onChange={(value) => setFormField(setForm, "website", value)} />
           </div>
         </div>
@@ -586,7 +600,7 @@ function buildCompanyUpsertTabs({
       value: "logos",
       label: "Logos",
       content: (
-        <div className="space-y-5 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+        <div className="space-y-5">
           <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
             {companyLogoVariants.map((variant) => (
               <FieldShell key={variant.type} label={variant.label}>
@@ -610,7 +624,7 @@ function buildCompanyUpsertTabs({
       value: "tax",
       label: "Tax Details",
       content: (
-        <div className="space-y-6 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
+        <div className="space-y-5">
           <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
             <TextField label="GSTIN / UIN" value={form.gstinUin} onChange={(value) => setFormField(setForm, "gstinUin", value)} />
             <TextField label="PAN" value={form.pan} onChange={(value) => setFormField(setForm, "pan", value)} />
@@ -639,7 +653,7 @@ function buildCompanyUpsertTabs({
         <CollectionCard title="Company Bank Accounts" description="Bank accounts used for receipts and payments." actionLabel="Add" onAdd={() => setFormField(setForm, "bankAccounts", [...form.bankAccounts, { ...emptyBank(), accountHolderName: form.legalName || form.name, isPrimary: form.bankAccounts.length === 0 }])}>
           <EditableCollection rows={form.bankAccounts} gridClassName="md:grid-cols-2" onRemove={(index) => setFormField(setForm, "bankAccounts", form.bankAccounts.filter((_, itemIndex) => itemIndex !== index))} render={(bankAccount, index) => (
             <>
-              <TextField label="Bank name" value={bankAccount.bankName} onChange={(value) => setFormField(setForm, "bankAccounts", form.bankAccounts.map((item, itemIndex) => (itemIndex === index ? { ...item, bankName: value } : item)))} />
+              <CommonRecordAutocompleteLookup label="Bank name" moduleKey="bankNames" session={session} value={bankAccount.bankName} onChange={(_, record) => setFormField(setForm, "bankAccounts", form.bankAccounts.map((item, itemIndex) => (itemIndex === index ? { ...item, bankName: record ? getCommonRecordName(record) : "" } : item)))} />
               <TextField label="Account number" value={bankAccount.accountNumber} onChange={(value) => setFormField(setForm, "bankAccounts", form.bankAccounts.map((item, itemIndex) => (itemIndex === index ? { ...item, accountNumber: value } : item)))} />
               <TextField label="Account holder name" value={bankAccount.accountHolderName} onChange={(value) => setFormField(setForm, "bankAccounts", form.bankAccounts.map((item, itemIndex) => (itemIndex === index ? { ...item, accountHolderName: value } : item)))} />
               <TextField label="IFSC" value={bankAccount.ifsc} inputClassName="uppercase" onChange={(value) => setFormField(setForm, "bankAccounts", form.bankAccounts.map((item, itemIndex) => (itemIndex === index ? { ...item, ifsc: value.toUpperCase() } : item)))} />
@@ -655,28 +669,35 @@ function buildCompanyUpsertTabs({
       value: "addressing",
       label: "Addressing",
       content: (
-        <CollectionCard title="Address Book" description="Reusable company addresses linked to common location masters." actionLabel="Add" onAdd={() => setFormField(setForm, "addresses", [...form.addresses, { ...emptyAddress(), isDefault: form.addresses.length === 0 }])}>
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="text-base font-semibold text-foreground">Address Book</h3>
+            <Button type="button" variant="outline" className="h-8 rounded-lg px-3" onClick={() => setFormField(setForm, "addresses", [...form.addresses, { ...emptyAddress(), isDefault: form.addresses.length === 0 }])}>
+              <Plus className="size-4" />
+              Add
+            </Button>
+          </div>
           <EditableCollection rows={form.addresses} gridClassName="md:grid-cols-2" onRemove={(index) => setFormField(setForm, "addresses", form.addresses.filter((_, itemIndex) => itemIndex !== index))} render={(address, index) => (
             <>
-              <TextField label="Address Type" value={address.addressTypeId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, addressTypeId: value || null } : item)))} className="md:col-span-2" />
+              <CommonRecordAutocompleteLookup className="md:col-span-2" label="Address Type" moduleKey="addressTypes" session={session} value={address.addressTypeId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, addressTypeId: value === null ? null : String(value) } : item)))} />
               <TextField label="Address" value={address.addressLine1} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, addressLine1: value } : item)))} />
               <TextField label="Area / Location" value={address.addressLine2} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, addressLine2: value || null } : item)))} />
-              <TextField label="Country" value={address.countryId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, countryId: value || null } : item)))} />
-              <TextField label="State" value={address.stateId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, stateId: value || null } : item)))} />
-              <TextField label="District" value={address.districtId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, districtId: value || null } : item)))} />
-              <TextField label="City" value={address.cityId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, cityId: value || null } : item)))} />
-              <TextField label="Pincode" value={address.pincodeId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, pincodeId: value || null } : item)))} />
+              <CountryAutocompleteLookup session={session} value={address.countryId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, countryId: value === null ? null : String(value), stateId: null, districtId: null, cityId: null, pincodeId: null } : item)))} />
+              <StateAutocompleteLookup countryId={address.countryId} session={session} value={address.stateId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, stateId: value === null ? null : String(value), districtId: null, cityId: null, pincodeId: null } : item)))} />
+              <DistrictAutocompleteLookup session={session} stateId={address.stateId} value={address.districtId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, districtId: value === null ? null : String(value), cityId: null, pincodeId: null } : item)))} />
+              <CityAutocompleteLookup districtId={address.districtId} session={session} value={address.cityId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, cityId: value === null ? null : String(value), pincodeId: null } : item)))} />
+              <CommonRecordAutocompleteLookup label="Pincode" moduleKey="pincodes" optionFilter={(record) => matchesReference(record.city_id, address.cityId)} placeholder="Search pincode" session={session} value={address.pincodeId} onChange={(value) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => (itemIndex === index ? { ...item, pincodeId: value === null ? null : String(value) } : item)))} />
               <SwitchRow checked={address.isDefault} label="Primary address" description="Used as the main company address." onChange={(checked) => setFormField(setForm, "addresses", form.addresses.map((item, itemIndex) => ({ ...item, isDefault: itemIndex === index ? checked : false })))} />
             </>
           )} />
-        </CollectionCard>
+        </div>
       ),
     },
     {
       value: "notes",
       label: "Notes",
       content: (
-        <div className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-5">
+        <div className="space-y-5">
           <TextField label="Short about" value={form.shortAbout} onChange={(value) => setFormField(setForm, "shortAbout", value)} />
           <TextField label="Description" value={form.description} onChange={(value) => setFormField(setForm, "description", value)} />
         </div>
@@ -820,7 +841,7 @@ function SwitchRow({
   onChange,
 }: {
   checked: boolean
-  description: string
+  description?: string
   label: string
   onChange(checked: boolean): void
 }) {
@@ -831,7 +852,7 @@ function SwitchRow({
           {checked ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : null}
           {label}
         </span>
-        <span className={cn("block text-xs", checked ? "text-emerald-700" : "text-muted-foreground")}>{description}</span>
+        {description ? <span className={cn("block text-xs", checked ? "text-emerald-700" : "text-muted-foreground")}>{description}</span> : null}
       </span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
@@ -1030,4 +1051,40 @@ function dateInputValue(value: string | null) {
 function formatDate(value: string | null) {
   if (!value) return "Not set"
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value))
+}
+
+function matchesReference(recordValue: unknown, selectedValue: unknown) {
+  return selectedValue === null || selectedValue === undefined || selectedValue === "" || String(recordValue) === String(selectedValue)
+}
+
+function useCommonRecordLabels(session: AuthSession) {
+  const modules = ["addressTypes", "bankNames", "countries", "states", "districts", "cities", "pincodes"] as const
+  const queries = modules.map((moduleKey) => useQuery({ queryKey: ["common-labels", session.selectedTenant.slug, moduleKey], queryFn: () => listMasterDataRecords(session, moduleKey) }))
+  const maps = Object.fromEntries(modules.map((moduleKey, index) => [moduleKey, buildLabelMap(queries[index].data ?? [])])) as Record<(typeof modules)[number], Map<string, string>>
+
+  return {
+    addressTypes: (value: unknown) => labelFrom(maps.addressTypes, value),
+    bankNames: (value: unknown) => labelFrom(maps.bankNames, value),
+    cities: (value: unknown) => labelFrom(maps.cities, value),
+    countries: (value: unknown) => labelFrom(maps.countries, value),
+    districts: (value: unknown) => labelFrom(maps.districts, value),
+    pincodes: (value: unknown) => labelFrom(maps.pincodes, value),
+    states: (value: unknown) => labelFrom(maps.states, value),
+  }
+}
+
+function buildLabelMap(records: MasterDataRecord[]) {
+  const map = new Map<string, string>()
+  for (const record of records) {
+    const label = getCommonRecordName(record)
+    for (const key of [record.id, record.uuid, record.name, record.code]) {
+      if (key !== null && key !== undefined && key !== "") map.set(String(key), label)
+    }
+  }
+  return map
+}
+
+function labelFrom(map: ReadonlyMap<string, string>, value: unknown) {
+  if (value === null || value === undefined || value === "") return ""
+  return map.get(String(value)) ?? String(value)
 }

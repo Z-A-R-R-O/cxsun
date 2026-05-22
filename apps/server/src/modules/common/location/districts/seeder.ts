@@ -45,6 +45,15 @@ export function seedDistrictsCommonTable(database: Kysely<TenantDatabaseSchema>)
   return seedMasterRecordDefinition(
     database,
     districtsCommonDefinition,
-    districtsRows.map((row) => ({ name: row.name })),
+    districtsRows.map((row) => ({ name: row.name, state_id: stateId(row.stateCode) })),
   )
+}
+
+function stateId(code: string) {
+  const stateCodes = [
+    '-', 'TN', 'AP', 'AR', 'AS', 'BR', 'CT', 'GA', 'GJ', 'HR', 'HP', 'JH', 'KA', 'KL', 'MP', 'MH',
+    'MN', 'ML', 'MZ', 'NL', 'OD', 'PB', 'RJ', 'SK', 'TG', 'TR', 'UP', 'UT', 'WB', 'AN', 'CH', 'DN',
+    'DL', 'JK', 'LA', 'LD', 'PY',
+  ]
+  return Math.max(1, stateCodes.indexOf(code) + 1)
 }
