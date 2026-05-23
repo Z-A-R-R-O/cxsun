@@ -14,6 +14,7 @@ import { ReceiptEntryModule } from './entries/receipt/index.js'
 import { PaymentEntryModule } from './entries/payment/index.js'
 import { CompanySettingsModule } from './settings/company-settings/index.js'
 import { DocumentSettingsModule } from './settings/document-settings/index.js'
+import { MediaModule } from './media/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
 import { HealthModule } from '../core/health/health.module.js'
 import { IndustryModule } from '../core/industry/industry.module.js'
@@ -44,6 +45,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     PaymentEntryModule,
     CompanySettingsModule,
     DocumentSettingsModule,
+    MediaModule,
     CompanyModule,
   ],
   guards: [AuthGuard],

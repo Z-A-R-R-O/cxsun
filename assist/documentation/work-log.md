@@ -1,5 +1,13 @@
 # Work Log
 
+## 2026-05-23
+
+- Added the Media application as a standalone tenant module with library, link, sharing, upload, delete, public/private storage, and queue-backed backend events.
+- Added an application-wide media picker popup and connected Company logo upload/selection to the picker.
+- Removed the duplicate Media Browser side-menu item so users enter media management through Media Library and invoke browsing from contextual pickers.
+- Aligned media storage under root `storage/public` and `storage/private`, linked frontend public storage to root public storage, and removed the stale server-local storage folder.
+- Bumped the workspace to version `1.0.22` and recorded the media manager batch in the changelog.
+
 ## 2026-05-22
 
 - Copied and wired tenant settings and sales settings into the active application.

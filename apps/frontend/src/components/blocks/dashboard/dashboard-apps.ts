@@ -19,6 +19,7 @@ import {
   Landmark,
   Layers3,
   LayoutDashboard,
+  Link2,
   Map,
   MapPinned,
   MapPin,
@@ -42,7 +43,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "billing" | "ecommerce" | "crm" | "inventory" | "sites"
+export type DashboardAppId = "application" | "billing" | "media" | "ecommerce" | "crm" | "inventory" | "sites"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -133,6 +134,19 @@ export const dashboardApps: DashboardAppDefinition[] = [
         ],
       },
       { title: "Settings", icon: Settings, items: [item("billing", "settings", "Sales Settings", Settings), item("billing", "document-settings", "Document Settings", FileCog), item("billing", "accounting-year", "Accounting Year", CalendarDays)] },
+    ],
+  }),
+  withMenu({
+    id: "media",
+    name: "Media",
+    shortName: "Media",
+    description: "Central media library for uploads, private/public files, browsing, sharing, and cross-module links.",
+    status: "active",
+    accent: "bg-sky-600 text-white",
+    icon: Image,
+    menuGroups: [
+      { title: "Library", icon: Image, items: [item("media", "library", "Media Library", Image)] },
+      { title: "Management", icon: Settings, items: [item("media", "links", "Links", Link2), item("media", "sharing", "Sharing", Globe2)] },
     ],
   }),
   withMenu({

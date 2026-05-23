@@ -82,6 +82,12 @@ now test e2e that live server is working fine
 ## Current Prompt
 
 ```
+ok fine now read assist readme and create log on changelog to next version bump
+```
+
+## Current Prompt
+
+```
 make as it is do not add or change any thing keep as it is and only wire it to dashboard
 ```
 

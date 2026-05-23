@@ -23,6 +23,8 @@ import {
 } from "src/components/blocks/lists/master-list"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
+import { MediaPickerDialog } from "src/features/media/media-picker-dialog"
+import type { MediaAsset } from "src/features/media/media-client"
 import { listIndustries, type IndustryRecord } from "src/features/industry/industry-client"
 import { CityAutocompleteLookup } from "src/features/master-data/interface/components/city-autocomplete-lookup"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
@@ -443,6 +445,7 @@ function CompanyUpsertPage({
   const [form, setForm] = useState<CompanyUpsertInput>(emptyCompany())
   const [tab, setTab] = useState<FormTab>("identity")
   const [isSaving, setIsSaving] = useState(false)
+  const [logoPickerType, setLogoPickerType] = useState<string | null>(null)
   const isEdit = Boolean(company)
 
   useEffect(() => {
@@ -471,6 +474,12 @@ function CompanyUpsertPage({
     }
   }
 
+  function selectLogoFromMedia(asset: MediaAsset) {
+    if (!logoPickerType) return
+    setFormField(setForm, "logos", updateLogoVariantUrl(form.logos, logoPickerType, mediaLogoUrl(session, asset)))
+    setLogoPickerType(null)
+  }
+
   return (
     <MasterListPageFrame
       title={isEdit ? "Edit company" : "New company"}
@@ -496,7 +505,7 @@ function CompanyUpsertPage({
               className="[&>div:first-child]:rounded-none [&>div:first-child]:border-x-0 [&>div:first-child]:border-t-0 [&>div:first-child]:border-b [&>div:first-child]:border-border/70 [&>div:first-child]:bg-card [&>div:first-child]:px-4 [&>div:first-child]:py-0.5 [&>div:first-child]:shadow-none md:[&>div:first-child]:px-6 [&>div:first-child_button]:min-h-8 [&>div:first-child_button]:py-1 [&>div:last-child]:mx-auto [&>div:last-child]:mt-6 [&>div:last-child]:w-full [&>div:last-child]:px-4 [&>div:last-child]:pb-4 md:[&>div:last-child]:px-6"
               value={tab}
               onValueChange={(value) => setTab(value as FormTab)}
-              tabs={buildCompanyUpsertTabs({ company, form, industries, session, setForm })}
+              tabs={buildCompanyUpsertTabs({ company, form, industries, onLogoPick: setLogoPickerType, session, setForm })}
             />
             <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6">
               <Button type="submit" disabled={isSaving} className="h-10 rounded-md px-5">
@@ -511,6 +520,15 @@ function CompanyUpsertPage({
           </form>
         </MasterListUpsertCard>
       </MasterListUpsertLayout>
+      <MediaPickerDialog
+        folder="company/logo"
+        onOpenChange={(open) => setLogoPickerType(open ? logoPickerType : null)}
+        onSelect={selectLogoFromMedia}
+        open={Boolean(logoPickerType)}
+        session={session}
+        title="Choose company logo"
+        uploadVisibility="public"
+      />
     </MasterListPageFrame>
   )
 }
@@ -519,12 +537,14 @@ function buildCompanyUpsertTabs({
   company,
   form,
   industries,
+  onLogoPick,
   session,
   setForm,
 }: {
   company: CompanyRecord | null
   form: CompanyUpsertInput
   industries: IndustryRecord[]
+  onLogoPick(logoType: string): void
   session: AuthSession
   setForm: Dispatch<SetStateAction<CompanyUpsertInput>>
 }) {
@@ -591,7 +611,7 @@ function buildCompanyUpsertTabs({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Input className="h-11 rounded-xl" value={getLogoVariantFileName(form.logos, variant.type)} placeholder={defaultCompanyLogoFileNames[variant.type]} onChange={(event) => setFormField(setForm, "logos", updateLogoVariantFileName(form.logos, variant.type, event.target.value))} />
-                    <Button type="button" variant="outline" className="h-11 rounded-xl px-3" onClick={() => toast.info("Logo upload is not wired yet", { description: "Set the stored file name or URL for now." })}>
+                    <Button type="button" variant="outline" className="h-11 rounded-xl px-3" onClick={() => onLogoPick(variant.type)}>
                       <ImagePlus className="size-4" />
                       Upload
                     </Button>
@@ -1070,6 +1090,24 @@ function updateLogoVariantFileName(
   if (!hasExistingLogo) return [...logos, nextLogo]
 
   return logos.map((logo) => (normalizeLogoType(logo.logoType) === normalizedType ? nextLogo : logo))
+}
+
+function updateLogoVariantUrl(
+  logos: readonly CompanyUpsertInput["logos"][number][],
+  logoType: string,
+  logoUrl: string,
+) {
+  const normalizedType = normalizeLogoType(logoType)
+  const nextLogo = { logoType, logoUrl, isActive: true }
+  const hasExistingLogo = logos.some((logo) => normalizeLogoType(logo.logoType) === normalizedType)
+
+  if (!hasExistingLogo) return [...logos, nextLogo]
+
+  return logos.map((logo) => (normalizeLogoType(logo.logoType) === normalizedType ? nextLogo : logo))
+}
+
+function mediaLogoUrl(session: AuthSession, asset: MediaAsset) {
+  return asset.public_url || `/api/v1/media/${asset.uuid}/content?tenant=${encodeURIComponent(session.selectedTenant.slug)}`
 }
 
 function buildLogoStoragePath(fileName: string) {

@@ -1,0 +1,63 @@
+import { sql, type Kysely } from 'kysely'
+
+type DynamicDatabase = Record<string, Record<string, unknown>>
+
+export async function migrateMediaTables(database: Kysely<DynamicDatabase>) {
+  await database.schema
+    .createTable('media_assets')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)', (col) => col.notNull().unique())
+    .addColumn('tenant_id', 'integer', (col) => col.notNull())
+    .addColumn('company_id', 'integer')
+    .addColumn('file_name', 'varchar(240)', (col) => col.notNull())
+    .addColumn('original_name', 'varchar(240)', (col) => col.notNull())
+    .addColumn('mime_type', 'varchar(160)', (col) => col.notNull())
+    .addColumn('extension', 'varchar(20)', (col) => col.notNull())
+    .addColumn('size_bytes', 'integer', (col) => col.notNull())
+    .addColumn('visibility', 'varchar(20)', (col) => col.notNull().defaultTo('private'))
+    .addColumn('folder', 'varchar(240)', (col) => col.notNull().defaultTo('library'))
+    .addColumn('storage_disk', 'varchar(20)', (col) => col.notNull().defaultTo('private'))
+    .addColumn('storage_path', 'varchar(500)', (col) => col.notNull())
+    .addColumn('public_url', 'varchar(600)')
+    .addColumn('checksum', 'varchar(128)')
+    .addColumn('alt_text', 'varchar(240)')
+    .addColumn('caption', 'varchar(500)')
+    .addColumn('tags', 'json', (col) => col.notNull())
+    .addColumn('metadata', 'json', (col) => col.notNull())
+    .addColumn('share_token', 'varchar(80)')
+    .addColumn('share_expires_at', 'datetime')
+    .addColumn('shared_at', 'datetime')
+    .addColumn('is_active', 'boolean', (col) => col.notNull().defaultTo(true))
+    .addColumn('created_by', 'varchar(180)', (col) => col.notNull())
+    .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .addColumn('updated_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .addColumn('deleted_at', 'datetime')
+    .execute()
+
+  await database.schema
+    .createTable('media_asset_links')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)', (col) => col.notNull().unique())
+    .addColumn('media_asset_id', 'integer', (col) => col.notNull())
+    .addColumn('linked_module', 'varchar(120)', (col) => col.notNull())
+    .addColumn('linked_record_id', 'varchar(120)', (col) => col.notNull())
+    .addColumn('purpose', 'varchar(120)', (col) => col.notNull().defaultTo('attachment'))
+    .addColumn('created_by', 'varchar(180)', (col) => col.notNull())
+    .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .execute()
+
+  await database.schema
+    .createTable('media_asset_activities')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)', (col) => col.notNull().unique())
+    .addColumn('media_asset_id', 'integer', (col) => col.notNull())
+    .addColumn('activity_type', 'varchar(80)', (col) => col.notNull())
+    .addColumn('actor_email', 'varchar(180)', (col) => col.notNull())
+    .addColumn('message', 'varchar(500)', (col) => col.notNull())
+    .addColumn('payload', 'json', (col) => col.notNull())
+    .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .execute()
+}

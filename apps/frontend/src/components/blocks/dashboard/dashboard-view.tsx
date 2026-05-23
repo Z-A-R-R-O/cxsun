@@ -34,6 +34,7 @@ import { PurchasePage } from 'src/features/purchase/purchase-page'
 import { ReceiptPage } from 'src/features/receipt/receipt-page'
 import { PaymentPage } from 'src/features/payment/payment-page'
 import { CustomerStatementReportPage, GstStatementReportPage, SupplierStatementReportPage } from 'src/features/report/billing-statement-page'
+import { MediaManagerPage } from 'src/features/media/media-page'
 import { DocumentSettingsPage, SalesSettingsPage } from 'src/features/settings/settings-page'
 import {
   appModulePages,
@@ -280,6 +281,8 @@ export function DashboardView({
           <SupplierStatementReportPage session={session} />
         ) : visiblePage === "app-billing-gst-report" ? (
           <GstStatementReportPage session={session} />
+        ) : visiblePage === "app-media-library" || visiblePage === "app-media-links" || visiblePage === "app-media-sharing" ? (
+          <MediaManagerPage session={session} />
         ) : visiblePage === "app-billing-settings" ? (
           <SalesSettingsPage session={session} />
         ) : visiblePage === "app-billing-document-settings" ? (
@@ -396,6 +399,8 @@ function appGroupDescription(title: string) {
     "Master": "Parties, products, and reusable master data.",
     "Common": "Shared setup data used across modules.",
     "Settings": "App setup, layouts, and controls.",
+    "Library": "Upload, browse, and organize media.",
+    "Management": "Share, link, and govern media assets.",
     "Storefront": "Store operations and checkout flow.",
     "Catalog": "Products, collections, and variants.",
     "Customers": "Customer records and engagement.",

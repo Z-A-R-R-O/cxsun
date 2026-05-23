@@ -1,0 +1,23 @@
+import { Module } from '../../core/decorators/module.js'
+import { TenantContextService } from '../../core/tenant/tenant-context.service.js'
+import { TenantRepository } from '../../core/tenant/infrastructure/tenant.repository.js'
+import { TenantDomainRepository } from '../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
+import { MasterQueueService } from '../../infrastructure/queue/master-queue.service.js'
+import { AuthRepository } from '../auth/infrastructure/auth.repository.js'
+import { MediaController } from './media.controller.js'
+import { MediaRepository } from './media.repository.js'
+import { MediaService } from './media.service.js'
+
+@Module({
+  controllers: [MediaController],
+  providers: [
+    AuthRepository,
+    TenantRepository,
+    TenantDomainRepository,
+    TenantContextService,
+    MasterQueueService,
+    MediaRepository,
+    MediaService,
+  ],
+})
+export class MediaModule {}

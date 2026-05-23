@@ -48,7 +48,7 @@ export class CxApp {
     const logLevel = options.logLevel ?? process.env.LOG_LEVEL ?? 'info'
     const gracePeriodMs = options.gracePeriodMs ?? 5_000
 
-    const app = Fastify({ logger: { level: logLevel } })
+    const app = Fastify({ bodyLimit: Number(process.env.BODY_LIMIT_BYTES ?? 30 * 1024 * 1024), logger: { level: logLevel } })
     const container = new Container()
 
     await app.register(cors, {

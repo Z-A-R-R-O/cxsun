@@ -2,13 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.21`
-- **Release tag:** `v-1.0.21`
-- **Changelog label:** `v 1.0.21`
+- **Current version:** `1.0.22`
+- **Release tag:** `v-1.0.22`
+- **Changelog label:** `v 1.0.22`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.22
+
+### [v 1.0.22] 2026-05-23 10:39 pm - media manager and picker integration
+
+- Bumped workspace version to 1.0.22
+- Added a standalone Media application with tenant media upload, browse, delete, share, link, public/private storage, activity tracking, and media dashboard routing.
+- Wired tenant media persistence through a modular backend media module, tenant migrations, public/private storage folders, queue events, and larger upload body limits.
+- Added a reusable media picker dialog for application-wide file selection and upload without exposing a duplicate Browser page in the side menu.
+- Connected the first media picker integration to Company logo selection so company logo variants can upload or choose public media from a popup.
+- Added frontend public storage access through `apps/frontend/public/storage` pointing to root `storage/public`.
+- Corrected media storage resolution so uploads are written to root `storage/public` even when the server runs from `apps/server`, and removed the stale server-local storage folder after copying existing media.
+- Verified the media manager and picker changes with `npm -w apps/server run typecheck` and `npm -w apps/frontend run typecheck`.
 
 ## v-1.0.21
 

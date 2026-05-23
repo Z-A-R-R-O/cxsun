@@ -12,6 +12,7 @@ import { migrateReceiptEntryTables } from '../../modules/entries/receipt/index.j
 import { migratePaymentEntryTables } from '../../modules/entries/payment/index.js'
 import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
 import { migrateDocumentSettingsTables } from '../../modules/settings/document-settings/index.js'
+import { migrateMediaTables } from '../../modules/media/index.js'
 import { migrateContactMasterTable } from '../../modules/master/contact/index.js'
 import { migrateProductMasterTable } from '../../modules/master/product/index.js'
 import { migrateOrderMasterTable } from '../../modules/master/order/index.js'
@@ -112,6 +113,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migratePaymentEntryTables(database)
   await migrateCompanySettingsTables(database)
   await migrateDocumentSettingsTables(database)
+  await migrateMediaTables(database as never)
   await migrateContactMasterTable(database)
   await migrateProductMasterTable(database)
   await migrateOrderMasterTable(database)
@@ -726,6 +728,9 @@ const tenantUuidTables = [
   'payment_entry_activities',
   'company_settings',
   'document_number_settings',
+  'media_assets',
+  'media_asset_links',
+  'media_asset_activities',
   'masters_contacts',
   'masters_products',
   'masters_orders',
