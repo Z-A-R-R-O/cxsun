@@ -122,7 +122,7 @@ export function SalesInvoiceDocument({
               <BillDetailsBlock lines={[
                 { label: "Invoice No:", value: record.invoice_no, strong: true },
                 { label: "Date:", value: formatDate(record.invoice_date), strong: true },
-                { label: "Reference:", value: record.reference_no ?? "" },
+                { label: "Work Order:", value: record.reference_no ?? "" },
               ]} />
             </td>
             <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>

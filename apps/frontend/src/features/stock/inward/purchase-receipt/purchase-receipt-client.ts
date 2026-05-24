@@ -131,7 +131,7 @@ export function emptyPurchaseReceiptEntry(): PurchaseReceiptEntryInput {
     vehicle_no: "",
     eway_part: "part-b",
     notes: "",
-    terms: "Supplier bill accepted subject to goods, rate, quantity, and quality verification.",
+    terms: "Goods received against supplier document subject to quantity, rate, and quality verification.",
     is_active: true,
     items: [],
   }
@@ -143,8 +143,6 @@ export function emptyPurchaseReceiptItem(): PurchaseReceiptEntryItem {
     description: "",
     colour: "",
     hsn_code: "",
-    po_no: "",
-    dc_no: "",
     size: "",
     unit: "",
     quantity: 1,

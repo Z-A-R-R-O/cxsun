@@ -1,5 +1,4 @@
-import { useMemo, type ReactNode } from "react"
-import qrcode from "qrcode-generator"
+import type { ReactNode } from "react"
 import type { CompanyRecord } from "src/features/company/company-client"
 import { MainPrintTemplate } from "./main-print-template"
 import { getDeliveryNotePrintLinePlan } from "./delivery-note-print-line-plan"
@@ -36,13 +35,10 @@ export function DeliveryNoteEntryDocument({
   customTerms,
   documentTitle = "DELIVERY NOTE",
   record,
-  showBankAccountNumber = true,
   showColour = false,
   showDc = true,
-  showFooterDetails = true,
   showLogo = true,
   showPo = true,
-  showQrAccountDetails = true,
   shippingParty,
   showSize = false,
 }: {
@@ -53,27 +49,19 @@ export function DeliveryNoteEntryDocument({
   readonly customTerms?: string | null
   readonly documentTitle?: string
   readonly record: DeliveryNoteEntry
-  readonly showBankAccountNumber?: boolean
   readonly showColour?: boolean
   readonly showDc?: boolean
-  readonly showFooterDetails?: boolean
   readonly showLogo?: boolean
   readonly showPo?: boolean
-  readonly showQrAccountDetails?: boolean
   readonly shippingParty?: DeliveryNotePrintPartyDetails | null
   readonly showSize?: boolean
 }) {
-  void showQrAccountDetails
   const itemColumns = printItemColumns({ showColour, showDc, showPo, showSize })
   const preQtyColumnCount = itemColumns.findIndex((column) => column.key === "quantity")
   const itemLinePlan = getDeliveryNotePrintLinePlan(record.items)
   const companyName = printableText(company?.legalName) || printableText(company?.name) || "CXSun Tenant Company"
   const companyHeaderLines = company ? companyHeaderDetails(company, addressLabels) : { address: [], contact: "", taxGstin: "", taxMsme: "" }
-  const companyBank = company ? primaryBankAccount(company) : null
-  const termsLines = DeliveryNotePrintTerms(customTerms || record.terms)
-  const hasIrn = Boolean(DeliveryNoteDocumentValue(record, "irn"))
-  const einvoiceQrValue = useMemo(() => buildDeliveryNoteEinvoiceQrPayload(record, company ?? null), [company, record])
-  const hasEinvoiceQr = hasIrn && Boolean(einvoiceQrValue)
+  const termsLines = DeliveryNotePrintTerms(record.terms || customTerms)
 
   return (
     <MainPrintTemplate>
@@ -88,7 +76,7 @@ export function DeliveryNoteEntryDocument({
             <td className={`${baseCell} h-[160px] w-[130px] border-r-0 text-center align-middle`}>
               {showLogo ? <CompanyLogo company={company ?? null} companyName={companyName} /> : null}
             </td>
-            <td className={`${baseCell} h-[160px] ${hasEinvoiceQr ? "" : "border-r-0"} text-center align-middle`}>
+            <td className={`${baseCell} h-[160px] border-r-0 text-center align-middle`}>
               <div className="flex h-[150px] flex-col items-center justify-center">
                 <div className={`${times} max-w-full whitespace-nowrap text-[clamp(25px,4.1vw,34px)] font-bold leading-tight`}>{companyName}</div>
                 <div className={`${times} mx-auto mt-3 max-w-[580px] text-[12px] font-medium leading-[1.45] tracking-wide`}>
@@ -103,13 +91,6 @@ export function DeliveryNoteEntryDocument({
                 </div>
               </div>
             </td>
-            {hasEinvoiceQr ? (
-              <td className={`${baseCell} w-[160px] border-r-0 align-middle`}>
-                <div className="mx-auto flex size-[154px] items-center justify-center bg-white p-[2px]">
-                  <EinvoiceQrData value={einvoiceQrValue} />
-                </div>
-              </td>
-            ) : null}
           </tr>
         </tbody>
       </table>
@@ -118,15 +99,14 @@ export function DeliveryNoteEntryDocument({
           <tr>
             <td className={`${baseCell} border-t border-gray-400 p-[5px]`}>
               <BillDetailsBlock lines={[
-                { label: "Entry No:", value: record.entry_no, strong: true },
-                { label: "Entry Date:", value: formatDate(record.entry_date), strong: true },
-                { label: "Supplier Bill No:", value: record.supplier_bill_no ?? "" },
-                { label: "Supplier Bill Date:", value: formatDate(record.supplier_bill_date), strong: true },
-                { label: "Reference:", value: record.reference_no ?? "" },
+                { label: "Delivery No:", value: record.entry_no, strong: true },
+                { label: "Delivery Date:", value: formatDate(record.entry_date), strong: true },
               ]} />
             </td>
             <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>
-              <IrnDetailsBlock record={record} />
+              <BillDetailsBlock lines={[
+                { label: "Work Order No:", value: record.reference_no ?? "", strong: true },
+              ]} />
             </td>
           </tr>
           <tr>
@@ -198,7 +178,6 @@ export function DeliveryNoteEntryDocument({
                 <div className="mt-2 space-y-0.5 font-bold">
                   {termsLines.map((line) => <div key={line}>* {line}</div>)}
                 </div>
-                {showFooterDetails ? <AccountDetailsBlock bank={companyBank} showAccountNumber={showBankAccountNumber} /> : null}
               </div>
               <div className="grid h-[92px] grid-cols-[1fr_1fr] border-t border-gray-400 text-[9px]">
                 <div className="p-2">Receiver Sign</div>
@@ -261,8 +240,8 @@ function BlankDeliveryNotePrintItemRow({ columns }: { columns: ReturnType<typeof
   return <tr>{columns.map((column, index) => <td key={`${column.label}-${index}`} className={index === columns.length - 1 ? `${lineItemCell} border-r-0` : lineItemCell}>&nbsp;</td>)}</tr>
 }
 
-function BillDetailsBlock({ labelWidthClassName = "grid-cols-[82px_1fr]", lines }: { labelWidthClassName?: string; lines: ReadonlyArray<{ label: string; strong?: boolean; value: ReactNode }> }) {
-  return <div className="space-y-0.5">{lines.map((line) => <div key={line.label} className={`grid ${labelWidthClassName} gap-1`}><span>{line.label}</span><span className={line.strong ? "font-bold" : ""}>{line.value || "-"}</span></div>)}</div>
+function BillDetailsBlock({ labelWidthClassName = "grid-cols-[108px_1fr]", lines }: { labelWidthClassName?: string; lines: ReadonlyArray<{ label: string; strong?: boolean; value: ReactNode }> }) {
+  return <div className="space-y-0.5">{lines.map((line) => <div key={line.label} className={`grid ${labelWidthClassName} gap-2`}><span className="whitespace-nowrap">{line.label}</span><span className={line.strong ? "font-bold" : ""}>{line.value || "-"}</span></div>)}</div>
 }
 
 function PartyAddressBlock({
@@ -310,103 +289,6 @@ function CompanyLogo({ company, companyName }: { company: CompanyRecord | null; 
   return <img src="/logo.svg" alt={companyName || "CXSUN"} className="mx-auto mt-4 max-h-[104px] max-w-[116px] object-contain" />
 }
 
-function EinvoiceQrData({ value }: { value: string }) {
-  const svgMarkup = createQrSvg(value)
-  if (!svgMarkup) return null
-  return <div className="size-full [&_svg]:block [&_svg]:size-full" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
-}
-
-function IrnDetailsBlock({ record }: { record: DeliveryNoteEntry }) {
-  return (
-    <div className="grid gap-1">
-      <div className="grid grid-cols-[34px_1fr] gap-1">
-        <span className="font-bold">IRN :</span>
-        <span className="break-all font-bold leading-tight">{DeliveryNoteDocumentValue(record, "irn") || record.uuid}</span>
-      </div>
-      <div className="grid gap-y-0.5">
-        <InlinePrintPairRow
-          leftLabel="Ack No.:"
-          leftValue={DeliveryNoteDocumentValue(record, "ack_no")}
-          rightLabel="Ack Date:"
-          rightValue={formatDate(DeliveryNoteDocumentValue(record, "ack_date"))}
-        />
-      </div>
-    </div>
-  )
-}
-
-function InlinePrintPairRow({
-  leftLabel,
-  leftValue,
-  rightLabel,
-  rightValue,
-}: {
-  leftLabel: string
-  leftValue: ReactNode
-  rightLabel: string
-  rightValue: ReactNode
-}) {
-  return (
-    <div className="grid grid-cols-[auto_minmax(78px,1fr)_auto_auto] gap-x-2 whitespace-nowrap font-bold">
-      <span>{leftLabel}</span>
-      <span>{leftValue || "-"}</span>
-      <span className="pl-2">{rightLabel}</span>
-      <span>{rightValue || "-"}</span>
-    </div>
-  )
-}
-
-function AccountDetailsBlock({ bank, showAccountNumber }: { bank: CompanyRecord["bankAccounts"][number] | null; showAccountNumber: boolean }) {
-  if (!bank) return null
-  return (
-    <div className="mt-6 grid grid-cols-[105px_1fr] gap-x-4 gap-y-0.5 text-[9px] font-bold leading-[1.25]">
-      {showAccountNumber ? <><span>ACCOUNT NO</span><span>: {bank.accountNumber}</span></> : null}
-      <span>IFSC CODE</span><span>: {bank.ifsc}</span>
-      <span>BANK NAME</span><span>: {bank.bankName}</span>
-      {bank.branch ? <><span>BRANCH</span><span>: {bank.branch}</span></> : null}
-    </div>
-  )
-}
-
-function createQrSvg(value: string) {
-  try {
-    const qr = qrcode(0, "M")
-    qr.addData(value)
-    qr.make()
-    return qr.createSvgTag({ cellSize: 2, margin: 1, scalable: true })
-  } catch {
-    try {
-      const qr = qrcode(0, "L")
-      qr.addData(value)
-      qr.make()
-      return qr.createSvgTag({ cellSize: 2, margin: 1, scalable: true })
-    } catch {
-      return ""
-    }
-  }
-}
-
-function buildDeliveryNoteEinvoiceQrPayload(record: DeliveryNoteEntry, company: CompanyRecord | null) {
-  const signedQr = printableText(record.signed_qr)
-  if (signedQr && !/signed qr will be populated/i.test(signedQr)) return signedQr
-
-  const irn = DeliveryNoteDocumentValue(record, "irn")
-  if (!irn) return ""
-
-  return JSON.stringify({
-    BuyerGstin: printableText(company?.gstinUin),
-    DocDt: formatGstPortalDate(record.supplier_bill_date || record.entry_date),
-    DocNo: printableText(record.supplier_bill_no) || record.entry_no,
-    DocTyp: "INV",
-    Irn: irn,
-    IrnDt: formatGstPortalDateTime(record.ack_date || record.entry_date),
-    ItemCnt: record.items.length,
-    MainHsnCode: record.items.find((item) => printableText(item.hsn_code))?.hsn_code ?? "",
-    SellerGstin: printableText(record.supplier_gstin),
-    TotInvVal: Number(record.items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.rate || 0), 0).toFixed(2)),
-  })
-}
-
 function sumQty(items: readonly DeliveryNoteEntryItem[]) {
   return items.reduce((sum, item) => sum + Number(item.quantity || 0), 0).toLocaleString("en-IN")
 }
@@ -445,14 +327,10 @@ function districtLabel(value: string) {
   return /\bdist\.?$/i.test(label) ? label : `${label} -Dist`
 }
 
-function primaryBankAccount(company: CompanyRecord) {
-  return company.bankAccounts.find((item) => item.isPrimary) ?? company.bankAccounts[0] ?? null
-}
-
 function DeliveryNotePrintTerms(value?: string | null) {
   const lines = String(value ?? "").split(/\r?\n/).map((line) => line.replace(/^\*\s*/, "").trim()).filter(Boolean)
   return lines.length ? lines : [
-    "Supplier bill accepted subject to goods, rate, quantity, and quality verification.",
+    "Goods delivered subject to customer acknowledgement and quantity, rate, and quality verification.",
     "Acceptance may be revised for shortage, damage, or mismatch found later.",
   ]
 }
@@ -461,12 +339,6 @@ function DeliveryNotePrintCopyLabel(copy: DeliveryNotePrintCopy) {
   if (copy === "duplicate") return "Duplicate"
   if (copy === "triplicate") return "Office Copy"
   return "Original"
-}
-
-function DeliveryNoteDocumentValue(record: DeliveryNoteEntry, key: string) {
-  const value = (record as unknown as Record<string, unknown>)[key]
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
-  return typeof value === "string" ? value.trim() : value === null || value === undefined ? "" : String(value)
 }
 
 function parsePartyAddress(address: string | null | undefined) {
@@ -495,24 +367,6 @@ function printableText(value: unknown) {
 function formatDate(value?: string | null) {
   if (!value) return "-"
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value))
-}
-
-function formatGstPortalDate(value?: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return [
-    String(date.getDate()).padStart(2, "0"),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    date.getFullYear(),
-  ].join("/")
-}
-
-function formatGstPortalDateTime(value?: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} 00:00:00`
 }
 
 function money(value: number | null | undefined) {

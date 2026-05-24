@@ -211,7 +211,7 @@ export function CommonRecordAutocompleteLookup({
           ref={listRef}
           role="listbox"
           style={listStyle}
-          className="fixed z-[220] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-2xl ring-1 ring-black/5"
+          className="fixed z-[1200] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-2xl ring-1 ring-black/5"
           onMouseDown={(event) => event.preventDefault()}
         >
           {filteredOptions.map((option, index) => {

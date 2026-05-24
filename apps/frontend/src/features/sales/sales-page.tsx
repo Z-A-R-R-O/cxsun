@@ -33,6 +33,8 @@ import { DistrictAutocompleteLookup } from "src/features/master-data/interface/c
 import { PincodeAutocompleteLookup } from "src/features/master-data/interface/components/pincode-autocomplete-lookup"
 import { StateAutocompleteLookup } from "src/features/master-data/interface/components/state-autocomplete-lookup"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
+import { ProductAutocomplete, productRecordCommonValue, productRecordId, productRecordName, productRecordTaxRate } from "src/features/master-data/interface/components/product-autocomplete"
+import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { listMasterDataRecords, upsertMasterDataRecord } from "src/features/master-data/infrastructure/master-data-client"
 import { isSoftwareSettingEnabled } from "src/features/settings/software-settings"
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
@@ -46,8 +48,6 @@ import {
   listSalesContactLookups,
   listSalesCommonLookups,
   listSalesEntries,
-  listSalesOrderLookups,
-  listSalesProductLookups,
   restoreSalesEntry,
   runSalesTool,
   upsertSalesEntry,
@@ -208,7 +208,7 @@ export function SalesPage({ session }: { session: AuthSession }) {
           setCurrentPage(1)
         }}
         onShowAllColumns={() => setVisibleColumns(defaultSalesColumnVisibility)}
-        searchPlaceholder="Search invoice, customer, date, reference, or status"
+        searchPlaceholder="Search invoice, customer, date, work order, or status"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -549,8 +549,6 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const totals = useMemo(() => calculateDraftTotals(draft.items, draft.round_off), [draft.items, draft.round_off])
   const contactsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listSalesContactLookups(session) })
-  const ordersQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "orders"], queryFn: () => listSalesOrderLookups(session) })
-  const productsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "products"], queryFn: () => listSalesProductLookups(session) })
   const hsnCodesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listSalesCommonLookups(session, "hsnCodes") })
   const taxesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "taxes"], queryFn: () => listSalesCommonLookups(session, "taxes") })
   const unitsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "units"], queryFn: () => listSalesCommonLookups(session, "units") })
@@ -584,8 +582,6 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
                 hsnCodes={hsnCodesQuery.data ?? []}
-                orders={ordersQuery.data ?? []}
-                products={productsQuery.data ?? []}
                 session={session}
                 setForm={setDraft}
                 softwareSettings={softwareSettings}
@@ -627,14 +623,12 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   )
 }
 
-function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, orders, products, session, setForm, softwareSettings, taxes, totals, transports, units }: {
+function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, session, setForm, softwareSettings, taxes, totals, transports, units }: {
   contacts: SalesLookupOption[]
   form: SalesEntryInput
   hsnCodes: SalesLookupOption[]
   onContactsRefresh(): void
   onCreateContact(name: string): void
-  orders: SalesLookupOption[]
-  products: SalesLookupOption[]
   session: AuthSession
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
   softwareSettings: SoftwareSettingsState
@@ -694,8 +688,6 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
           itemDraft={itemDraft}
           addressLabels={addressLabels}
           onCreateContact={onCreateContact}
-          orders={orders}
-          products={products}
           session={session}
           setEditingItemIndex={setEditingItemIndex}
           setForm={setForm}
@@ -737,7 +729,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
   )
 }
 
-function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, orders, products, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
+function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
   addItem(): void
   addressLabels: SalesAddressLabels
   contacts: SalesLookupOption[]
@@ -748,8 +740,6 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
   hsnCodes: SalesLookupOption[]
   itemDraft: SalesEntryItem
   onCreateContact(name: string): void
-  orders: SalesLookupOption[]
-  products: SalesLookupOption[]
   session: AuthSession
   setEditingItemIndex(value: number | null): void
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
@@ -817,17 +807,7 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
             }}
             onTextChange={(value) => setForm((current) => ({ ...current, customer_gstin: "", customer_id: null, customer_name: value, customer_state_code: "", customer_state_name: "" }))}
           />
-          <MasterAutocompleteLookup
-            label="Order no"
-            options={orders}
-            placeholder=""
-            selectedId={null}
-            selectedLabel={form.reference_no ?? ""}
-            inputLabel={salesLookupCodeOrName}
-            optionLabel={salesLookupCodeOrName}
-            onPick={(option) => setForm((current) => ({ ...current, reference_no: option.code ?? option.label }))}
-            onTextChange={(value) => setForm((current) => ({ ...current, reference_no: value }))}
-          />
+          <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
         </div>
         <div className="space-y-5">
           <Field label="Invoice no" value={form.invoice_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, invoice_no: value }))} />
@@ -840,26 +820,19 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
         <div className={itemRowClassName}>
           {isOffsetLayout ? <Field compact centeredLabel label="PO" value={itemDraft.po_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, po_no: value }))} /> : null}
           {isOffsetLayout ? <Field compact centeredLabel label="DC" value={itemDraft.dc_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, dc_no: value }))} /> : null}
-          <MasterAutocompleteLookup
+          <ProductAutocomplete
             className="gap-1"
             inputRef={productInputRef}
-            label="Product name"
-            options={products}
-            placeholder=""
-            selectedId={itemDraft.product_id ?? null}
-            selectedLabel={itemDraft.product_name}
-            inputLabel={salesLookupInputName}
-            optionLabel={salesLookupInputName}
-            onPick={(option) => setItemDraft((current) => ({
+            session={session}
+            value={itemDraft.product_name}
+            onChange={(value, record) => setItemDraft((current) => record ? ({
               ...current,
-              product_id: option.id,
-              product_name: salesLookupInputName(option),
-              hsn_code: productCommonValue(option, "hsn_code_id", hsnCodes, option.hsnCode),
-              rate: option.rate ?? current.rate,
-              tax_rate: productTaxRate(option, taxes),
-              unit: productCommonValue(option, "unit_id", units, option.unit),
-            }))}
-            onTextChange={(value) => setItemDraft((current) => ({ ...current, product_id: null, product_name: value }))}
+              product_id: productRecordId(record),
+              product_name: productRecordName(record),
+              hsn_code: productRecordCommonValue(record, "hsn_code_id", hsnCodes),
+              tax_rate: productRecordTaxRate(record, taxes),
+              unit: productRecordCommonValue(record, "unit_id", units),
+            }) : { ...current, product_id: null, product_name: value })}
           />
           <Field compact centeredLabel label="Description" value={itemDraft.description ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, description: value }))} />
           {isGarmentLayout ? <CommonRecordAutocompleteLookup label="Colour" className="gap-1" labelClassName="text-center" moduleKey="colours" placeholder="Search colour" session={session} value={itemDraft.colour ?? ""} onChange={(value, record) => setItemDraft((current) => ({ ...current, colour: record ? getCommonRecordName(record) : value === null ? "" : String(value) }))} /> : null}
@@ -1819,27 +1792,10 @@ function salesLookupInputName(option: SalesLookupOption) {
   return recordName || option.label
 }
 
-function salesLookupCodeOrName(option: SalesLookupOption) {
-  return option.code || salesLookupInputName(option)
-}
-
 function formatParticulars(item: SalesEntryItem) {
   const product = item.product_name.trim() || "-"
   const description = String(item.description ?? "").trim()
   return description ? `${product} - ${description}` : product
-}
-
-function productTaxRate(product: SalesLookupOption, taxes: SalesLookupOption[]) {
-  const productTaxId = product.record.tax_id
-  const tax = taxes.find((option) => String(option.record.id) === String(productTaxId) || String(option.id) === String(productTaxId))
-  return tax?.taxRate ?? readNumberValue(product.record.rate_percent)
-}
-
-function productCommonValue(product: SalesLookupOption, key: "hsn_code_id" | "unit_id", options: SalesLookupOption[], fallback?: string) {
-  const selectedId = product.record[key]
-  const option = options.find((item) => String(item.record.id) === String(selectedId) || String(item.id) === String(selectedId))
-  if (!option) return fallback ?? ""
-  return option.hsnCode ?? option.unit ?? option.code ?? salesLookupInputName(option)
 }
 
 const SALES_TAX_TYPE_OPTIONS: SalesLookupOption[] = [
@@ -2045,9 +2001,4 @@ function formatDateTimeWithZone(value?: string | null) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat(undefined, { currency: "INR", maximumFractionDigits: 2, style: "currency" }).format(Number(value ?? 0))
-}
-
-function readNumberValue(value: unknown) {
-  const number = Number(value ?? 0)
-  return Number.isFinite(number) ? number : 0
 }

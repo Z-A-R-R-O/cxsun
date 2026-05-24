@@ -124,7 +124,7 @@ export function PurchaseEntryDocument({
                 { label: "Entry Date:", value: formatDate(record.entry_date), strong: true },
                 { label: "Supplier Bill No:", value: record.supplier_bill_no ?? "" },
                 { label: "Supplier Bill Date:", value: formatDate(record.supplier_bill_date), strong: true },
-                { label: "Reference:", value: record.reference_no ?? "" },
+                { label: "Work Order:", value: record.reference_no ?? "" },
               ]} />
             </td>
             <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>

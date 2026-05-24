@@ -121,7 +121,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     menuGroups: [
       { title: "Entries", icon: FileText, items: [item("billing", "sales", "Sales", FileText), item("billing", "purchase", "Purchase", ReceiptText), item("billing", "receipts", "Receipts", ReceiptText), item("billing", "payments", "Payments", CreditCard)] },
       { title: "Report", icon: BarChart3, items: [item("billing", "customer-statement", "Customer Statement", BarChart3), item("billing", "supplier-statement", "Supplier Statement", BarChart3), item("billing", "gst-report", "GST Report", BarChart3)] },
-      { title: "Master", icon: PackageSearch, items: [item("billing", "contact", "Contact", UsersRound), item("billing", "product", "Product", PackageSearch), item("billing", "order", "Order", ShoppingBag)] },
+      { title: "Master", icon: PackageSearch, items: [item("billing", "contact", "Contact", UsersRound), item("billing", "product", "Product", PackageSearch), item("billing", "order", "Work Order", ShoppingBag)] },
       {
         title: "Common",
         icon: MapPin,
@@ -129,7 +129,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
           { ...item("billing", "location", "Location", MapPinned), items: [item("billing", "country", "Countries", Globe2), item("billing", "state", "States", Map), item("billing", "district", "Districts", Landmark), item("billing", "city", "Cities", Building2), item("billing", "pincode", "Pincodes", Hash)] },
           { ...item("billing", "contacts-common", "Contacts", UsersRound), items: [item("billing", "contact-group", "Groups", ContactRound), item("billing", "contact-type", "Types", UserRoundCog), item("billing", "address-type", "Address Types", MapPin), item("billing", "bank-name", "Bank Names", Banknote)] },
           { ...item("billing", "product-common", "Product", Package), items: [item("billing", "product-group", "Product Groups", Layers3), item("billing", "category", "Product Categories", Shapes), item("billing", "product-type", "Product Types", PackageSearch), item("billing", "unit", "Units", Scale), item("billing", "hsn-code", "HSN Codes", Barcode), item("billing", "tax", "Taxes", BadgePercent), item("billing", "brand", "Brands", Tags), item("billing", "colour", "Colours", Palette), item("billing", "size", "Sizes", Ruler), item("billing", "style", "Styles", Brush)] },
-          { ...item("billing", "orders-common", "Orders", ShoppingBag), items: [item("billing", "order-type", "Order Types", ReceiptText), item("billing", "transport", "Transports", Truck), item("billing", "warehouse", "Warehouses", Warehouse), item("billing", "destination", "Destinations", MapPinned), item("billing", "stock-rejection-type", "Stock Rejection Types", FileText)] },
+          { ...item("billing", "orders-common", "Work Orders", ShoppingBag), items: [item("billing", "order-type", "Work Order Types", ReceiptText), item("billing", "transport", "Transports", Truck), item("billing", "warehouse", "Warehouses", Warehouse), item("billing", "destination", "Destinations", MapPinned), item("billing", "stock-rejection-type", "Stock Rejection Types", FileText)] },
           { ...item("billing", "others-common", "Others", Settings), items: [item("billing", "currency", "Currencies", CircleDollarSign), item("billing", "payment-term", "Payment Terms", CreditCard), item("billing", "month", "Months", CalendarDays)] },
         ],
       },
@@ -194,6 +194,16 @@ export const dashboardApps: DashboardAppDefinition[] = [
     icon: Boxes,
     menuGroups: [
       { title: "Stock", icon: Boxes, items: [item("inventory", "purchase", "Purchase Receipts", ReceiptText), item("inventory", "stock-ledger", "Stock Ledger", BarChart3), item("inventory", "delivery-note", "Delivery Note", Truck)] },
+      { title: "Master", icon: PackageSearch, items: [item("inventory", "contact", "Contact", UsersRound), item("inventory", "product", "Product", PackageSearch), item("inventory", "order", "Work Order", ShoppingBag)] },
+      {
+        title: "Common",
+        icon: Package,
+        items: [
+          { ...item("inventory", "product-common", "Product", Package), items: [item("inventory", "product-group", "Product Groups", Layers3), item("inventory", "category", "Product Categories", Shapes), item("inventory", "product-type", "Product Types", PackageSearch), item("inventory", "unit", "Units", Scale), item("inventory", "hsn-code", "HSN Codes", Barcode), item("inventory", "tax", "Taxes", BadgePercent), item("inventory", "brand", "Brands", Tags), item("inventory", "colour", "Colours", Palette), item("inventory", "size", "Sizes", Ruler), item("inventory", "style", "Styles", Brush)] },
+          { ...item("inventory", "orders-common", "Work Orders", ShoppingBag), items: [item("inventory", "order-type", "Work Order Types", ReceiptText), item("inventory", "transport", "Transports", Truck), item("inventory", "warehouse", "Warehouses", Warehouse), item("inventory", "destination", "Destinations", MapPinned), item("inventory", "stock-rejection-type", "Stock Rejection Types", FileText)] },
+          { ...item("inventory", "others-common", "Others", Settings), items: [item("inventory", "currency", "Currencies", CircleDollarSign), item("inventory", "payment-term", "Payment Terms", CreditCard), item("inventory", "month", "Months", CalendarDays)] },
+        ],
+      },
       { title: "Settings", icon: Settings, items: [item("inventory", "document-settings", "Document Settings", FileCog)] },
     ],
   }),

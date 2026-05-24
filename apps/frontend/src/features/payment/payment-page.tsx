@@ -23,6 +23,7 @@ import {
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { listCompanies, type CompanyBankAccount, type CompanyRecord } from "src/features/company/company-client"
+import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
 import {
   addPaymentComment,
@@ -176,7 +177,7 @@ export function PaymentPage({ session }: { session: AuthSession }) {
           setCurrentPage(1)
         }}
         onShowAllColumns={() => setVisibleColumns(defaultPaymentColumnVisibility)}
-        searchPlaceholder="Search payment, supplier, mode, ledger, reference, or status"
+        searchPlaceholder="Search payment, supplier, mode, ledger, work order, or status"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -390,7 +391,7 @@ function PaymentUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   }, [draft.payment_no, entry, nextPaymentQuery.data?.preview])
 
   const tabs: AnimatedTab[] = [
-    { value: "details", label: "Details", content: <PaymentDetailsTab bankAccounts={bankAccounts} contacts={contactsQuery.data ?? []} form={draft} setForm={setDraft} /> },
+    { value: "details", label: "Details", content: <PaymentDetailsTab bankAccounts={bankAccounts} contacts={contactsQuery.data ?? []} form={draft} session={session} setForm={setDraft} /> },
     { value: "allocations", label: "Allocations", content: <PaymentAllocationsTab form={draft} setForm={setDraft} /> },
   ]
 
@@ -423,7 +424,7 @@ function PaymentUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   )
 }
 
-function PaymentDetailsTab({ bankAccounts, contacts, form, setForm }: { bankAccounts: CompanyBankAccount[]; contacts: PaymentLookupOption[]; form: PaymentEntryInput; setForm: Dispatch<SetStateAction<PaymentEntryInput>> }) {
+function PaymentDetailsTab({ bankAccounts, contacts, form, session, setForm }: { bankAccounts: CompanyBankAccount[]; contacts: PaymentLookupOption[]; form: PaymentEntryInput; session: AuthSession; setForm: Dispatch<SetStateAction<PaymentEntryInput>> }) {
   const needsBank = isBankTransferMode(form.payment_mode ?? "cash")
   const bankOptions = useMemo(() => bankAccounts.filter((bank) => bank.isActive).sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary)), [bankAccounts])
   const selectedBank = bankOptions.find((bank) => String(bank.id ?? bank.accountNumber) === String(form.bank_account_id ?? ""))
@@ -441,7 +442,7 @@ function PaymentDetailsTab({ bankAccounts, contacts, form, setForm }: { bankAcco
           onTextChange={(value) => setForm((current) => ({ ...current, party_id: null, party_name: value }))}
         />
         <Field label="Amount" numeric value={String(form.amount ?? 0)} onChange={(value) => setForm((current) => ({ ...current, amount: Number(value.replace(/[^0-9.]/g, "") || 0) }))} />
-        <Field label="Reference no" value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
+        <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
       </div>
       <div className="space-y-5">
         <Field label="Payment no" value={form.payment_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, payment_no: value }))} />
@@ -513,7 +514,7 @@ function PaymentPrintDocument({ company, record }: { company: CompanyRecord | nu
         <div className="space-y-1 p-2">
           <PrintLine label="Mode">{modeLabel(record.payment_mode)}</PrintLine>
           <PrintLine label={isBankTransferMode(record.payment_mode) ? "Paid from bank" : "Ledger"}>{record.ledger_name ?? ""}</PrintLine>
-          <PrintLine label="Reference">{record.reference_no ?? ""}</PrintLine>
+          <PrintLine label="Work Order">{record.reference_no ?? ""}</PrintLine>
         </div>
       </div>
       <table className="money-voucher-table w-full border-collapse border border-gray-400">

@@ -31,6 +31,8 @@ import { DistrictAutocompleteLookup } from "src/features/master-data/interface/c
 import { PincodeAutocompleteLookup } from "src/features/master-data/interface/components/pincode-autocomplete-lookup"
 import { StateAutocompleteLookup } from "src/features/master-data/interface/components/state-autocomplete-lookup"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
+import { ProductAutocomplete, productRecordCommonValue, productRecordId, productRecordName } from "src/features/master-data/interface/components/product-autocomplete"
+import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 import { isSoftwareSettingEnabled } from "src/features/settings/software-settings"
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
@@ -45,8 +47,6 @@ import {
   listDeliveryNoteContactLookups,
   listDeliveryNoteCommonLookups,
   listDeliveryNoteEntries,
-  listDeliveryNoteOrderLookups,
-  listDeliveryNoteProductLookups,
   restoreDeliveryNoteEntry,
   runDeliveryNoteTool,
   upsertDeliveryNoteEntry,
@@ -186,7 +186,7 @@ export function DeliveryNotePage({ session }: { session: AuthSession }) {
           onCheckedChange: (checked) => setVisibleColumns((current) => ({ ...current, [column.id]: checked })),
         }))}
         onShowAllColumns={() => setVisibleColumns(defaultDeliveryNoteColumnVisibility)}
-        searchPlaceholder="Search entry, customer, date, or reference"
+        searchPlaceholder="Search entry, customer, date, or work order"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -518,8 +518,6 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
   const [draft, setDraft] = useState<DeliveryNoteEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptyDeliveryNoteEntry())
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listDeliveryNoteContactLookups(session) })
-  const ordersQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "orders"], queryFn: () => listDeliveryNoteOrderLookups(session) })
-  const productsQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "products"], queryFn: () => listDeliveryNoteProductLookups(session) })
   const hsnCodesQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listDeliveryNoteCommonLookups(session, "hsnCodes") })
   const unitsQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "units"], queryFn: () => listDeliveryNoteCommonLookups(session, "units") })
   const nextEntryQuery = useQuery({
@@ -551,8 +549,6 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
                 hsnCodes={hsnCodesQuery.data ?? []}
-                orders={ordersQuery.data ?? []}
-                products={productsQuery.data ?? []}
                 session={session}
                 setForm={setDraft}
                 softwareSettings={softwareSettings}
@@ -591,14 +587,12 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
   )
 }
 
-function DeliveryNoteVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, orders, products, session, setForm, softwareSettings, units }: {
+function DeliveryNoteVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, session, setForm, softwareSettings, units }: {
   contacts: DeliveryNoteLookupOption[]
   form: DeliveryNoteEntryInput
   hsnCodes: DeliveryNoteLookupOption[]
   onContactsRefresh(): void
   onCreateContact(name: string): void
-  orders: DeliveryNoteLookupOption[]
-  products: DeliveryNoteLookupOption[]
   session: AuthSession
   setForm(updater: (current: DeliveryNoteEntryInput) => DeliveryNoteEntryInput): void
   softwareSettings: SoftwareSettingsState
@@ -655,8 +649,6 @@ function DeliveryNoteVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, 
           itemDraft={itemDraft}
           addressLabels={addressLabels}
           onCreateContact={onCreateContact}
-          orders={orders}
-          products={products}
           session={session}
           setEditingItemIndex={setEditingItemIndex}
           setForm={setForm}
@@ -673,7 +665,7 @@ function DeliveryNoteVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, 
     },
     {
       value: "terms",
-      label: "Terms",
+      label: "Notes",
       content: <DeliveryNoteTermsTab form={form} setForm={setForm} />,
     },
   ]
@@ -686,7 +678,7 @@ function DeliveryNoteVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, 
   )
 }
 
-function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, orders, products, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, units }: {
+function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, units }: {
   addItem(): void
   addressLabels: DeliveryNoteAddressLabels
   contacts: DeliveryNoteLookupOption[]
@@ -697,8 +689,6 @@ function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, 
   hsnCodes: DeliveryNoteLookupOption[]
   itemDraft: DeliveryNoteEntryItem
   onCreateContact(name: string): void
-  orders: DeliveryNoteLookupOption[]
-  products: DeliveryNoteLookupOption[]
   session: AuthSession
   setEditingItemIndex(value: number | null): void
   setForm(updater: (current: DeliveryNoteEntryInput) => DeliveryNoteEntryInput): void
@@ -763,23 +753,11 @@ function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, 
             }}
             onTextChange={(value) => setForm((current) => ({ ...current, supplier_gstin: "", supplier_id: null, supplier_name: value, supplier_state_code: "", supplier_state_name: "" }))}
           />
-          <MasterAutocompleteLookup
-            label="Order no"
-            options={orders}
-            placeholder=""
-            selectedId={null}
-            selectedLabel={form.reference_no ?? ""}
-            inputLabel={DeliveryNoteLookupCodeOrName}
-            optionLabel={DeliveryNoteLookupCodeOrName}
-            onPick={(option) => setForm((current) => ({ ...current, reference_no: option.code ?? option.label }))}
-            onTextChange={(value) => setForm((current) => ({ ...current, reference_no: value }))}
-          />
+          <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
         </div>
         <div className="space-y-5">
-          <Field label="Entry no" value={form.entry_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, entry_no: value }))} />
-          <Field label="Entry date" type="date" value={String(form.entry_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, entry_date: value }))} />
-          <Field label="Customer reference no" value={form.supplier_bill_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_no: value }))} />
-          <Field label="Customer reference date" type="date" value={String(form.supplier_bill_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_date: value }))} />
+          <Field label="Delivery no" value={form.entry_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, entry_no: value }))} />
+          <Field label="Delivery date" type="date" value={String(form.entry_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, entry_date: value }))} />
         </div>
       </div>
       <section className="space-y-5">
@@ -787,26 +765,19 @@ function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, 
         <div className={itemRowClassName}>
           {isOffsetLayout ? <Field compact centeredLabel label="PO" value={itemDraft.po_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, po_no: value }))} /> : null}
           {isOffsetLayout ? <Field compact centeredLabel label="DC" value={itemDraft.dc_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, dc_no: value }))} /> : null}
-          <MasterAutocompleteLookup
+          <ProductAutocomplete
             className="gap-1"
             inputRef={productInputRef}
-            label="Product name"
-            options={products}
-            placeholder=""
-            selectedId={itemDraft.product_id ?? null}
-            selectedLabel={itemDraft.product_name}
-            inputLabel={DeliveryNoteLookupInputName}
-            optionLabel={DeliveryNoteLookupInputName}
-            onPick={(option) => setItemDraft((current) => ({
+            session={session}
+            value={itemDraft.product_name}
+            onChange={(value, record) => setItemDraft((current) => record ? ({
               ...current,
-              product_id: option.id,
-              product_name: DeliveryNoteLookupInputName(option),
-              hsn_code: productCommonValue(option, "hsn_code_id", hsnCodes, option.hsnCode),
-              rate: option.rate ?? current.rate,
+              product_id: productRecordId(record),
+              product_name: productRecordName(record),
+              hsn_code: productRecordCommonValue(record, "hsn_code_id", hsnCodes),
               tax_rate: 0,
-              unit: productCommonValue(option, "unit_id", units, option.unit),
-            }))}
-            onTextChange={(value) => setItemDraft((current) => ({ ...current, product_id: null, product_name: value }))}
+              unit: productRecordCommonValue(record, "unit_id", units),
+            }) : { ...current, product_id: null, product_name: value })}
           />
           <Field compact centeredLabel label="Description" value={itemDraft.description ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, description: value }))} />
           {isGarmentLayout ? <CommonRecordAutocompleteLookup label="Colour" className="gap-1" labelClassName="text-center" moduleKey="colours" placeholder="Search colour" session={session} value={itemDraft.colour ?? ""} onChange={(value, record) => setItemDraft((current) => ({ ...current, colour: record ? getCommonRecordName(record) : value === null ? "" : String(value) }))} /> : null}
@@ -1047,6 +1018,7 @@ function DeliveryNoteTermsTab({ form, setForm }: {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <TextField label="Notes" value={form.notes ?? ""} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} />
+      <TextField label="Custom terms" value={form.terms ?? ""} onChange={(value) => setForm((current) => ({ ...current, terms: value }))} />
     </div>
   )
 }
@@ -1508,21 +1480,10 @@ function DeliveryNoteLookupInputName(option: DeliveryNoteLookupOption) {
   return recordName || option.label
 }
 
-function DeliveryNoteLookupCodeOrName(option: DeliveryNoteLookupOption) {
-  return option.code || DeliveryNoteLookupInputName(option)
-}
-
 function formatParticulars(item: DeliveryNoteEntryItem) {
   const product = item.product_name.trim() || "-"
   const description = String(item.description ?? "").trim()
   return description ? `${product} - ${description}` : product
-}
-
-function productCommonValue(product: DeliveryNoteLookupOption, key: "hsn_code_id" | "unit_id", options: DeliveryNoteLookupOption[], fallback?: string) {
-  const selectedId = product.record[key]
-  const option = options.find((item) => String(item.record.id) === String(selectedId) || String(item.id) === String(selectedId))
-  if (!option) return fallback ?? ""
-  return option.hsnCode ?? option.unit ?? option.code ?? DeliveryNoteLookupInputName(option)
 }
 
 function ItemHeader({ children, className }: { children: ReactNode; className?: string }) {

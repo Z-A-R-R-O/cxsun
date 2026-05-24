@@ -2,13 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.23`
-- **Release tag:** `v-1.0.23`
-- **Changelog label:** `v 1.0.23`
+- **Current version:** `1.0.24`
+- **Release tag:** `v-1.0.24`
+- **Changelog label:** `v 1.0.24`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.24
+
+### [v 1.0.24] 2026-05-24 3:48 pm - voucher work order and product autocomplete cleanup
+
+- Bumped workspace version to 1.0.24
+- Fixed purchase receipt save compatibility for legacy tenant columns and migrated the `aaran` tenant database.
+- Cleaned purchase receipt and delivery note show/print layouts by removing IRN/Ack/account/supplier bill clutter, aligning document/work-order fields, and changing Terms to Notes with custom terms support.
+- Added Inventory Master/Common side-menu access for contacts, products, work orders, product common data, and common operational records.
+- Renamed the visible Order master concept to Work Order across voucher forms, menus, print labels, search placeholders, and master metadata while keeping the existing `orders` API key.
+- Added a shared Work Order autocomplete with body-portaled create popup and Code/Name/Description entry, then wired it into sales, purchase, receipt, payment, purchase receipt, and delivery note.
+- Added a shared Product autocomplete with a full product create popup and inline common-module creation for HSN Code, Unit, and GST %, then wired it into sales, purchase, purchase receipt, and delivery note.
+- Verified the release batch with `npm -w apps/frontend run typecheck`, `npm -w apps/server run typecheck`, and `npm -w apps/frontend run build`.
 
 ## v-1.0.23
 

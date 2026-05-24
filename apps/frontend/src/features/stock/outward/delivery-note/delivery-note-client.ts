@@ -131,7 +131,7 @@ export function emptyDeliveryNoteEntry(): DeliveryNoteEntryInput {
     vehicle_no: "",
     eway_part: "part-b",
     notes: "",
-    terms: "Supplier bill accepted subject to goods, rate, quantity, and quality verification.",
+    terms: "Goods delivered subject to customer acknowledgement and quantity, rate, and quality verification.",
     is_active: true,
     items: [],
   }

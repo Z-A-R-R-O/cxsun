@@ -31,6 +31,8 @@ import { DistrictAutocompleteLookup } from "src/features/master-data/interface/c
 import { PincodeAutocompleteLookup } from "src/features/master-data/interface/components/pincode-autocomplete-lookup"
 import { StateAutocompleteLookup } from "src/features/master-data/interface/components/state-autocomplete-lookup"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
+import { ProductAutocomplete, productRecordCommonValue, productRecordId, productRecordName } from "src/features/master-data/interface/components/product-autocomplete"
+import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 import { isSoftwareSettingEnabled } from "src/features/settings/software-settings"
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
@@ -45,8 +47,6 @@ import {
   listPurchaseReceiptContactLookups,
   listPurchaseReceiptCommonLookups,
   listPurchaseReceiptEntries,
-  listPurchaseReceiptOrderLookups,
-  listPurchaseReceiptProductLookups,
   restorePurchaseReceiptEntry,
   runPurchaseReceiptTool,
   upsertPurchaseReceiptEntry,
@@ -186,7 +186,7 @@ export function PurchaseReceiptPage({ session }: { session: AuthSession }) {
           onCheckedChange: (checked) => setVisibleColumns((current) => ({ ...current, [column.id]: checked })),
         }))}
         onShowAllColumns={() => setVisibleColumns(defaultPurchaseReceiptColumnVisibility)}
-        searchPlaceholder="Search entry, supplier, date, or reference"
+        searchPlaceholder="Search entry, supplier, date, or work order"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -285,8 +285,8 @@ function PurchaseReceiptShowPage({ entry, isWorking, onBack, onComment, onDestro
   const customTerms = softwareSettings.salesPrintingOptions.customTerms
   const printItemSettings = {
     showColour: isSoftwareSettingEnabled(softwareSettings, "sales-use-colour"),
-    showDc: isSoftwareSettingEnabled(softwareSettings, "sales-use-dc"),
-    showPo: isSoftwareSettingEnabled(softwareSettings, "sales-use-po"),
+    showDc: false,
+    showPo: false,
     showSize: isSoftwareSettingEnabled(softwareSettings, "sales-use-size"),
   }
 
@@ -518,8 +518,6 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
   const [draft, setDraft] = useState<PurchaseReceiptEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptyPurchaseReceiptEntry())
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listPurchaseReceiptContactLookups(session) })
-  const ordersQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "orders"], queryFn: () => listPurchaseReceiptOrderLookups(session) })
-  const productsQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "products"], queryFn: () => listPurchaseReceiptProductLookups(session) })
   const hsnCodesQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listPurchaseReceiptCommonLookups(session, "hsnCodes") })
   const unitsQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "units"], queryFn: () => listPurchaseReceiptCommonLookups(session, "units") })
   const nextEntryQuery = useQuery({
@@ -551,8 +549,6 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
                 hsnCodes={hsnCodesQuery.data ?? []}
-                orders={ordersQuery.data ?? []}
-                products={productsQuery.data ?? []}
                 session={session}
                 setForm={setDraft}
                 softwareSettings={softwareSettings}
@@ -591,14 +587,12 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
   )
 }
 
-function PurchaseReceiptVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, orders, products, session, setForm, softwareSettings, units }: {
+function PurchaseReceiptVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, session, setForm, softwareSettings, units }: {
   contacts: PurchaseReceiptLookupOption[]
   form: PurchaseReceiptEntryInput
   hsnCodes: PurchaseReceiptLookupOption[]
   onContactsRefresh(): void
   onCreateContact(name: string): void
-  orders: PurchaseReceiptLookupOption[]
-  products: PurchaseReceiptLookupOption[]
   session: AuthSession
   setForm(updater: (current: PurchaseReceiptEntryInput) => PurchaseReceiptEntryInput): void
   softwareSettings: SoftwareSettingsState
@@ -655,8 +649,6 @@ function PurchaseReceiptVoucherTabs({ contacts, form, hsnCodes, onContactsRefres
           itemDraft={itemDraft}
           addressLabels={addressLabels}
           onCreateContact={onCreateContact}
-          orders={orders}
-          products={products}
           session={session}
           setEditingItemIndex={setEditingItemIndex}
           setForm={setForm}
@@ -673,7 +665,7 @@ function PurchaseReceiptVoucherTabs({ contacts, form, hsnCodes, onContactsRefres
     },
     {
       value: "terms",
-      label: "Terms",
+      label: "Notes",
       content: <PurchaseReceiptTermsTab form={form} setForm={setForm} />,
     },
   ]
@@ -686,7 +678,7 @@ function PurchaseReceiptVoucherTabs({ contacts, form, hsnCodes, onContactsRefres
   )
 }
 
-function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, orders, products, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, units }: {
+function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, units }: {
   addItem(): void
   addressLabels: PurchaseReceiptAddressLabels
   contacts: PurchaseReceiptLookupOption[]
@@ -697,8 +689,6 @@ function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteIte
   hsnCodes: PurchaseReceiptLookupOption[]
   itemDraft: PurchaseReceiptEntryItem
   onCreateContact(name: string): void
-  orders: PurchaseReceiptLookupOption[]
-  products: PurchaseReceiptLookupOption[]
   session: AuthSession
   setEditingItemIndex(value: number | null): void
   setForm(updater: (current: PurchaseReceiptEntryInput) => PurchaseReceiptEntryInput): void
@@ -707,17 +697,12 @@ function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteIte
   units: PurchaseReceiptLookupOption[]
 }) {
   const productInputRef = useRef<HTMLInputElement | null>(null)
-  const usePo = isSoftwareSettingEnabled(softwareSettings, "sales-use-po")
-  const useDc = isSoftwareSettingEnabled(softwareSettings, "sales-use-dc")
   const useColour = isSoftwareSettingEnabled(softwareSettings, "sales-use-colour")
   const useSize = isSoftwareSettingEnabled(softwareSettings, "sales-use-size")
-  const isOffsetLayout = usePo || useDc
   const isGarmentLayout = useColour || useSize
   const itemRowClassName = cn(
     "grid items-end gap-1 sm:grid-cols-2 lg:grid-cols-4",
-    isOffsetLayout
-      ? "xl:grid-cols-[minmax(5rem,.42fr)_minmax(5rem,.42fr)_minmax(18rem,2fr)_minmax(11rem,1fr)_minmax(5rem,.45fr)_minmax(6rem,.55fr)_auto]"
-      : isGarmentLayout
+    isGarmentLayout
         ? "xl:grid-cols-[minmax(18rem,2.1fr)_minmax(11rem,1fr)_minmax(8rem,.72fr)_minmax(8rem,.72fr)_minmax(5rem,.45fr)_minmax(6rem,.55fr)_auto]"
         : "xl:grid-cols-[minmax(22rem,2.3fr)_minmax(14rem,1fr)_minmax(5rem,.45fr)_minmax(6rem,.55fr)_auto]",
   )
@@ -769,44 +754,25 @@ function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteIte
         <div className="space-y-5">
           <Field label="Entry no" value={form.entry_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, entry_no: value }))} />
           <Field label="Entry date" type="date" value={String(form.entry_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, entry_date: value }))} />
-          <MasterAutocompleteLookup
-            label="Order no"
-            options={orders}
-            placeholder=""
-            selectedId={null}
-            selectedLabel={form.reference_no ?? ""}
-            inputLabel={PurchaseReceiptLookupCodeOrName}
-            optionLabel={PurchaseReceiptLookupCodeOrName}
-            onPick={(option) => setForm((current) => ({ ...current, reference_no: option.code ?? option.label }))}
-            onTextChange={(value) => setForm((current) => ({ ...current, reference_no: value }))}
-          />
+          <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
         </div>
       </div>
       <section className="space-y-5">
         <h2 className="text-lg font-semibold text-primary underline underline-offset-4">Purchase Receipt Items</h2>
         <div className={itemRowClassName}>
-          {isOffsetLayout ? <Field compact centeredLabel label="PO" value={itemDraft.po_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, po_no: value }))} /> : null}
-          {isOffsetLayout ? <Field compact centeredLabel label="DC" value={itemDraft.dc_no ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, dc_no: value }))} /> : null}
-          <MasterAutocompleteLookup
+          <ProductAutocomplete
             className="gap-1"
             inputRef={productInputRef}
-            label="Product name"
-            options={products}
-            placeholder=""
-            selectedId={itemDraft.product_id ?? null}
-            selectedLabel={itemDraft.product_name}
-            inputLabel={PurchaseReceiptLookupInputName}
-            optionLabel={PurchaseReceiptLookupInputName}
-            onPick={(option) => setItemDraft((current) => ({
+            session={session}
+            value={itemDraft.product_name}
+            onChange={(value, record) => setItemDraft((current) => record ? ({
               ...current,
-              product_id: option.id,
-              product_name: PurchaseReceiptLookupInputName(option),
-              hsn_code: productCommonValue(option, "hsn_code_id", hsnCodes, option.hsnCode),
-              rate: option.rate ?? current.rate,
+              product_id: productRecordId(record),
+              product_name: productRecordName(record),
+              hsn_code: productRecordCommonValue(record, "hsn_code_id", hsnCodes),
               tax_rate: 0,
-              unit: productCommonValue(option, "unit_id", units, option.unit),
-            }))}
-            onTextChange={(value) => setItemDraft((current) => ({ ...current, product_id: null, product_name: value }))}
+              unit: productRecordCommonValue(record, "unit_id", units),
+            }) : { ...current, product_id: null, product_name: value })}
           />
           <Field compact centeredLabel label="Description" value={itemDraft.description ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, description: value }))} />
           {isGarmentLayout ? <CommonRecordAutocompleteLookup label="Colour" className="gap-1" labelClassName="text-center" moduleKey="colours" placeholder="Search colour" session={session} value={itemDraft.colour ?? ""} onChange={(value, record) => setItemDraft((current) => ({ ...current, colour: record ? getCommonRecordName(record) : value === null ? "" : String(value) }))} /> : null}
@@ -825,14 +791,14 @@ function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteIte
             ) : null}
           </div>
         </div>
-        <PurchaseReceiptItemsPreviewTable items={form.items} onDeleteItem={deleteItem} onEditItem={editItem} useColour={useColour} useDc={useDc} usePo={usePo} useSize={useSize} />
+        <PurchaseReceiptItemsPreviewTable items={form.items} onDeleteItem={deleteItem} onEditItem={editItem} useColour={useColour} useSize={useSize} />
       </section>
     </div>
   )
 }
 
-function PurchaseReceiptItemsPreviewTable({ items, onDeleteItem, onEditItem, useColour, useDc, usePo, useSize }: { items: PurchaseReceiptEntryItem[]; onDeleteItem(index: number): void; onEditItem(index: number): void; useColour: boolean; useDc: boolean; usePo: boolean; useSize: boolean }) {
-  const emptyColSpan = 7 + (usePo ? 1 : 0) + (useDc ? 1 : 0) + (useColour ? 1 : 0) + (useSize ? 1 : 0)
+function PurchaseReceiptItemsPreviewTable({ items, onDeleteItem, onEditItem, useColour, useSize }: { items: PurchaseReceiptEntryItem[]; onDeleteItem(index: number): void; onEditItem(index: number): void; useColour: boolean; useSize: boolean }) {
+  const emptyColSpan = 7 + (useColour ? 1 : 0) + (useSize ? 1 : 0)
   const totalQuantity = items.reduce((total, item) => total + Number(item.quantity || 0), 0)
 
   return (
@@ -841,8 +807,6 @@ function PurchaseReceiptItemsPreviewTable({ items, onDeleteItem, onEditItem, use
         <thead className="bg-muted/45 text-muted-foreground">
           <tr>
             <ItemHeader className="w-[2.5%]">#</ItemHeader>
-            {usePo ? <ItemHeader className="w-[5%]">PO</ItemHeader> : null}
-            {useDc ? <ItemHeader className="w-[5%]">DC</ItemHeader> : null}
             <ItemHeader className="w-[32%]">Particulars</ItemHeader>
             <ItemHeader className="w-[7%]">HSN Code</ItemHeader>
             {useColour ? <ItemHeader className="w-[6%]">Colour</ItemHeader> : null}
@@ -861,8 +825,6 @@ function PurchaseReceiptItemsPreviewTable({ items, onDeleteItem, onEditItem, use
           ) : items.map((item, index) => (
               <tr key={index} className="border-b border-border/60 last:border-b-0">
                 <td className="border-r border-border/70 px-1 py-1.5 text-center align-middle text-muted-foreground">{index + 1}</td>
-                {usePo ? <ItemCell align="center">{item.po_no || "-"}</ItemCell> : null}
-                {useDc ? <ItemCell align="center">{item.dc_no || "-"}</ItemCell> : null}
                 <ItemCell>{formatParticulars(item)}</ItemCell>
                 <ItemCell align="center">{item.hsn_code || "-"}</ItemCell>
                 {useColour ? <ItemCell>{item.colour || "-"}</ItemCell> : null}
@@ -1047,6 +1009,7 @@ function PurchaseReceiptTermsTab({ form, setForm }: {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <TextField label="Notes" value={form.notes ?? ""} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} />
+      <TextField label="Custom terms" value={form.terms ?? ""} onChange={(value) => setForm((current) => ({ ...current, terms: value }))} />
     </div>
   )
 }
@@ -1508,21 +1471,10 @@ function PurchaseReceiptLookupInputName(option: PurchaseReceiptLookupOption) {
   return recordName || option.label
 }
 
-function PurchaseReceiptLookupCodeOrName(option: PurchaseReceiptLookupOption) {
-  return option.code || PurchaseReceiptLookupInputName(option)
-}
-
 function formatParticulars(item: PurchaseReceiptEntryItem) {
   const product = item.product_name.trim() || "-"
   const description = String(item.description ?? "").trim()
   return description ? `${product} - ${description}` : product
-}
-
-function productCommonValue(product: PurchaseReceiptLookupOption, key: "hsn_code_id" | "unit_id", options: PurchaseReceiptLookupOption[], fallback?: string) {
-  const selectedId = product.record[key]
-  const option = options.find((item) => String(item.record.id) === String(selectedId) || String(item.id) === String(selectedId))
-  if (!option) return fallback ?? ""
-  return option.hsnCode ?? option.unit ?? option.code ?? PurchaseReceiptLookupInputName(option)
 }
 
 function ItemHeader({ children, className }: { children: ReactNode; className?: string }) {
@@ -1540,11 +1492,11 @@ function normalizePurchaseReceiptItem(item: PurchaseReceiptEntryItem, index: num
     ...item,
     colour: item.colour ?? "",
     description: item.description ?? "",
-    dc_no: item.dc_no ?? "",
+    dc_no: null,
     discount_amount: 0,
     hsn_code: item.hsn_code ?? "",
     line_total: quantity * rate,
-    po_no: item.po_no ?? "",
+    po_no: null,
     product_name: item.product_name.trim(),
     quantity,
     rate,

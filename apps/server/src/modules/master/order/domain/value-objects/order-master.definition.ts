@@ -2,7 +2,7 @@ import type { MasterDataModuleDefinition } from '../../../../foundation/master-r
 
 export const orderMasterDefinition: MasterDataModuleDefinition = {
   key: 'orders',
-  label: 'Orders',
+  label: 'Work Orders',
   kind: 'master',
   tableName: 'masters_orders',
   defaultSortKey: 'name',
