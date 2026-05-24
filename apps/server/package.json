@@ -1,7 +1,7 @@
 {
   "name": "@cxsun/server",
   "private": true,
-  "version": "1.0.22",
+  "version": "1.0.23",
   "type": "module",
   "scripts": {
     "dev": "node ../../apps/cli/preflight.mjs server",

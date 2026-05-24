@@ -1673,5 +1673,33 @@ read assist/ readme and create log
 ## Current Prompt
 
 ```
+read assist/readme and fix this 
+
+fix this
+
+3.2 Resolved: dashboard route chunks are lazy-loaded
+
+`dashboard-view` previously bundled the heavy billing pages and built at about `884 kB`. Route-level lazy imports now split feature pages into separate chunks, and the dashboard route chunk builds at about `94 kB`.
+
+Completed:
+
+- Lazy-loaded feature pages by dashboard route.
+- Code-split sales, purchase, reports, media, settings, company, contact, product, and supporting admin pages.
+- Added a dashboard route loading fallback.
+```
+
+## Current Prompt
+
+```
+ok now create new stock folder inside modules as base folder for stock and wire it
+
+and create  stock/inward/Purchase receipt modules that duplicate Purchase invoices with list + show + upsert
+
+copy the same exact to purchase receipt afterwards we can refactor copy complete and wire it with frontend and backend exact with modular + ddd+ event inside sub folder of stock
+```
+
+## Current Prompt
+
+```
 read assist/ readme and create log
 ```

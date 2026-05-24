@@ -8,6 +8,8 @@ import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
 import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
 import { migratePurchaseEntryTables } from '../../modules/entries/purchase/index.js'
+import { migratePurchaseReceiptTables } from '../../modules/stock/inward/purchase-receipt/index.js'
+import { migrateDeliveryNoteTables } from '../../modules/stock/outward/delivery-note/index.js'
 import { migrateReceiptEntryTables } from '../../modules/entries/receipt/index.js'
 import { migratePaymentEntryTables } from '../../modules/entries/payment/index.js'
 import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
@@ -109,6 +111,8 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateCommonModuleTables(database)
   await migrateSalesEntryTables(database)
   await migratePurchaseEntryTables(database)
+  await migratePurchaseReceiptTables(database)
+  await migrateDeliveryNoteTables(database)
   await migrateReceiptEntryTables(database)
   await migratePaymentEntryTables(database)
   await migrateCompanySettingsTables(database)
@@ -720,6 +724,14 @@ const tenantUuidTables = [
   'purchase_entry_items',
   'purchase_entry_comments',
   'purchase_entry_activities',
+  'stock_purchase_receipts',
+  'stock_purchase_receipt_items',
+  'stock_purchase_receipt_comments',
+  'stock_purchase_receipt_activities',
+  'stock_delivery_notes',
+  'stock_delivery_note_items',
+  'stock_delivery_note_comments',
+  'stock_delivery_note_activities',
   'receipt_entries',
   'receipt_entry_comments',
   'receipt_entry_activities',

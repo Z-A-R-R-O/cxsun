@@ -8,6 +8,7 @@ const contactTypesSeedRows = [
   { name: 'Customer' },
   { name: 'Supplier' },
   { name: 'Customer and Supplier' },
+  { name: 'Vendor Customer' },
   { name: 'Transporter' },
   { name: 'Employee' },
   { name: 'Broker' },

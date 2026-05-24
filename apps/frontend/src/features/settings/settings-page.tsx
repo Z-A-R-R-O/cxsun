@@ -14,6 +14,7 @@ import {
   documentNumberLabels,
   listDocumentNumberSettings,
   saveDocumentNumberSettings,
+  type DocumentEntryKind,
   type DocumentNumberSetting,
   type DocumentNumberSettingInput,
 } from "./document-settings-client"
@@ -103,6 +104,42 @@ export function SalesSettingsPage({ session }: { session: AuthSession }) {
 }
 
 export function DocumentSettingsPage({ session }: { session: AuthSession }) {
+  return (
+    <DocumentNumberSettingsPage
+      description="Configure automatic document numbers for sales, purchase, payment, and receipt vouchers."
+      kinds={documentNumberKindOrder}
+      session={session}
+      technicalName="page.settings.document-settings"
+      title="Document Settings"
+    />
+  )
+}
+
+export function InventoryDocumentSettingsPage({ session }: { session: AuthSession }) {
+  return (
+    <DocumentNumberSettingsPage
+      description="Configure automatic document numbers for inventory stock documents."
+      kinds={["purchaseReceipt", "deliveryNote"]}
+      session={session}
+      technicalName="page.inventory.settings.document-settings"
+      title="Inventory Document Settings"
+    />
+  )
+}
+
+function DocumentNumberSettingsPage({
+  description,
+  kinds,
+  session,
+  technicalName,
+  title,
+}: {
+  description: string
+  kinds: readonly DocumentEntryKind[]
+  session: AuthSession
+  technicalName: string
+  title: string
+}) {
   const [records, setRecords] = useState<readonly DocumentNumberSetting[]>([])
   const [drafts, setDrafts] = useState<Record<string, DocumentNumberSettingInput>>({})
 
@@ -119,13 +156,13 @@ export function DocumentSettingsPage({ session }: { session: AuthSession }) {
     return () => controller.abort()
   }, [session])
 
-  const orderedDrafts = useMemo(() => documentNumberKindOrder.map((kind) => drafts[kind]).filter(Boolean), [drafts])
+  const orderedDrafts = useMemo(() => kinds.map((kind) => drafts[kind]).filter(Boolean), [drafts, kinds])
 
   async function save() {
     try {
       const saved = await saveDocumentNumberSettings(session, orderedDrafts)
       setRecords(saved)
-      setDrafts(Object.fromEntries(saved.map((setting) => [setting.kind, toInput(setting)])))
+      setDrafts((current) => ({ ...current, ...Object.fromEntries(saved.map((setting) => [setting.kind, toInput(setting)])) }))
       toast.success("Document settings saved")
     } catch (error) {
       toast.error("Could not save document settings", { description: error instanceof Error ? error.message : "Please try again." })
@@ -135,12 +172,12 @@ export function DocumentSettingsPage({ session }: { session: AuthSession }) {
   return (
     <MasterListPageFrame
       action={<Button className="h-9 rounded-md" onClick={() => void save()} disabled={orderedDrafts.length === 0}><Save className="size-4" />Save</Button>}
-      description="Configure automatic document numbers for sales, purchase, payment, and receipt vouchers."
-      technicalName="page.settings.document-settings"
-      title="Document Settings"
+      description={description}
+      technicalName={technicalName}
+      title={title}
     >
       <div className="grid gap-4">
-        {documentNumberKindOrder.map((kind) => {
+        {kinds.map((kind) => {
           const draft = drafts[kind]
           const record = records.find((item) => item.kind === kind)
           if (!draft) return null

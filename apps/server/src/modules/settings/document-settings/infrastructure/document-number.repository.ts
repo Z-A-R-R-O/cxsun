@@ -201,7 +201,7 @@ function normalizeKind(value: string): DocumentEntryKind {
 }
 
 function defaultPrefix(kind: DocumentEntryKind) {
-  return { payment: 'PAY', purchase: 'PUR', receipt: 'REC', sales: 'SAL' }[kind]
+  return { deliveryNote: 'DNT', payment: 'PAY', purchase: 'PUR', purchaseReceipt: 'PRC', receipt: 'REC', sales: 'SAL' }[kind]
 }
 
 function cleanPrefix(value: string | null | undefined) {

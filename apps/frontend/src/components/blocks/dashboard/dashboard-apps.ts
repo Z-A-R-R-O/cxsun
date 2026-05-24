@@ -193,12 +193,8 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-indigo-600 text-white",
     icon: Boxes,
     menuGroups: [
-      { title: "Stock", icon: Boxes, items: [item("inventory", "items", "Items", PackageSearch), item("inventory", "stock", "Stock", Boxes), item("inventory", "adjustments", "Adjustments", FileCog)] },
-      { title: "Warehouse", icon: Warehouse, items: [item("inventory", "warehouses", "Warehouses", Warehouse), item("inventory", "bins", "Bins", Boxes), item("inventory", "transfers", "Transfers", Truck)] },
-      { title: "Purchase", icon: ReceiptText, items: [item("inventory", "purchase", "Purchase", ReceiptText), item("inventory", "suppliers", "Suppliers", UsersRound), item("inventory", "receipts", "Receipts", ReceiptText)] },
-      { title: "Product Common", icon: PackageSearch, items: [item("inventory", "category", "Category", Tags), item("inventory", "brand", "Brand", Tags), item("inventory", "unit", "Unit", Boxes)] },
-      { title: "Reports", icon: BarChart3, items: [item("inventory", "stock-report", "Stock Report", BarChart3), item("inventory", "movement-report", "Movement Report", BarChart3), item("inventory", "valuation-report", "Valuation Report", BarChart3)] },
-      { title: "Settings", icon: Settings, items: [item("inventory", "settings", "Inventory Settings", Settings), item("inventory", "reorder-rules", "Reorder Rules", Settings), item("inventory", "barcode", "Barcode", FileCog)] },
+      { title: "Stock", icon: Boxes, items: [item("inventory", "purchase", "Purchase Receipts", ReceiptText), item("inventory", "stock-ledger", "Stock Ledger", BarChart3), item("inventory", "delivery-note", "Delivery Note", Truck)] },
+      { title: "Settings", icon: Settings, items: [item("inventory", "document-settings", "Document Settings", FileCog)] },
     ],
   }),
   withMenu({

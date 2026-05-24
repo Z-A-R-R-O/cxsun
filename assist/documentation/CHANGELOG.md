@@ -2,15 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.22`
-- **Release tag:** `v-1.0.22`
-- **Changelog label:** `v 1.0.22`
+- **Current version:** `1.0.23`
+- **Release tag:** `v-1.0.23`
+- **Changelog label:** `v 1.0.23`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
-## v-1.0.22
+## v-1.0.23
+
+### [v 1.0.23] 2026-05-24 2:38 pm - stock purchase receipt and delivery note material flow
+
+- Added Stock module purchase receipt and delivery note flows with list, show, upsert, print, frontend routing, side-menu wiring, document settings, and tenant backend API modules.
+- Moved Stock menu items to focus on Purchase Receipts, Stock Ledger, and Delivery Note, with Purchase Receipts first.
+- Added Inventory document settings for purchase receipt serial numbering.
+- Aligned stock contact selection so purchase receipts use supplier/vendor customer contacts and delivery notes use customer/vendor customer contacts.
+- Trimmed stock documents into material movement screens by removing finance totals, tax columns, place of supply, due date, e-way/e-invoice generation, transport, vehicle, e-way part, and visible status controls.
+- Kept item pricing while displaying material-focused quantity and rate rows, with a right-aligned Total Qty footer below purchase receipt and delivery note item tables.
+- Verified the stock frontend changes with `npm -w apps/frontend run typecheck` and `npm -w apps/frontend run build`.
 
 ### [v 1.0.22] 2026-05-23 10:39 pm - media manager and picker integration
 

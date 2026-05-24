@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AppSidebar, type DashboardMode, type DashboardPage } from 'src/components/blocks/sidebar/app-sidebar'
 import { SiteHeader } from 'src/components/blocks/layout/site-header'
 import { SidebarInset, SidebarProvider } from 'src/components/ui/sidebar'
 import { DashboardHome } from './dashboard-home'
-import { SupportPage } from './support-pages'
-import { SystemUpdateView } from './system-update-view'
-import { LoginForm } from '../auth/login-form'
-import { ForgotPasswordForm } from '../auth/forgot-password-form'
 import {
   clearSession,
   getStoredSession,
@@ -16,26 +12,8 @@ import {
   type AuthSurface,
   type AuthSession,
 } from 'src/features/auth/auth-client'
-import { TenantListPage } from 'src/features/tenant/interface/pages/tenant-list-page'
-import { CompanyPage } from 'src/features/company/company-page'
 import { getDefaultCompanyContext } from 'src/features/company/company-client'
-import { DefaultCompanyPage } from 'src/features/company/default-company-page'
-import { IndustryPage } from 'src/features/industry/industry-page'
-import { ClientPage } from 'src/features/client/client-page'
-import { TenantDomainPage } from 'src/features/tenant-domain/tenant-domain-page'
-import { UserManagerPage } from 'src/features/user-manager/user-manager-page'
-import { CommonDataPage } from 'src/features/master-data/interface/pages/common-module-pages'
-import { MasterDataPage } from 'src/features/master-data/interface/pages/master-data-page'
 import { pageModuleKey, pageModuleKind } from 'src/features/master-data/application/master-data-service'
-import { ContactPage } from 'src/features/contact/contact-page'
-import { ProductPage } from 'src/features/product/product-page'
-import { SalesPage } from 'src/features/sales/sales-page'
-import { PurchasePage } from 'src/features/purchase/purchase-page'
-import { ReceiptPage } from 'src/features/receipt/receipt-page'
-import { PaymentPage } from 'src/features/payment/payment-page'
-import { CustomerStatementReportPage, GstStatementReportPage, SupplierStatementReportPage } from 'src/features/report/billing-statement-page'
-import { MediaManagerPage } from 'src/features/media/media-page'
-import { DocumentSettingsPage, SalesSettingsPage } from 'src/features/settings/settings-page'
 import {
   appModulePages,
   defaultEnabledApps,
@@ -44,7 +22,93 @@ import {
   type DashboardAppId,
 } from './dashboard-apps'
 import { Card, CardContent, CardHeader, CardTitle } from 'src/components/ui/card'
+import { Spinner } from 'src/components/ui/spinner'
 import { cn } from 'src/lib/utils'
+
+const LoginForm = lazy(() =>
+  import('../auth/login-form').then((module) => ({ default: module.LoginForm })),
+)
+const ForgotPasswordForm = lazy(() =>
+  import('../auth/forgot-password-form').then((module) => ({ default: module.ForgotPasswordForm })),
+)
+const SupportPage = lazy(() =>
+  import('./support-pages').then((module) => ({ default: module.SupportPage })),
+)
+const SystemUpdateView = lazy(() =>
+  import('./system-update-view').then((module) => ({ default: module.SystemUpdateView })),
+)
+const TenantListPage = lazy(() =>
+  import('src/features/tenant/interface/pages/tenant-list-page').then((module) => ({ default: module.TenantListPage })),
+)
+const CompanyPage = lazy(() =>
+  import('src/features/company/company-page').then((module) => ({ default: module.CompanyPage })),
+)
+const DefaultCompanyPage = lazy(() =>
+  import('src/features/company/default-company-page').then((module) => ({ default: module.DefaultCompanyPage })),
+)
+const IndustryPage = lazy(() =>
+  import('src/features/industry/industry-page').then((module) => ({ default: module.IndustryPage })),
+)
+const ClientPage = lazy(() =>
+  import('src/features/client/client-page').then((module) => ({ default: module.ClientPage })),
+)
+const TenantDomainPage = lazy(() =>
+  import('src/features/tenant-domain/tenant-domain-page').then((module) => ({ default: module.TenantDomainPage })),
+)
+const UserManagerPage = lazy(() =>
+  import('src/features/user-manager/user-manager-page').then((module) => ({ default: module.UserManagerPage })),
+)
+const CommonDataPage = lazy(() =>
+  import('src/features/master-data/interface/pages/common-module-pages').then((module) => ({ default: module.CommonDataPage })),
+)
+const MasterDataPage = lazy(() =>
+  import('src/features/master-data/interface/pages/master-data-page').then((module) => ({ default: module.MasterDataPage })),
+)
+const ContactPage = lazy(() =>
+  import('src/features/contact/contact-page').then((module) => ({ default: module.ContactPage })),
+)
+const ProductPage = lazy(() =>
+  import('src/features/product/product-page').then((module) => ({ default: module.ProductPage })),
+)
+const SalesPage = lazy(() =>
+  import('src/features/sales/sales-page').then((module) => ({ default: module.SalesPage })),
+)
+const PurchasePage = lazy(() =>
+  import('src/features/purchase/purchase-page').then((module) => ({ default: module.PurchasePage })),
+)
+const PurchaseReceiptPage = lazy(() =>
+  import('src/features/stock/inward/purchase-receipt/purchase-receipt-page').then((module) => ({ default: module.PurchaseReceiptPage })),
+)
+const DeliveryNotePage = lazy(() =>
+  import('src/features/stock/outward/delivery-note/delivery-note-page').then((module) => ({ default: module.DeliveryNotePage })),
+)
+const ReceiptPage = lazy(() =>
+  import('src/features/receipt/receipt-page').then((module) => ({ default: module.ReceiptPage })),
+)
+const PaymentPage = lazy(() =>
+  import('src/features/payment/payment-page').then((module) => ({ default: module.PaymentPage })),
+)
+const CustomerStatementReportPage = lazy(() =>
+  import('src/features/report/billing-statement-page').then((module) => ({ default: module.CustomerStatementReportPage })),
+)
+const SupplierStatementReportPage = lazy(() =>
+  import('src/features/report/billing-statement-page').then((module) => ({ default: module.SupplierStatementReportPage })),
+)
+const GstStatementReportPage = lazy(() =>
+  import('src/features/report/billing-statement-page').then((module) => ({ default: module.GstStatementReportPage })),
+)
+const MediaManagerPage = lazy(() =>
+  import('src/features/media/media-page').then((module) => ({ default: module.MediaManagerPage })),
+)
+const SalesSettingsPage = lazy(() =>
+  import('src/features/settings/settings-page').then((module) => ({ default: module.SalesSettingsPage })),
+)
+const DocumentSettingsPage = lazy(() =>
+  import('src/features/settings/settings-page').then((module) => ({ default: module.DocumentSettingsPage })),
+)
+const InventoryDocumentSettingsPage = lazy(() =>
+  import('src/features/settings/settings-page').then((module) => ({ default: module.InventoryDocumentSettingsPage })),
+)
 
 function dashboardPath(basePath: string, page: DashboardPage) {
   return page === "overview" ? basePath : `${basePath}/${page}`
@@ -151,16 +215,18 @@ export function DashboardView({
     return (
       <div className="grid min-h-screen place-items-center bg-background p-6">
         <div className="w-full max-w-[560px]">
-          {authPage === "forgot-password" ? (
-            <ForgotPasswordForm onBackToLogin={() => setAuthPage("login")} />
-          ) : (
-            <LoginForm
-              surface={authSurface}
-              subtitle={dashboardTitles[mode]}
-              onAuthenticated={setSession}
-              onForgotPassword={() => setAuthPage("forgot-password")}
-            />
-          )}
+          <Suspense fallback={<AuthRouteFallback />}>
+            {authPage === "forgot-password" ? (
+              <ForgotPasswordForm onBackToLogin={() => setAuthPage("login")} />
+            ) : (
+              <LoginForm
+                surface={authSurface}
+                subtitle={dashboardTitles[mode]}
+                onAuthenticated={setSession}
+                onForgotPassword={() => setAuthPage("forgot-password")}
+              />
+            )}
+          </Suspense>
         </div>
       </div>
     )
@@ -243,71 +309,103 @@ export function DashboardView({
           onChangeApp={changeApp}
           onLogout={logout}
         />
-        {visiblePage === "tenant" ? (
-          <TenantListPage session={session} />
-        ) : visiblePage === "tenant-domain" ? (
-          <TenantDomainPage session={session} />
-        ) : visiblePage === "industry" ? (
-          <IndustryPage session={session} />
-        ) : visiblePage === "company" && mode === "admin" ? (
-          <SupportPage type="helpdesk" />
-        ) : visiblePage === "company" ? (
-          <CompanyPage session={session} />
-        ) : visiblePage === "app-application-default-company" ? (
-          <DefaultCompanyPage session={session} />
-        ) : visiblePage === "client" ? (
-          <ClientPage session={session} />
-        ) : visiblePage === "system-update" ? (
-          <SystemUpdateView session={session} />
-        ) : visiblePage === "user-manager" ? (
-          <UserManagerPage session={session} />
-        ) : visiblePage === "helpdesk" ? (
-          <SupportPage type="helpdesk" />
-        ) : visiblePage === "bugs" ? (
-          <SupportPage type="bugs" />
-        ) : visiblePage === "tenant-roles" ? (
-          <SupportPage type="tenant-roles" />
-        ) : visiblePage === "app-billing-sales" ? (
-          <SalesPage session={session} />
-        ) : visiblePage === "app-billing-purchase" ? (
-          <PurchasePage session={session} />
-        ) : visiblePage === "app-billing-receipts" ? (
-          <ReceiptPage session={session} />
-        ) : visiblePage === "app-billing-payments" ? (
-          <PaymentPage session={session} />
-        ) : visiblePage === "app-billing-customer-statement" ? (
-          <CustomerStatementReportPage session={session} />
-        ) : visiblePage === "app-billing-supplier-statement" ? (
-          <SupplierStatementReportPage session={session} />
-        ) : visiblePage === "app-billing-gst-report" ? (
-          <GstStatementReportPage session={session} />
-        ) : visiblePage === "app-media-library" || visiblePage === "app-media-links" || visiblePage === "app-media-sharing" ? (
-          <MediaManagerPage session={session} />
-        ) : visiblePage === "app-billing-settings" ? (
-          <SalesSettingsPage session={session} />
-        ) : visiblePage === "app-billing-document-settings" ? (
-          <DocumentSettingsPage session={session} />
-        ) : moduleKey === "contacts" ? (
-          <ContactPage session={session} />
-        ) : moduleKey === "products" ? (
-          <ProductPage session={session} />
-        ) : moduleKey && pageModuleKind(moduleKey) === "master" ? (
-          <MasterDataPage moduleKey={moduleKey} session={session} />
-        ) : moduleKey ? (
-          <CommonDataPage moduleKey={moduleKey} session={session} />
-        ) : appModulePages.includes(visiblePage) ? (
-          <AppModuleDesk appId={activeApp} page={visiblePage} />
-        ) : (
-          <DashboardHome
-            activeApp={activeApp}
-            appEnabled={enabledApps}
-            mode={mode}
-            onChangeApp={changeApp}
-            onToggleApp={toggleApp}
-          />
-        )}
+        <Suspense fallback={<DashboardRouteFallback />}>
+          {visiblePage === "tenant" ? (
+            <TenantListPage session={session} />
+          ) : visiblePage === "tenant-domain" ? (
+            <TenantDomainPage session={session} />
+          ) : visiblePage === "industry" ? (
+            <IndustryPage session={session} />
+          ) : visiblePage === "company" && mode === "admin" ? (
+            <SupportPage type="helpdesk" />
+          ) : visiblePage === "company" ? (
+            <CompanyPage session={session} />
+          ) : visiblePage === "app-application-default-company" ? (
+            <DefaultCompanyPage session={session} />
+          ) : visiblePage === "client" ? (
+            <ClientPage session={session} />
+          ) : visiblePage === "system-update" ? (
+            <SystemUpdateView session={session} />
+          ) : visiblePage === "user-manager" ? (
+            <UserManagerPage session={session} />
+          ) : visiblePage === "helpdesk" ? (
+            <SupportPage type="helpdesk" />
+          ) : visiblePage === "bugs" ? (
+            <SupportPage type="bugs" />
+          ) : visiblePage === "tenant-roles" ? (
+            <SupportPage type="tenant-roles" />
+          ) : visiblePage === "app-billing-sales" ? (
+            <SalesPage session={session} />
+          ) : visiblePage === "app-billing-purchase" ? (
+            <PurchasePage session={session} />
+          ) : visiblePage === "app-inventory-purchase" ? (
+            <PurchaseReceiptPage session={session} />
+          ) : visiblePage === "app-inventory-delivery-note" ? (
+            <DeliveryNotePage session={session} />
+          ) : visiblePage === "app-billing-receipts" ? (
+            <ReceiptPage session={session} />
+          ) : visiblePage === "app-billing-payments" ? (
+            <PaymentPage session={session} />
+          ) : visiblePage === "app-billing-customer-statement" ? (
+            <CustomerStatementReportPage session={session} />
+          ) : visiblePage === "app-billing-supplier-statement" ? (
+            <SupplierStatementReportPage session={session} />
+          ) : visiblePage === "app-billing-gst-report" ? (
+            <GstStatementReportPage session={session} />
+          ) : visiblePage === "app-media-library" || visiblePage === "app-media-links" || visiblePage === "app-media-sharing" ? (
+            <MediaManagerPage session={session} />
+          ) : visiblePage === "app-billing-settings" ? (
+            <SalesSettingsPage session={session} />
+          ) : visiblePage === "app-billing-document-settings" ? (
+            <DocumentSettingsPage session={session} />
+          ) : visiblePage === "app-inventory-document-settings" ? (
+            <InventoryDocumentSettingsPage session={session} />
+          ) : moduleKey === "contacts" ? (
+            <ContactPage session={session} />
+          ) : moduleKey === "products" ? (
+            <ProductPage session={session} />
+          ) : moduleKey && pageModuleKind(moduleKey) === "master" ? (
+            <MasterDataPage moduleKey={moduleKey} session={session} />
+          ) : moduleKey ? (
+            <CommonDataPage moduleKey={moduleKey} session={session} />
+          ) : appModulePages.includes(visiblePage) ? (
+            <AppModuleDesk appId={activeApp} page={visiblePage} />
+          ) : (
+            <DashboardHome
+              activeApp={activeApp}
+              appEnabled={enabledApps}
+              mode={mode}
+              onChangeApp={changeApp}
+              onToggleApp={toggleApp}
+            />
+          )}
+        </Suspense>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function AuthRouteFallback() {
+  return (
+    <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-border/70 bg-card/80">
+      <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+        <Spinner className="size-4 text-primary" />
+        Loading account access
+      </div>
+    </div>
+  )
+}
+
+function DashboardRouteFallback() {
+  return (
+    <div className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
+      <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-border/80 bg-background/80">
+        <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+          <Spinner className="size-4 text-primary" />
+          Loading dashboard route
+        </div>
+      </div>
+    </div>
   )
 }
 
