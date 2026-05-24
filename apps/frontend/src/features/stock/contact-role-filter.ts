@@ -44,6 +44,11 @@ export function filterStockContactsByRole(records: MasterDataRecord[], contactTy
   })
 }
 
+export function filterStockContactLookupOptions<T extends { record: MasterDataRecord }>(options: T[], contactTypes: MasterDataRecord[], role: StockContactRole) {
+  const allowedRecords = new Set(filterStockContactsByRole(options.map((option) => option.record), contactTypes, role))
+  return options.filter((option) => allowedRecords.has(option.record))
+}
+
 export function stockContactTypeId(contactTypes: MasterDataRecord[], role: StockContactRole) {
   const preferredTokens = role === "supplier" ? ["supplier"] : ["customer"]
   const sharedTokens = ["vendorcustomer", "customerandsupplier", "customersupplier"]

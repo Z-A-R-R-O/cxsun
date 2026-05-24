@@ -38,7 +38,7 @@ import { isSoftwareSettingEnabled } from "src/features/settings/software-setting
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
 import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
-import { stockContactTypeId } from "src/features/stock/contact-role-filter"
+import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addPurchaseReceiptComment,
   destroyPurchaseReceiptEntry,
@@ -518,6 +518,7 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
   const [draft, setDraft] = useState<PurchaseReceiptEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptyPurchaseReceiptEntry())
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listPurchaseReceiptContactLookups(session) })
+  const contactTypesQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "contactTypes"], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const hsnCodesQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listPurchaseReceiptCommonLookups(session, "hsnCodes") })
   const unitsQuery = useQuery({ queryKey: ["PurchaseReceipt-lookups", session.selectedTenant.slug, "units"], queryFn: () => listPurchaseReceiptCommonLookups(session, "units") })
   const nextEntryQuery = useQuery({
@@ -526,6 +527,7 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
     queryFn: () => nextDocumentNumberSetting(session, "purchaseReceipt"),
   })
   const [softwareSettings] = useCompanySoftwareSettings(session)
+  const supplierContacts = useMemo(() => filterStockContactLookupOptions(contactsQuery.data ?? [], contactTypesQuery.data ?? [], "supplier"), [contactsQuery.data, contactTypesQuery.data])
 
   useEffect(() => {
     if (entry || draft.entry_no || !nextEntryQuery.data?.preview) return
@@ -544,7 +546,7 @@ function PurchaseReceiptUpsertPage({ entry, isSaving, session, onBack, onSubmit 
           <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void onSubmit(draft) }}>
             <div className="px-0 pb-4 pt-3 md:pb-5">
               <PurchaseReceiptVoucherTabs
-                contacts={contactsQuery.data ?? []}
+                contacts={supplierContacts}
                 onContactsRefresh={() => void contactsQuery.refetch()}
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
@@ -723,7 +725,7 @@ function PurchaseReceiptDetailsTab({ addItem, addressLabels, contacts, deleteIte
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <MasterAutocompleteLookup
-            label="supplier name"
+            label="Supplier name *"
             options={contacts}
             placeholder=""
             createLabel="Create contact"
@@ -1093,7 +1095,7 @@ function PurchaseReceiptContactCreateDialog({ contacts, initialName, onClose, on
               label: "Details",
               content: (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="supplier name" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
+                  <Field label="Supplier name *" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
                   <Field label="Code" value={String(draft.code ?? "")} onChange={(code) => setDraft((current) => ({ ...current, code: normalizeContactCode(code) }))} />
                   <Field label="Legal name" value={String(draft.legalName ?? "")} onChange={(legalName) => setDraft((current) => ({ ...current, legalName }))} />
                   <Field label="GSTIN" value={String(draft.gstin ?? "")} onChange={(gstin) => setDraft((current) => ({ ...current, gstin: gstin.toUpperCase(), gstDetails: gstin.trim() ? [{ gstin: gstin.toUpperCase(), state: "", isDefault: true, isActive: true }] : [] }))} />

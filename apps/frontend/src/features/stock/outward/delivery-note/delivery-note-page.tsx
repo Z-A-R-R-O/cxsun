@@ -38,7 +38,7 @@ import { isSoftwareSettingEnabled } from "src/features/settings/software-setting
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
 import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
-import { stockContactTypeId } from "src/features/stock/contact-role-filter"
+import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addDeliveryNoteComment,
   destroyDeliveryNoteEntry,
@@ -518,6 +518,7 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
   const [draft, setDraft] = useState<DeliveryNoteEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptyDeliveryNoteEntry())
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listDeliveryNoteContactLookups(session) })
+  const contactTypesQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "contactTypes"], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const hsnCodesQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listDeliveryNoteCommonLookups(session, "hsnCodes") })
   const unitsQuery = useQuery({ queryKey: ["DeliveryNote-lookups", session.selectedTenant.slug, "units"], queryFn: () => listDeliveryNoteCommonLookups(session, "units") })
   const nextEntryQuery = useQuery({
@@ -526,6 +527,7 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
     queryFn: () => nextDocumentNumberSetting(session, "deliveryNote"),
   })
   const [softwareSettings] = useCompanySoftwareSettings(session)
+  const customerContacts = useMemo(() => filterStockContactLookupOptions(contactsQuery.data ?? [], contactTypesQuery.data ?? [], "customer"), [contactsQuery.data, contactTypesQuery.data])
 
   useEffect(() => {
     if (entry || draft.entry_no || !nextEntryQuery.data?.preview) return
@@ -544,7 +546,7 @@ function DeliveryNoteUpsertPage({ entry, isSaving, session, onBack, onSubmit }: 
           <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void onSubmit(draft) }}>
             <div className="px-0 pb-4 pt-3 md:pb-5">
               <DeliveryNoteVoucherTabs
-                contacts={contactsQuery.data ?? []}
+                contacts={customerContacts}
                 onContactsRefresh={() => void contactsQuery.refetch()}
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
@@ -728,7 +730,7 @@ function DeliveryNoteDetailsTab({ addItem, addressLabels, contacts, deleteItem, 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <MasterAutocompleteLookup
-            label="Customer name"
+            label="Customer name *"
             options={contacts}
             placeholder=""
             createLabel="Create contact"
@@ -1102,7 +1104,7 @@ function DeliveryNoteContactCreateDialog({ contacts, initialName, onClose, onCre
               label: "Details",
               content: (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Customer name" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
+                  <Field label="Customer name *" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
                   <Field label="Code" value={String(draft.code ?? "")} onChange={(code) => setDraft((current) => ({ ...current, code: normalizeContactCode(code) }))} />
                   <Field label="Legal name" value={String(draft.legalName ?? "")} onChange={(legalName) => setDraft((current) => ({ ...current, legalName }))} />
                   <Field label="GSTIN" value={String(draft.gstin ?? "")} onChange={(gstin) => setDraft((current) => ({ ...current, gstin: gstin.toUpperCase(), gstDetails: gstin.trim() ? [{ gstin: gstin.toUpperCase(), state: "", isDefault: true, isActive: true }] : [] }))} />

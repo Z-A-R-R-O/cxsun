@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Button } from "src/components/ui/button"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
-import { Textarea } from "src/components/ui/textarea"
+import { Switch } from "src/components/ui/switch"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord, MasterDataUpsertInput } from "src/features/master-data/domain/master-data"
@@ -24,17 +24,11 @@ type ProductAutocompleteProps = {
 }
 
 type ProductDraft = {
-  brand_id: number | null
   code: string
-  colour_id: number | null
-  description: string
   hsn_code_id: number | null
+  is_active: boolean
   name: string
-  product_category_id: number | null
-  product_group_id: number | null
   product_type_id: number | null
-  size_id: number | null
-  style_id: number | null
   tax_id: number | null
   unit_id: number | null
 }
@@ -163,17 +157,11 @@ function ProductCreateDialog({ initialValue, onClose, onCreated, session }: {
   session: AuthSession
 }) {
   const [draft, setDraft] = useState<ProductDraft>(() => ({
-    brand_id: null,
     code: normalizeProductCode(initialValue),
-    colour_id: null,
-    description: "",
     hsn_code_id: null,
+    is_active: true,
     name: initialValue.trim(),
-    product_category_id: null,
-    product_group_id: null,
     product_type_id: null,
-    size_id: null,
-    style_id: null,
     tax_id: null,
     unit_id: null,
   }))
@@ -191,8 +179,6 @@ function ProductCreateDialog({ initialValue, onClose, onCreated, session }: {
     const record = await createMutation.mutateAsync({
       ...draft,
       code: normalizeProductCode(draft.code || name),
-      description: draft.description.trim(),
-      is_active: true,
       name,
     })
     toast.success("Product created", { description: productRecordLabel(record) })
@@ -208,22 +194,16 @@ function ProductCreateDialog({ initialValue, onClose, onCreated, session }: {
         </div>
         <div className="max-h-[calc(92vh-8.5rem)] overflow-y-auto px-4 py-4">
           <div className="grid gap-x-5 gap-y-4 md:grid-cols-2">
+            <TextInput label="Name *" value={draft.name} autoFocus onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
             <TextInput label="Code" value={draft.code} onChange={(value) => setDraft((current) => ({ ...current, code: value }))} />
-            <TextInput label="Name" value={draft.name} autoFocus onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Product Group" moduleKey="productGroups" session={session} value={draft.product_group_id} onChange={(value) => setDraft((current) => ({ ...current, product_group_id: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Category" moduleKey="productCategories" session={session} value={draft.product_category_id} onChange={(value) => setDraft((current) => ({ ...current, product_category_id: value }))} />
             <CommonRecordAutocompleteLookup allowCreate label="Product Type" moduleKey="productTypes" session={session} value={draft.product_type_id} onChange={(value) => setDraft((current) => ({ ...current, product_type_id: value }))} />
             <CommonRecordAutocompleteLookup allowCreate label="HSN Code" moduleKey="hsnCodes" session={session} value={draft.hsn_code_id} createInput={createHsnInput} onChange={(value) => setDraft((current) => ({ ...current, hsn_code_id: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Brand" moduleKey="brands" session={session} value={draft.brand_id} onChange={(value) => setDraft((current) => ({ ...current, brand_id: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Colour" moduleKey="colours" session={session} value={draft.colour_id} onChange={(value) => setDraft((current) => ({ ...current, colour_id: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Size" moduleKey="sizes" session={session} value={draft.size_id} onChange={(value) => setDraft((current) => ({ ...current, size_id: value }))} />
             <CommonRecordAutocompleteLookup allowCreate label="Unit" moduleKey="units" session={session} value={draft.unit_id} onChange={(value) => setDraft((current) => ({ ...current, unit_id: value }))} />
             <CommonRecordAutocompleteLookup allowCreate label="GST %" createLabel="GST %" moduleKey="taxes" session={session} value={draft.tax_id} createInput={createTaxInput} onChange={(value) => setDraft((current) => ({ ...current, tax_id: value }))} />
-            <CommonRecordAutocompleteLookup allowCreate label="Style" moduleKey="styles" session={session} value={draft.style_id} onChange={(value) => setDraft((current) => ({ ...current, style_id: value }))} />
-            <div className="grid gap-2 md:col-span-2">
-              <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-              <Textarea className="min-h-[5.5rem] rounded-md" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
-            </div>
+            <label className={cn("flex cursor-pointer items-center justify-between gap-4 rounded-md border px-4 py-3", draft.is_active ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-border/70 bg-muted/10")}>
+              <span className="text-sm font-medium">Active</span>
+              <Switch checked={draft.is_active} onCheckedChange={(checked) => setDraft((current) => ({ ...current, is_active: checked }))} />
+            </label>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">

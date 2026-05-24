@@ -169,12 +169,12 @@ function WorkOrderCreateDialog({ initialValue, onClose, onCreated, session }: {
         </div>
         <div className="grid gap-4 px-4 py-4">
           <div className="grid gap-2">
-            <Label className="text-sm font-medium text-muted-foreground">Code</Label>
-            <Input value={draft.code} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} className="h-11 rounded-md" />
+            <Label className="text-sm font-medium text-muted-foreground">Name *</Label>
+            <Input autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className="h-11 rounded-md" />
           </div>
           <div className="grid gap-2">
-            <Label className="text-sm font-medium text-muted-foreground">Name</Label>
-            <Input autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className="h-11 rounded-md" />
+            <Label className="text-sm font-medium text-muted-foreground">Code</Label>
+            <Input value={draft.code} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} className="h-11 rounded-md" />
           </div>
           <div className="grid gap-2">
             <Label className="text-sm font-medium text-muted-foreground">Description</Label>

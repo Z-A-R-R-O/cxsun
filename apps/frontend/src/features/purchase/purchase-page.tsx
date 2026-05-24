@@ -40,6 +40,7 @@ import { isSoftwareSettingEnabled } from "src/features/settings/software-setting
 import type { SoftwareSettingsState } from "src/features/settings/software-settings"
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
 import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
+import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addPurchaseComment,
   destroyPurchaseEntry,
@@ -549,6 +550,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const totals = useMemo(() => calculateDraftTotals(draft.items, draft.round_off), [draft.items, draft.round_off])
   const contactsQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listPurchaseContactLookups(session) })
+  const contactTypesQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "contactTypes"], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const hsnCodesQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listPurchaseCommonLookups(session, "hsnCodes") })
   const taxesQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "taxes"], queryFn: () => listPurchaseCommonLookups(session, "taxes") })
   const unitsQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "units"], queryFn: () => listPurchaseCommonLookups(session, "units") })
@@ -559,6 +561,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
     queryFn: () => nextDocumentNumberSetting(session, "purchase"),
   })
   const [softwareSettings] = useCompanySoftwareSettings(session)
+  const supplierContacts = useMemo(() => filterStockContactLookupOptions(contactsQuery.data ?? [], contactTypesQuery.data ?? [], "supplier"), [contactsQuery.data, contactTypesQuery.data])
 
   useEffect(() => {
     if (entry || draft.entry_no || !nextEntryQuery.data?.preview) return
@@ -577,7 +580,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
           <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void onSubmit(draft) }}>
             <div className="px-0 pb-4 pt-3 md:pb-5">
               <PurchaseVoucherTabs
-                contacts={contactsQuery.data ?? []}
+                contacts={supplierContacts}
                 onContactsRefresh={() => void contactsQuery.refetch()}
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
@@ -782,7 +785,7 @@ function PurchaseDetailsTab({ addItem, addressLabels, contacts, deleteItem, edit
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <MasterAutocompleteLookup
-            label="supplier name"
+            label="Supplier name *"
             options={contacts}
             placeholder=""
             createLabel="Create contact"
@@ -1327,10 +1330,14 @@ function PurchaseContactCreateDialog({ contacts, initialName, onClose, onCreated
   const [draft, setDraft] = useState<ContactInput>(() => ({
     ...emptyContact(),
     code: normalizeContactCode(initialName),
+    contactTypeId: "contact-type:supplier",
+    ledgerId: "ledger:sundry-creditors",
+    ledgerName: "Supplier",
     legalName: initialName,
     name: initialName,
   }))
   const [error, setError] = useState<string | null>(null)
+  const contactTypesQuery = useQuery({ queryKey: ["Purchase-contact-types", session.selectedTenant.slug], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const createMutation = useMutation({
     mutationFn: (input: ContactInput) => upsertContact(session, input),
     onSuccess: (contact) => {
@@ -1359,11 +1366,15 @@ function PurchaseContactCreateDialog({ contacts, initialName, onClose, onCreated
       return
     }
 
+    const contactTypes = contactTypesQuery.data ?? (await contactTypesQuery.refetch()).data ?? []
     setError(null)
     await createMutation.mutateAsync({
       ...draft,
       code: String(draft.code ?? "").trim() || normalizeContactCode(name),
+      contactTypeId: stockContactTypeId(contactTypes, "supplier"),
       gstin,
+      ledgerId: draft.ledgerId ?? "ledger:sundry-creditors",
+      ledgerName: draft.ledgerName ?? "Supplier",
       legalName: String(draft.legalName ?? "").trim() || name,
       name,
     })
@@ -1387,7 +1398,7 @@ function PurchaseContactCreateDialog({ contacts, initialName, onClose, onCreated
               label: "Details",
               content: (
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="supplier name" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
+                  <Field label="Supplier name *" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
                   <Field label="Code" value={String(draft.code ?? "")} onChange={(code) => setDraft((current) => ({ ...current, code: normalizeContactCode(code) }))} />
                   <Field label="Legal name" value={String(draft.legalName ?? "")} onChange={(legalName) => setDraft((current) => ({ ...current, legalName }))} />
                   <Field label="GSTIN" value={String(draft.gstin ?? "")} onChange={(gstin) => setDraft((current) => ({ ...current, gstin: gstin.toUpperCase(), gstDetails: gstin.trim() ? [{ gstin: gstin.toUpperCase(), state: "", isDefault: true, isActive: true }] : [] }))} />

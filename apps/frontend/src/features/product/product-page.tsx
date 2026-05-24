@@ -8,7 +8,6 @@ import { Button } from "src/components/ui/button"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { Switch } from "src/components/ui/switch"
-import { Textarea } from "src/components/ui/textarea"
 import {
   MasterListEmptyState,
   MasterListPageFrame,
@@ -24,28 +23,28 @@ import {
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord, MasterDataUpsertInput } from "src/features/master-data/domain/master-data"
-import { formatDate, isActive, searchRecords } from "src/features/master-data/application/master-data-service"
+import { formatDate, isActive } from "src/features/master-data/application/master-data-service"
 import { destroyMasterDataRecord, listMasterDataRecords, restoreMasterDataRecord, upsertMasterDataRecord } from "src/features/master-data/infrastructure/master-data-client"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
 
 type ProductView = { mode: "list" } | { mode: "show"; product: MasterDataRecord } | { mode: "upsert"; product: MasterDataRecord | null }
-type ProductColumnId = "name" | "code" | "hsn_code_id" | "unit_id" | "tax_id" | "description" | "updated"
+type ProductColumnId = "name" | "code" | "product_type_id" | "hsn_code_id" | "unit_id" | "tax_id" | "updated"
 
 const productColumnCatalog: Array<{ id: ProductColumnId; label: string }> = [
   { id: "name", label: "Name" },
   { id: "code", label: "Code" },
+  { id: "product_type_id", label: "Product Type" },
   { id: "hsn_code_id", label: "HSN Code" },
   { id: "unit_id", label: "Unit" },
-  { id: "tax_id", label: "Tax" },
-  { id: "description", label: "Description" },
+  { id: "tax_id", label: "GST %" },
   { id: "updated", label: "Updated" },
 ]
 
 const defaultProductColumnVisibility: Record<ProductColumnId, boolean> = {
   code: true,
-  description: false,
   hsn_code_id: true,
   name: true,
+  product_type_id: true,
   tax_id: true,
   unit_id: true,
   updated: true,
@@ -72,7 +71,7 @@ export function ProductPage({ session }: { session: AuthSession }) {
   const restoreMutation = useMutation({ mutationFn: (record: MasterDataRecord) => restoreMasterDataRecord(session, "products", record.uuid) })
   const references = useProductReferences(session)
   const products = productsQuery.data ?? []
-  const filteredProducts = useMemo(() => filterProducts(searchRecords(products, searchValue), statusFilter), [products, searchValue, statusFilter])
+  const filteredProducts = useMemo(() => filterProducts(searchProducts(products, searchValue, references), statusFilter), [products, references, searchValue, statusFilter])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / rowsPerPage))
   const pageProducts = filteredProducts.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
@@ -134,7 +133,7 @@ export function ProductPage({ session }: { session: AuthSession }) {
           setCurrentPage(1)
         }}
         onShowAllColumns={() => setVisibleColumns(defaultProductColumnVisibility)}
-        searchPlaceholder="Search name, code, description, or status"
+        searchPlaceholder="Search name, code, product type, HSN, unit, GST, or status"
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -149,10 +148,10 @@ export function ProductPage({ session }: { session: AuthSession }) {
                 <ListHeader>#</ListHeader>
                 {visibleColumns.name ? <ListHeader>Name</ListHeader> : null}
                 {visibleColumns.code ? <ListHeader>Code</ListHeader> : null}
+                {visibleColumns.product_type_id ? <ListHeader>Product Type</ListHeader> : null}
                 {visibleColumns.hsn_code_id ? <ListHeader>HSN Code</ListHeader> : null}
                 {visibleColumns.unit_id ? <ListHeader>Unit</ListHeader> : null}
-                {visibleColumns.tax_id ? <ListHeader>Tax</ListHeader> : null}
-                {visibleColumns.description ? <ListHeader>Description</ListHeader> : null}
+                {visibleColumns.tax_id ? <ListHeader>GST %</ListHeader> : null}
                 <ListHeader>Status</ListHeader>
                 {visibleColumns.updated ? <ListHeader>Updated</ListHeader> : null}
                 <ListHeader className="text-right">Action</ListHeader>
@@ -164,10 +163,10 @@ export function ProductPage({ session }: { session: AuthSession }) {
                   <td className="px-4 py-2 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   {visibleColumns.name ? <td className="px-4 py-2"><button className="font-medium hover:underline" onClick={() => setView({ mode: "show", product })} type="button">{product.name ? String(product.name) : "-"}</button></td> : null}
                   {visibleColumns.code ? <td className="px-4 py-2">{product.code ? String(product.code) : "-"}</td> : null}
+                  {visibleColumns.product_type_id ? <td className="px-4 py-2">{references.productTypes(product.product_type_id)}</td> : null}
                   {visibleColumns.hsn_code_id ? <td className="px-4 py-2">{references.hsnCodes(product.hsn_code_id)}</td> : null}
                   {visibleColumns.unit_id ? <td className="px-4 py-2">{references.units(product.unit_id)}</td> : null}
                   {visibleColumns.tax_id ? <td className="px-4 py-2">{references.taxes(product.tax_id)}</td> : null}
-                  {visibleColumns.description ? <td className="px-4 py-2">{product.description ? String(product.description) : "-"}</td> : null}
                   <td className="px-4 py-2"><StatusBadge active={isActive(product)} /></td>
                   {visibleColumns.updated ? <td className="px-4 py-2 text-muted-foreground">{formatDate(product.updated_at)}</td> : null}
                   <td className="px-4 py-1.5 text-right"><MasterListRowActions title={String(product.name ?? product.uuid)} isSuspended={!isActive(product)} onDelete={() => void destroy(product)} onEdit={() => setView({ mode: "upsert", product })} onRestore={() => void restore(product)} onView={() => setView({ mode: "show", product })} /></td>
@@ -188,7 +187,7 @@ function ProductShowPage({ onBack, onDestroy, onEdit, onRestore, product, refere
     <MasterListPageFrame title={[product.code, product.name ?? "Product"].map((value) => String(value)).filter(Boolean).join(" - ")} description="Products details from the tenant master database." technicalName="page.master.products.show" action={<div className="flex flex-wrap items-center gap-2"><Button onClick={onBack} type="button" variant="outline" className="h-9 rounded-md"><ArrowLeft className="size-4" />Back</Button><Button onClick={onEdit} type="button" className="h-9 rounded-md"><Pencil className="size-4" />Edit</Button>{isActive(product) ? <Button onClick={onDestroy} type="button" variant="destructive" className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button> : <Button onClick={onRestore} type="button" variant="outline" className="h-9 rounded-md"><RotateCcw className="size-4" />Restore</Button>}</div>}>
       <div className="grid gap-4">
         <ProductShowCard title="Details">
-          <DetailTable rows={[["Name", text(product.name)], ["Code", text(product.code)], ["Category", references.productCategories(product.product_category_id)], ["Product Type", references.productTypes(product.product_type_id)], ["HSN Code", references.hsnCodes(product.hsn_code_id)], ["Unit", references.units(product.unit_id)], ["Tax", references.taxes(product.tax_id)], ["Description", text(product.description)], ["Status", <StatusBadge key="status" active={isActive(product)} />]]} />
+          <DetailTable rows={[["Name", text(product.name)], ["Code", text(product.code)], ["Product Type", references.productTypes(product.product_type_id)], ["HSN Code", references.hsnCodes(product.hsn_code_id)], ["Unit", references.units(product.unit_id)], ["GST %", references.taxes(product.tax_id)], ["Status", <StatusBadge key="status" active={isActive(product)} />]]} />
         </ProductShowCard>
         <ProductShowCard title="Timestamps">
           <DetailTable rows={[["Created", formatDate(product.created_at)], ["Updated", formatDate(product.updated_at)], ["Deleted", formatDate(product.deleted_at)]]} />
@@ -201,12 +200,10 @@ function ProductShowPage({ onBack, onDestroy, onEdit, onRestore, product, refere
 function ProductUpsertPage({ isSaving, onBack, onSubmit, product, session }: { isSaving: boolean; onBack(): void; onSubmit(input: MasterDataUpsertInput): Promise<void>; product: MasterDataRecord | null; session: AuthSession }) {
   const [draft, setDraft] = useState<MasterDataUpsertInput>(() => ({
     code: product?.code ?? "",
-    description: product?.description ?? "",
     hsn_code_id: product?.hsn_code_id ?? "",
     id: product?.id,
     is_active: product ? isActive(product) : true,
     name: product?.name ?? "",
-    product_category_id: product?.product_category_id ?? "",
     product_type_id: product?.product_type_id ?? "",
     tax_id: product?.tax_id ?? "",
     unit_id: product?.unit_id ?? "",
@@ -230,13 +227,11 @@ function ProductUpsertPage({ isSaving, onBack, onSubmit, product, session }: { i
               <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                 <Field label="Name *" value={String(draft.name ?? "")} onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
                 <Field label="Code" value={String(draft.code ?? "")} onChange={(value) => setDraft((current) => ({ ...current, code: value.toUpperCase() }))} />
-                <CommonRecordAutocompleteLookup allowCreate label="Category" moduleKey="productCategories" session={session} value={draft.product_category_id} onChange={(value) => setDraft((current) => ({ ...current, product_category_id: value }))} />
                 <CommonRecordAutocompleteLookup allowCreate label="Product Type" moduleKey="productTypes" session={session} value={draft.product_type_id} onChange={(value) => setDraft((current) => ({ ...current, product_type_id: value }))} />
                 <CommonRecordAutocompleteLookup allowCreate label="HSN Code" moduleKey="hsnCodes" session={session} value={draft.hsn_code_id} onChange={(value) => setDraft((current) => ({ ...current, hsn_code_id: value }))} />
                 <CommonRecordAutocompleteLookup allowCreate label="Unit" moduleKey="units" session={session} value={draft.unit_id} onChange={(value) => setDraft((current) => ({ ...current, unit_id: value }))} />
-                <CommonRecordAutocompleteLookup allowCreate label="Tax" moduleKey="taxes" session={session} value={draft.tax_id} onChange={(value) => setDraft((current) => ({ ...current, tax_id: value }))} />
+                <CommonRecordAutocompleteLookup allowCreate label="GST %" createLabel="GST %" moduleKey="taxes" session={session} value={draft.tax_id} onChange={(value) => setDraft((current) => ({ ...current, tax_id: value }))} />
                 <ActiveField checked={Boolean(draft.is_active)} onChange={(checked) => setDraft((current) => ({ ...current, is_active: checked }))} />
-                <div className="grid gap-2 md:col-span-2"><Label className="text-sm font-medium">Description</Label><Textarea className="min-h-28 rounded-xl" value={String(draft.description ?? "")} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></div>
               </div>
             ) }]} />
             <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6"><Button type="submit" disabled={isSaving} className="h-10 rounded-md px-5"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button><Button type="button" variant="outline" onClick={onBack} className="h-10 rounded-md px-5"><X className="size-4" />Cancel</Button></div>
@@ -248,13 +243,12 @@ function ProductUpsertPage({ isSaving, onBack, onSubmit, product, session }: { i
 }
 
 function useProductReferences(session: AuthSession): ProductReferenceLabels {
-  const modules = ["hsnCodes", "productCategories", "productTypes", "taxes", "units"] as const
+  const modules = ["hsnCodes", "productTypes", "taxes", "units"] as const
   const queries = modules.map((moduleKey) => useQuery({ queryKey: ["product-reference-labels", session.selectedTenant.slug, moduleKey], queryFn: () => listMasterDataRecords(session, moduleKey) }))
   const maps = Object.fromEntries(modules.map((moduleKey, index) => [moduleKey, buildLabelMap(queries[index].data ?? [])])) as Record<(typeof modules)[number], Map<string, string>>
 
   return {
     hsnCodes: (value) => labelFrom(maps.hsnCodes, value),
-    productCategories: (value) => labelFrom(maps.productCategories, value),
     productTypes: (value) => labelFrom(maps.productTypes, value),
     taxes: (value) => labelFrom(maps.taxes, value),
     units: (value) => labelFrom(maps.units, value),
@@ -263,7 +257,6 @@ function useProductReferences(session: AuthSession): ProductReferenceLabels {
 
 interface ProductReferenceLabels {
   hsnCodes(value: unknown): string
-  productCategories(value: unknown): string
   productTypes(value: unknown): string
   taxes(value: unknown): string
   units(value: unknown): string
@@ -293,6 +286,20 @@ function filterProducts(records: MasterDataRecord[], statusFilter: string) {
   if (statusFilter === "active") return records.filter((record) => isActive(record))
   if (statusFilter === "suspend") return records.filter((record) => !isActive(record))
   return records
+}
+
+function searchProducts(records: MasterDataRecord[], searchValue: string, references: ProductReferenceLabels) {
+  const query = searchValue.trim().toLowerCase()
+  if (!query) return records
+  return records.filter((record) => [
+    record.name,
+    record.code,
+    references.productTypes(record.product_type_id),
+    references.hsnCodes(record.hsn_code_id),
+    references.units(record.unit_id),
+    references.taxes(record.tax_id),
+    isActive(record) ? "active" : "suspend",
+  ].some((value) => String(value ?? "").toLowerCase().includes(query)))
 }
 
 function Field({ label, onChange, value }: { label: string; onChange(value: string): void; value: string }) {

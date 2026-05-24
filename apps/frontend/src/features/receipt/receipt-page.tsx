@@ -23,8 +23,12 @@ import {
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { listCompanies, type CompanyBankAccount, type CompanyRecord } from "src/features/company/company-client"
+import { emptyContact, upsertContact, type ContactInput, type ContactRecord } from "src/features/contact/contact-client"
+import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
 import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
+import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
+import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addReceiptComment,
   destroyReceiptEntry,
@@ -380,10 +384,13 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   session: AuthSession
 }) {
   const [draft, setDraft] = useState<ReceiptEntryInput>(() => entry ? { ...entry, allocations: entry.allocations.map((item) => ({ ...item })) } : emptyReceiptEntry())
+  const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["receipt-contact-lookups", session.selectedTenant.slug], queryFn: () => listReceiptContactLookups(session) })
+  const contactTypesQuery = useQuery({ queryKey: ["receipt-contact-types", session.selectedTenant.slug], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const companyQuery = useQuery({ queryKey: ["receipt-company-bank", session.selectedTenant.slug], queryFn: () => listCompanies(session) })
   const nextReceiptQuery = useQuery({ enabled: !entry, queryKey: ["document-number-next-preview", session.selectedTenant.slug, "receipt"], queryFn: () => nextDocumentNumberSetting(session, "receipt") })
   const bankAccounts = ((companyQuery.data ?? []).find((company) => company.isPrimary) ?? companyQuery.data?.[0])?.bankAccounts ?? []
+  const customerContacts = useMemo(() => filterStockContactLookupOptions(contactsQuery.data ?? [], contactTypesQuery.data ?? [], "customer"), [contactsQuery.data, contactTypesQuery.data])
 
   useEffect(() => {
     if (entry || draft.receipt_no || !nextReceiptQuery.data?.preview) return
@@ -391,7 +398,7 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   }, [draft.receipt_no, entry, nextReceiptQuery.data?.preview])
 
   const tabs: AnimatedTab[] = [
-    { value: "details", label: "Details", content: <ReceiptDetailsTab bankAccounts={bankAccounts} contacts={contactsQuery.data ?? []} form={draft} session={session} setForm={setDraft} /> },
+    { value: "details", label: "Details", content: <ReceiptDetailsTab bankAccounts={bankAccounts} contacts={customerContacts} form={draft} onCreateContact={setContactCreateInitialName} session={session} setForm={setDraft} /> },
     { value: "allocations", label: "Allocations", content: <ReceiptAllocationsTab form={draft} setForm={setDraft} /> },
   ]
 
@@ -418,13 +425,26 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
               <Button type="button" variant="outline" onClick={onBack} className="rounded-xl"><ArrowLeft className="size-4" />Cancel</Button>
             </div>
           </form>
+          {contactCreateInitialName ? (
+            <ReceiptContactCreateDialog
+              contacts={contactsQuery.data ?? []}
+              initialName={contactCreateInitialName}
+              session={session}
+              onClose={() => setContactCreateInitialName(null)}
+              onCreated={(contact) => {
+                setDraft((current) => ({ ...current, party_id: contact.id, party_name: lookupName(contact), party_type: "customer" }))
+                setContactCreateInitialName(null)
+                void contactsQuery.refetch()
+              }}
+            />
+          ) : null}
         </MasterListUpsertCard>
       </MasterListUpsertLayout>
     </MasterListPageFrame>
   )
 }
 
-function ReceiptDetailsTab({ bankAccounts, contacts, form, session, setForm }: { bankAccounts: CompanyBankAccount[]; contacts: ReceiptLookupOption[]; form: ReceiptEntryInput; session: AuthSession; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
+function ReceiptDetailsTab({ bankAccounts, contacts, form, onCreateContact, session, setForm }: { bankAccounts: CompanyBankAccount[]; contacts: ReceiptLookupOption[]; form: ReceiptEntryInput; onCreateContact(name: string): void; session: AuthSession; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
   const needsBank = isBankTransferMode(form.receipt_mode ?? "cash")
   const bankOptions = useMemo(() => bankAccounts.filter((bank) => bank.isActive).sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary)), [bankAccounts])
   const selectedBank = bankOptions.find((bank) => String(bank.id ?? bank.accountNumber) === String(form.bank_account_id ?? ""))
@@ -433,12 +453,14 @@ function ReceiptDetailsTab({ bankAccounts, contacts, form, session, setForm }: {
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-5">
         <MasterAutocompleteLookup
-          label="Customer name"
+          createLabel="Create contact"
+          label="Customer name *"
           options={contacts}
           placeholder="Search customer"
           selectedId={form.party_id ?? null}
           selectedLabel={form.party_name ?? ""}
           onPick={(option) => setForm((current) => ({ ...current, party_id: option.id, party_name: lookupName(option), party_type: "customer" }))}
+          onCreate={onCreateContact}
           onTextChange={(value) => setForm((current) => ({ ...current, party_id: null, party_name: value }))}
         />
         <Field label="Amount" numeric value={String(form.amount ?? 0)} onChange={(value) => setForm((current) => ({ ...current, amount: Number(value.replace(/[^0-9.]/g, "") || 0) }))} />
@@ -567,13 +589,73 @@ function prepareReceiptInput(input: ReceiptEntryInput): ReceiptEntryInput {
   }
 }
 
-function MasterAutocompleteLookup({ inputRef, label, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { inputRef?: Ref<HTMLInputElement>; label: string; onPick(option: ReceiptLookupOption): void; onTextChange(value: string): void; options: ReceiptLookupOption[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
+function ReceiptContactCreateDialog({ contacts, initialName, onClose, onCreated, session }: { contacts: ReceiptLookupOption[]; initialName: string; onClose(): void; onCreated(contact: ReceiptLookupOption): void; session: AuthSession }) {
+  const [draft, setDraft] = useState<ContactInput>(() => ({ ...emptyContact(), code: normalizeContactCode(initialName), contactTypeId: "contact-type:customer", ledgerId: "ledger:sundry-debitors", ledgerName: "Customer", legalName: initialName, name: initialName }))
+  const [error, setError] = useState<string | null>(null)
+  const contactTypesQuery = useQuery({ queryKey: ["Receipt-contact-types", session.selectedTenant.slug], queryFn: () => listMasterDataRecords(session, "contactTypes") })
+  const createMutation = useMutation({
+    mutationFn: (input: ContactInput) => upsertContact(session, input),
+    onSuccess: (contact) => {
+      toast.success("Contact created", { description: contact.name })
+      onCreated(contactToReceiptLookupOption(contact))
+    },
+  })
+
+  async function save() {
+    const name = String(draft.name ?? "").trim()
+    if (!name) {
+      setError("Customer name is required.")
+      return
+    }
+    const gstin = String(draft.gstin ?? "").trim().toUpperCase()
+    if (gstin && contacts.some((contact) => String(contact.record.gstin ?? "").trim().toUpperCase() === gstin)) {
+      setError(`GSTIN ${gstin} already exists in contacts.`)
+      return
+    }
+    const contactTypes = contactTypesQuery.data ?? (await contactTypesQuery.refetch()).data ?? []
+    setError(null)
+    await createMutation.mutateAsync({ ...draft, code: String(draft.code ?? "").trim() || normalizeContactCode(name), contactTypeId: stockContactTypeId(contactTypes, "customer"), gstin, ledgerId: draft.ledgerId ?? "ledger:sundry-debitors", ledgerName: draft.ledgerName ?? "Customer", legalName: String(draft.legalName ?? "").trim() || name, name })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[160] grid place-items-center bg-background/55 p-4 backdrop-blur-sm">
+      <div className="w-[min(560px,calc(100vw-2rem))] overflow-hidden rounded-md border border-border/70 bg-card shadow-xl">
+        <div className="flex items-center justify-between border-b border-border/70 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold">Create contact</h2>
+            <p className="text-sm text-muted-foreground">Add receipt-ready customer details.</p>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} type="button"><X className="size-4" /></Button>
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <Field label="Customer name *" value={String(draft.name ?? "")} onChange={(name) => setDraft((current) => ({ ...current, name, legalName: current.legalName || name }))} />
+          <Field label="Code" value={String(draft.code ?? "")} onChange={(code) => setDraft((current) => ({ ...current, code: normalizeContactCode(code) }))} />
+          <Field label="Legal name" value={String(draft.legalName ?? "")} onChange={(legalName) => setDraft((current) => ({ ...current, legalName }))} />
+          <Field label="GSTIN" value={String(draft.gstin ?? "")} onChange={(gstin) => setDraft((current) => ({ ...current, gstin: gstin.toUpperCase(), gstDetails: gstin.trim() ? [{ gstin: gstin.toUpperCase(), state: "", isDefault: true, isActive: true }] : [] }))} />
+        </div>
+        {error ? <p className="px-5 pb-3 text-sm font-medium text-destructive">{error}</p> : null}
+        <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-5 py-4">
+          <Button disabled={createMutation.isPending} onClick={() => void save()} type="button" className="rounded-md"><Save className={cn("size-4", createMutation.isPending && "animate-spin")} />Save contact</Button>
+          <Button disabled={createMutation.isPending} onClick={onClose} type="button" variant="outline" className="rounded-md"><X className="size-4" />Cancel</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function contactToReceiptLookupOption(contact: ContactRecord): ReceiptLookupOption {
+  return { id: String(contact.uuid ?? contact.id), label: [contact.code, contact.name].filter(Boolean).join(" - ") || contact.name, code: contact.code, record: contact as unknown as MasterDataRecord }
+}
+
+function MasterAutocompleteLookup({ createLabel, inputRef, label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { createLabel?: string; inputRef?: Ref<HTMLInputElement>; label: string; onCreate?(query: string): void; onPick(option: ReceiptLookupOption): void; onTextChange(value: string): void; options: ReceiptLookupOption[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState(selectedLabel)
   const normalizedQuery = query.trim().toLowerCase()
   const filteredOptions = options.filter((option) => lookupName(option).toLowerCase().includes(normalizedQuery) || option.label.toLowerCase().includes(normalizedQuery) || (option.code ?? "").toLowerCase().includes(normalizedQuery))
   const exactOption = options.find((option) => lookupName(option).toLowerCase() === normalizedQuery || option.label.toLowerCase() === normalizedQuery || (option.code ?? "").toLowerCase() === normalizedQuery)
+  const canCreate = Boolean(onCreate && query.trim() && !exactOption)
+  const optionCount = filteredOptions.length + (canCreate ? 1 : 0)
 
   useEffect(() => {
     if (!isOpen) setQuery(selectedLabel)
@@ -598,13 +680,13 @@ function MasterAutocompleteLookup({ inputRef, label, onPick, onTextChange, optio
         onChange={(event) => { setQuery(event.target.value); setIsOpen(true); setActiveIndex(0); onTextChange(event.target.value) }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={(event) => {
-          if (event.key === "ArrowDown") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current + 1) % filteredOptions.length : 0) }
-          if (event.key === "ArrowUp") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current - 1 + filteredOptions.length) % filteredOptions.length : 0) }
-          if (event.key === "Enter") { event.preventDefault(); if (filteredOptions[activeIndex]) selectOption(filteredOptions[activeIndex]) }
+          if (event.key === "ArrowDown") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => optionCount ? (current + 1) % optionCount : 0) }
+          if (event.key === "ArrowUp") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => optionCount ? (current - 1 + optionCount) % optionCount : 0) }
+          if (event.key === "Enter") { event.preventDefault(); if (filteredOptions[activeIndex]) selectOption(filteredOptions[activeIndex]); else if (canCreate && activeIndex === filteredOptions.length) { onCreate?.(query.trim()); setIsOpen(false) } }
           if (event.key === "Escape") { event.preventDefault(); setIsOpen(false); setQuery(selectedLabel) }
         }}
       />
-      {isOpen && filteredOptions.length ? (
+      {isOpen && optionCount ? (
         <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[100] max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-2xl" onMouseDown={(event) => event.preventDefault()}>
           {filteredOptions.map((option, index) => {
             const isSelected = selectedId ? option.id === selectedId : lookupName(option) === selectedLabel
@@ -615,10 +697,19 @@ function MasterAutocompleteLookup({ inputRef, label, onPick, onTextChange, optio
               </button>
             )
           })}
+          {canCreate ? (
+            <button type="button" className={activeIndex === filteredOptions.length ? "flex w-full items-center gap-2 rounded-md bg-muted px-3 py-2 text-left text-sm font-medium" : "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium hover:bg-muted"} onMouseDown={(event) => { event.preventDefault(); onCreate?.(query.trim()); setIsOpen(false) }}>
+              <Plus className="size-4" />{createLabel ?? "Create"} "{query.trim()}"
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
   )
+}
+
+function normalizeContactCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)
 }
 
 function BankAutocompleteLookup({ label, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { label: string; onPick(option: CompanyBankAccount): void; onTextChange(value: string): void; options: CompanyBankAccount[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {

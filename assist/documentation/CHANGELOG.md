@@ -2,14 +2,19 @@
 
 ## Version State
 
-- **Current version:** `1.0.24`
-- **Release tag:** `v-1.0.24`
-- **Changelog label:** `v 1.0.24`
+- **Current version:** `1.0.25`
+- **Release tag:** `v-1.0.25`
+- **Changelog label:** `v 1.0.25`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.25
+
+### [v 1.0.25] 2026-05-24 4:34 pm - stock ledger barcode and serial movement foundation
+
+- Bumped workspace version to 1.0.25
 ## v-1.0.24
 
 ### [v 1.0.24] 2026-05-24 3:48 pm - voucher work order and product autocomplete cleanup
