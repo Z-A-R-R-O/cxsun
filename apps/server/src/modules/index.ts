@@ -18,6 +18,7 @@ import { StockLedgerModule } from './stock/ledger/index.js'
 import { CompanySettingsModule } from './settings/company-settings/index.js'
 import { DocumentSettingsModule } from './settings/document-settings/index.js'
 import { MediaModule } from './media/index.js'
+import { TaskManagerModule } from './task-manager/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
 import { HealthModule } from '../core/health/health.module.js'
 import { IndustryModule } from '../core/industry/industry.module.js'
@@ -52,6 +53,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     CompanySettingsModule,
     DocumentSettingsModule,
     MediaModule,
+    TaskManagerModule,
     CompanyModule,
   ],
   guards: [AuthGuard],

@@ -1,6 +1,7 @@
 import { createConnection } from 'mysql2/promise'
 import { getDatabase } from '../../../infrastructure/database/connection.js'
 import type { Tenant } from '../../tenant/domain/tenant.types.js'
+import { dbConfig } from '../../../framework/config/index.js'
 
 const tenantColumns = [
   'id',
@@ -29,6 +30,8 @@ export class MigrationManagerRepository {
       .selectFrom('tenants')
       .select(tenantColumns)
       .where('db_type', '=', 'mariadb')
+      .where('status', '=', 'active')
+      .where('deleted_at', 'is', null)
       .execute() as Promise<Tenant[]>
   }
 
@@ -45,9 +48,9 @@ export class MigrationManagerRepository {
       host: tenant.db_host,
       port: tenant.db_port,
       user: tenant.db_user,
-      password: process.env[tenant.db_secret_ref] ?? process.env.MARIADB_ROOT_PASSWORD,
+      password: dbConfig.tenant.password(tenant.db_secret_ref),
       multipleStatements: false,
-      connectTimeout: Number(process.env.TENANT_DB_CONNECT_TIMEOUT_MS ?? 2_000),
+      connectTimeout: dbConfig.tenant.connectTimeoutMs,
     })
 
     try {

@@ -1,5 +1,6 @@
 import { Injectable } from '../../../../core/decorators/injectable.js'
 import { getDatabase } from '../../../../infrastructure/database/connection.js'
+import { nowIso } from '../../../../infrastructure/database/database-module.js'
 import type { ClientRecord, ClientUpsertInput } from '../domain/client.types.js'
 
 @Injectable()
@@ -13,7 +14,7 @@ export class ClientRepository {
   }
 
   async upsert(input: ClientUpsertInput): Promise<ClientRecord> {
-    const now = new Date().toISOString()
+    const now = nowIso()
     const data = {
       name: input.name.trim(),
       company_name: nullable(input.company_name),
@@ -44,7 +45,7 @@ export class ClientRepository {
   }
 
   async softDelete(id: number): Promise<boolean> {
-    const now = new Date().toISOString()
+    const now = nowIso()
     const result = await getDatabase()
       .updateTable('clients')
       .set({ status: 'suspend', deleted_at: now, updated_at: now })
@@ -56,7 +57,7 @@ export class ClientRepository {
   }
 
   async restore(id: number): Promise<boolean> {
-    const now = new Date().toISOString()
+    const now = nowIso()
     const result = await getDatabase()
       .updateTable('clients')
       .set({ status: 'active', deleted_at: null, updated_at: now })

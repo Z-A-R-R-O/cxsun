@@ -1709,3 +1709,117 @@ copy the same exact to purchase receipt afterwards we can refactor copy complete
 ```
 read assist/ readme and create log
 ```
+
+## Current Prompt
+
+```
+read assist/readme and find what we worked last and fix in stock ledger when hit print is open double pop ups 
+when print is canceled this pop ups shows continues
+```
+
+## Current Prompt
+
+```
+make barcode print designer as standalone to generate barcodes to print and wire it to print
+```
+
+## Current Prompt
+
+```
+rework on verify tab with common input at top to accept barcode scan and verify random and remove print select and multi select add the same back and next button at bottom
+```
+
+## Current Prompt
+
+```
+in generate tab add multi select drop option also and check before drop it should not verified
+```
+
+## Current Prompt
+
+```
+make this whole process as upsert page and create list of stock ledger with default entry no , date and created details for future verification like sales model 
+```
+
+## Current Prompt
+
+```
+create  taskmanager app inside as modular with full set standalone for office automation
+
+
+subject to get performance of staff , work , and activites and can assign at any modules to task
+
+1. ask staff to verify all invoice with gst portal
+2. verify all entries and send to auditor and follow
+```
+
+## Current Prompt
+
+```
+make this task as list + show + upsert form
+
+in this task has multiple actions and upsert forms so plan as to this
+
+in list when hit new task show pop up and create task with 
+
+title , subject , priority and status to auto as new and assign to to user  with their tenant user first prepare this 
+```
+
+## Current Prompt
+
+```
+ok fine we move master database from sqlite to mariadb right from now so set for this add .env variables for master database and work with it and switch all database query to master in mariadb
+```
+
+## Current Prompt
+
+```
+remove un used db variable from .env and recheck
+```
+
+## Current Prompt
+
+```
+can we use these variable instead of master 
+
+DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD
+```
+
+## Current Prompt
+
+```
+remove these variables and fix 
+
+TENANT_DB_POOL_MIN=2
+TENANT_DB_POOL_MAX=10
+MARIADB_HOST=localhost
+MARIADB_PORT=3306
+MARIADB_USER=root
+MARIADB_ROOT_PASSWORD=Computer.1
+
+make pool inside code and keep it to max safe side
+```
+
+## Current Prompt
+
+```
+i have removed all unwanted check any variable assiociated is missing
+```
+
+## Current Prompt
+
+```
+instead of using .env every where create a dedicated holder file to read .env and collect data and sanitize and server across app as global variable make this inside framework/config/setting and dbconfig like folder and files
+```
+
+## Current Prompt
+
+```
+ok fine set preflight cli to check database connection and table if no table ask permission to create database with  custom name option and setup base migrations first with first client as Demo-app with demo_db and domain at present as localhost
+```
+
+## Current Prompt
+
+```
+update version and create log in changelog
+```

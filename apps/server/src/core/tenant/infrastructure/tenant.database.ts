@@ -1,51 +1,51 @@
 import { sql } from 'kysely'
-import { addSqliteColumnIfMissing, nowIso, type PlatformDatabaseModule, type PlatformDatabase } from '../../../infrastructure/database/database-module.js'
+import { addMasterColumnIfMissing, nowIso, type PlatformDatabaseModule, type PlatformDatabase } from '../../../infrastructure/database/database-module.js'
+import { dbConfig } from '../../../framework/config/index.js'
 
 export const tenantDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant',
   async migrate(database) {
-    await database.schema
-      .createTable('tenants')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('code', 'integer', (col) => col.notNull().unique())
-      .addColumn('slug', 'text', (col) => col.notNull().unique())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('db_type', 'text', (col) => col.notNull().defaultTo('mariadb'))
-      .addColumn('db_host', 'text', (col) => col.notNull())
-      .addColumn('db_port', 'integer', (col) => col.notNull())
-      .addColumn('db_name', 'text', (col) => col.notNull())
-      .addColumn('db_user', 'text', (col) => col.notNull())
-      .addColumn('db_secret_ref', 'text', (col) => col.notNull())
-      .addColumn('company_count', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('active_company_count', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('company_concept_count', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('payload_settings', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('deleted_at', 'text')
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        code INT NOT NULL UNIQUE,
+        slug VARCHAR(80) NOT NULL UNIQUE,
+        name VARCHAR(191) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        db_type VARCHAR(32) NOT NULL DEFAULT 'mariadb',
+        db_host VARCHAR(191) NOT NULL,
+        db_port INT NOT NULL,
+        db_name VARCHAR(191) NOT NULL,
+        db_user VARCHAR(191) NOT NULL,
+        db_secret_ref VARCHAR(191) NOT NULL,
+        company_count INT NOT NULL DEFAULT 0,
+        active_company_count INT NOT NULL DEFAULT 0,
+        company_concept_count INT NOT NULL DEFAULT 0,
+        payload_settings LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        deleted_at DATETIME NULL
+      )
+    `).execute(database)
 
-    await addSqliteColumnIfMissing(database, 'tenants', 'company_count', 'integer NOT NULL DEFAULT 0')
-    await addSqliteColumnIfMissing(database, 'tenants', 'active_company_count', 'integer NOT NULL DEFAULT 0')
-    await addSqliteColumnIfMissing(database, 'tenants', 'company_concept_count', 'integer NOT NULL DEFAULT 0')
+    await addMasterColumnIfMissing(database, 'tenants', 'company_count', 'INT NOT NULL DEFAULT 0')
+    await addMasterColumnIfMissing(database, 'tenants', 'active_company_count', 'INT NOT NULL DEFAULT 0')
+    await addMasterColumnIfMissing(database, 'tenants', 'company_concept_count', 'INT NOT NULL DEFAULT 0')
   },
   async seed(database) {
     for (const tenant of [
-      { code: 100, slug: 'aaran', name: 'Aaran' },
-      { code: 101, slug: 'sathasivam', name: 'Sathasivam' },
-      { code: 102, slug: 'sampath', name: 'Sampath' },
-      { code: 103, slug: 'sathish', name: 'Sathish' },
+      { code: 100, slug: 'demo_app', name: 'Demo-app', dbName: 'demo_db' },
     ]) {
       await ensureTenant(database, tenant)
     }
 
-    await retireLegacyTenant(database, 'sundar')
+    for (const slug of ['aaran', 'sathasivam', 'sampath', 'sathish', 'sundar']) {
+      await retireLegacyTenant(database, slug)
+    }
   },
 }
 
-async function ensureTenant(database: PlatformDatabase, data: { code: number; slug: string; name: string }) {
+async function ensureTenant(database: PlatformDatabase, data: { code: number; slug: string; name: string; dbName?: string }) {
   const existing = await database
     .selectFrom('tenants')
     .select('id')
@@ -56,14 +56,16 @@ async function ensureTenant(database: PlatformDatabase, data: { code: number; sl
     .executeTakeFirst()
 
   const row = {
-    ...data,
+    code: data.code,
+    slug: data.slug,
+    name: data.name,
     status: 'active',
     db_type: 'mariadb',
-    db_host: process.env.MARIADB_HOST ?? 'localhost',
-    db_port: Number(process.env.MARIADB_PORT ?? 3306),
-    db_name: `${data.slug}_db`,
-    db_user: process.env.MARIADB_USER ?? 'root',
-    db_secret_ref: 'MARIADB_ROOT_PASSWORD',
+    db_host: dbConfig.tenant.defaults.host,
+    db_port: dbConfig.tenant.defaults.port,
+    db_name: data.dbName ?? `${data.slug}_db`,
+    db_user: dbConfig.tenant.defaults.user,
+    db_secret_ref: dbConfig.tenant.defaults.secretRef,
     payload_settings: JSON.stringify({ ui: { density: 'comfortable' }, features: ['company.manage'] }),
     updated_at: nowIso(),
   }

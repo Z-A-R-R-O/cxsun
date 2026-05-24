@@ -5,7 +5,7 @@
 # CXSun
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-**Version:** 1.0.26
+**Version:** 1.0.27
 
 CXSun is a comprehensive, enterprise-grade TypeScript monorepo designed for high-performance ERP, E-commerce, and Multi-tenant SaaS platforms. It provides a robust foundation for building scalable, AI-native applications with a focus on data isolation and modularity.
 
@@ -13,7 +13,7 @@ CXSun is a comprehensive, enterprise-grade TypeScript monorepo designed for high
 
 The platform is engineered with a modern, multi-tenant architecture to support complex business requirements:
 
-- **Platform Layer:** Global orchestration managing tenants, industries, and system-wide configurations powered by SQLite for high-speed local lookups.
+- **Platform Layer:** Global orchestration managing tenants, industries, and system-wide configurations powered by a master MariaDB database.
 - **Tenant Layer:** Secure data isolation for each tenant using dedicated MariaDB databases, ensuring privacy and scalability.
 - **AI-Native Integration:** Built-in AI assist system designed to accelerate development cycles and provide intelligent operational support.
 - **Modern Tech Stack:** Leveraging Fastify for a high-performance backend and React/Vite for a responsive, modern frontend experience.
@@ -32,7 +32,7 @@ CXSun can be used as a foundation for various business applications:
 - **Node.js:** v20+
 - **Package Manager:** npm v10+
 - **Databases:**
-  - **SQLite:** For platform-level orchestration (stored in `storage/database/`).
+  - **MariaDB:** For platform-level orchestration and tenant-isolated business databases through `DB_*`.
   - **MariaDB/MySQL:** For tenant-specific business data.
 - **Optional:** Redis (caching), Docker (deployment).
 

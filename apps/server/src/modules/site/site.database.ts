@@ -4,47 +4,47 @@ import type { PlatformDatabaseModule } from '../../infrastructure/database/datab
 export const siteDatabaseModule: PlatformDatabaseModule = {
   name: 'site',
   async migrate(database) {
-    await database.schema
-      .createTable('site_pages')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('slug', 'text', (col) => col.notNull().unique())
-      .addColumn('nav_label', 'text', (col) => col.notNull())
-      .addColumn('title', 'text', (col) => col.notNull())
-      .addColumn('eyebrow', 'text', (col) => col.notNull())
-      .addColumn('summary', 'text', (col) => col.notNull())
-      .addColumn('body', 'text', (col) => col.notNull())
-      .addColumn('sort_order', 'integer', (col) => col.notNull())
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS site_pages (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        slug VARCHAR(191) NOT NULL UNIQUE,
+        nav_label VARCHAR(191) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        eyebrow VARCHAR(191) NOT NULL,
+        summary TEXT NOT NULL,
+        body TEXT NOT NULL,
+        sort_order INT NOT NULL
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('site_services')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('title', 'text', (col) => col.notNull())
-      .addColumn('description', 'text', (col) => col.notNull())
-      .addColumn('sort_order', 'integer', (col) => col.notNull())
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS site_services (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        sort_order INT NOT NULL
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('site_posts')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('title', 'text', (col) => col.notNull())
-      .addColumn('excerpt', 'text', (col) => col.notNull())
-      .addColumn('published_at', 'text', (col) => col.notNull())
-      .addColumn('sort_order', 'integer', (col) => col.notNull())
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS site_posts (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        excerpt TEXT NOT NULL,
+        published_at VARCHAR(40) NOT NULL,
+        sort_order INT NOT NULL
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('site_messages')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('email', 'text', (col) => col.notNull())
-      .addColumn('message', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS site_messages (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(191) NOT NULL,
+        email VARCHAR(191) NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).execute(database)
   },
   async seed(database) {
     const { count } = await database

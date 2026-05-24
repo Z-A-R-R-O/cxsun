@@ -1,4 +1,5 @@
 export type StockLedgerEventName =
+  | 'stock.ledger.entryUpserted'
   | 'stock.ledger.settingsUpdated'
   | 'stock.ledger.serializationGenerated'
   | 'stock.ledger.serializationVerified'

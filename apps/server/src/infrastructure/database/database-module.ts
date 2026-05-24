@@ -9,20 +9,25 @@ export interface PlatformDatabaseModule {
   seed?(database: PlatformDatabase): Promise<void>
 }
 
-export async function addSqliteColumnIfMissing(
+export async function addMasterColumnIfMissing(
   database: PlatformDatabase,
   table: string,
   column: string,
   definition: string,
 ) {
-  const columns = await sql<{ name: string }>`PRAGMA table_info(${sql.raw(table)})`.execute(database)
-  const exists = columns.rows.some((row) => row.name === column)
+  const existing = await sql<{ COLUMN_NAME: string }>`
+    SELECT COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ${table}
+      AND COLUMN_NAME = ${column}
+  `.execute(database)
 
-  if (!exists) {
-    await sql`ALTER TABLE ${sql.raw(table)} ADD COLUMN ${sql.raw(column)} ${sql.raw(definition)}`.execute(database)
-  }
+  if (existing.rows.length > 0) return
+
+  await sql.raw(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`).execute(database)
 }
 
 export function nowIso() {
-  return new Date().toISOString()
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
 }

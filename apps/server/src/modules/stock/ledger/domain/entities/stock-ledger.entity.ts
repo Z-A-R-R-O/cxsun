@@ -4,6 +4,30 @@ export type StockSerializationMode = 'partial' | 'full' | 'single'
 export type StockSerializationStatus = 'draft' | 'partial' | 'verified' | 'posted'
 export type StockBarcodeMode = 'readable' | 'numeric'
 
+export interface StockLedgerEntry {
+  id: number
+  uuid: string
+  tenant_id: number
+  company_id: number
+  accounting_year_id: number
+  entry_no: string
+  entry_date: string
+  status: string
+  source_type: string
+  source_uuid: string | null
+  source_no: string | null
+  notes: string | null
+  created_by: string
+  updated_by: string | null
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+  generated_quantity: number
+  verified_quantity: number
+  posted_quantity: number
+  serializations: StockSerialization[]
+}
+
 export interface StockLedgerSettings {
   id: number
   uuid: string
@@ -72,6 +96,7 @@ export interface StockLiveBalance {
 export interface StockSerialization {
   id: number
   uuid: string
+  stock_ledger_entry_id: number | null
   tenant_id: number
   company_id: number
   accounting_year_id: number

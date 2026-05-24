@@ -51,7 +51,7 @@ cxsun/
 - Keep apps deployable independently. Share through `@cxsun/shared`, APIs, and documented contracts.
 - Multi-tenant behavior belongs in server-side infrastructure and domain/application services.
 - Tenant-owned APIs must resolve through `TenantContextService` before touching tenant-local data.
-- Platform/master APIs use the platform SQLite database directly and must not accidentally read tenant-local tables.
+- Platform/master APIs use the master MariaDB database directly and must not accidentally read tenant-local tables.
 
 ## Backend Structure
 
@@ -144,7 +144,7 @@ request URL host/domain
   -> tenant-local tables
 ```
 
-Platform data lives in `storage/database/cxsun.sqlite` and is represented by `apps/server/src/infrastructure/database/schema.ts`. Platform database modules live beside their owning modules, then register through `apps/server/src/infrastructure/database/platform-modules.ts`.
+Platform/master data lives in the MariaDB database configured by `DB_*` environment variables and is represented by `apps/server/src/infrastructure/database/schema.ts`. Platform database modules live beside their owning modules, then register through `apps/server/src/infrastructure/database/platform-modules.ts`.
 
 Tenant-local data lives in MariaDB databases described by each tenant row. Tenant connection/provisioning code lives under `apps/server/src/infrastructure/tenant-database/`. Tenant database schema types live in `tenant-database.schema.ts`.
 

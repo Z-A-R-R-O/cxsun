@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'fs'
-import { resolve } from 'path'
 import { MigrationManagerService } from './application/migration-manager.service.js'
 import type { MigrationAction, MigrationCommand, MigrationTarget } from './domain/migration-manager.types.js'
-
-loadDotEnv()
 
 const command = parseCommand(process.argv.slice(2))
 const manager = new MigrationManagerService()
@@ -39,6 +35,9 @@ function normalizeAction(value?: string): MigrationAction {
 }
 
 function parseTarget(args: string[]): MigrationTarget {
+  const targetArg = args.find((arg) => arg.startsWith('--target=') || arg.startsWith('-target='))
+  const explicitTarget = targetArg?.split('=').slice(1).join('=').trim().toLowerCase()
+  if (explicitTarget === 'master' || explicitTarget === 'tenant' || explicitTarget === 'all') return explicitTarget
   if (args.some((arg) => arg === '--master' || arg === '-master')) return 'master'
   if (args.some((arg) => arg === '--tenant' || arg === '-tenant' || arg.startsWith('--tenant=') || arg.startsWith('-tenant='))) return 'tenant'
   if (args.some((arg) => arg === '--all' || arg === '-all')) return 'all'
@@ -57,17 +56,4 @@ function parseTenant(args: string[]) {
   }
 
   return undefined
-}
-
-function loadDotEnv() {
-  const root = resolve(process.cwd(), process.cwd().replaceAll('\\', '/').endsWith('/apps/server') ? '../..' : '.')
-  const envPath = resolve(root, '.env')
-  if (!existsSync(envPath)) return
-
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^\s*([^#=]+?)\s*=\s*(.*?)\s*$/)
-    if (!match) continue
-    const [, key, rawValue] = match
-    process.env[key] ??= rawValue.replace(/^['"]|['"]$/g, '')
-  }
 }

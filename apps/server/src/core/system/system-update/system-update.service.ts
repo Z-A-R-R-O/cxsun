@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import { promisify } from 'util'
 
 import { Injectable } from '../../decorators/injectable.js'
+import { getBackendHealthUrl, getFrontendUrl } from '../../../framework/config/index.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -327,13 +328,11 @@ async function checkUrl(url: string) {
 }
 
 function backendHealthUrl() {
-  const port = process.env.PORT ?? '6001'
-  return process.env.BACKEND_HEALTH_URL ?? `http://127.0.0.1:${port}/health`
+  return getBackendHealthUrl()
 }
 
 function frontendUrl() {
-  const port = process.env.VITE_PORT ?? '6010'
-  return process.env.FRONTEND_URL ?? process.env.ELECTRON_DEV_SERVER_URL ?? `http://127.0.0.1:${port}`
+  return getFrontendUrl('127.0.0.1')
 }
 
 function npmCommand() {

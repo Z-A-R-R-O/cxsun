@@ -1,4 +1,5 @@
 import type { TenantStatus, TenantUpsertData, TenantUpsertInput } from './tenant.types.js'
+import { dbConfig } from '../../../framework/config/index.js'
 
 export class TenantAggregate {
   static normalize(input: TenantUpsertInput, nextCode: number): TenantUpsertData {
@@ -7,10 +8,10 @@ export class TenantAggregate {
     const slug = normalizeTenantSlug(input.slug || name || `tenant-${code}`)
     const status = input.status
     const dbName = normalizeTenantDatabaseName(input.db_name || slug)
-    const dbHost = input.db_host?.trim() || process.env.MARIADB_HOST || 'localhost'
-    const dbPort = Number(input.db_port ?? process.env.MARIADB_PORT ?? 3306)
-    const dbUser = input.db_user?.trim() || process.env.MARIADB_USER || 'root'
-    const dbSecretRef = input.db_secret_ref?.trim() || 'MARIADB_ROOT_PASSWORD'
+    const dbHost = input.db_host?.trim() || dbConfig.tenant.defaults.host
+    const dbPort = Number(input.db_port ?? dbConfig.tenant.defaults.port)
+    const dbUser = input.db_user?.trim() || dbConfig.tenant.defaults.user
+    const dbSecretRef = input.db_secret_ref?.trim() || dbConfig.tenant.defaults.secretRef
     const payloadSettings = input.payload_settings?.trim() || '{}'
 
     if (!Number.isInteger(code) || code < 100) {

@@ -15,6 +15,7 @@ import { FILTERS_KEY } from './decorators/filters.js'
 import type { CanActivate } from './interfaces/guard.interface.js'
 import type { ExceptionFilter } from './interfaces/filter.interface.js'
 import { HttpException } from './exceptions/http.exception.js'
+import { settings } from '../framework/config/index.js'
 
 export interface AppOptions {
   host?: string
@@ -43,12 +44,12 @@ export class CxApp {
     moduleClass: ClassProvider,
     options: AppOptions = {},
   ): Promise<CxApp> {
-    const host = options.host ?? process.env.HOST ?? '0.0.0.0'
-    const port = Number(options.port ?? process.env.PORT ?? 6001)
-    const logLevel = options.logLevel ?? process.env.LOG_LEVEL ?? 'info'
+    const host = options.host ?? settings.server.host
+    const port = options.port ?? settings.server.port
+    const logLevel = options.logLevel ?? settings.server.logLevel
     const gracePeriodMs = options.gracePeriodMs ?? 5_000
 
-    const app = Fastify({ bodyLimit: Number(process.env.BODY_LIMIT_BYTES ?? 30 * 1024 * 1024), logger: { level: logLevel } })
+    const app = Fastify({ bodyLimit: settings.server.bodyLimitBytes, logger: { level: logLevel } })
     const container = new Container()
 
     await app.register(cors, {

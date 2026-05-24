@@ -99,7 +99,7 @@ export const emptyTenantForm: TenantFormState = {
   dbPort: "3306",
   dbName: "",
   dbUser: "root",
-  dbSecretRef: "MARIADB_ROOT_PASSWORD",
+  dbSecretRef: "DB_PASSWORD",
   payloadSettings: "{}",
 }
 

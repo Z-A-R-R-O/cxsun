@@ -81,7 +81,7 @@ In the super-admin UI, keep navigation split into two easy areas:
 CXSun uses a two-layer data model:
 
 ```text
-Platform SQLite
+Master MariaDB
   site content
   tenants
   tenant domains
@@ -118,7 +118,7 @@ URL host/domain or selected tenant
 
 ### Platform Modules
 
-Platform modules live in the server app and use platform SQLite unless they explicitly enter tenant context.
+Platform modules live in the server app and use the master MariaDB database unless they explicitly enter tenant context.
 
 - `site`: public content and contact messages.
 - `tenant-domain`: domain-to-tenant mapping.
@@ -169,7 +169,7 @@ Each route family has its own auth gate and browser session key.
 ## Implementation Principles
 
 - Keep tenant business data isolated in tenant databases.
-- Keep platform orchestration data in platform SQLite.
+- Keep platform orchestration data in the master MariaDB database.
 - Do not let tenant login unlock admin or super-admin surfaces.
 - Do not let hidden menu filtering be the only security boundary; route guards and server checks must also enforce access.
 - Generate public record UUIDs through the shared alphanumeric public UUID helper.
@@ -183,7 +183,7 @@ The next implementation direction should build from the current foundation in th
 
 1. Tenant-local roles and permissions UI.
 2. Company default selection and company context switching inside the tenant workspace.
-3. Admin helpdesk and bug desk backed by platform SQLite.
+3. Admin helpdesk and bug desk backed by the master MariaDB database.
 4. Tenant catalog and product/service setup.
 5. Storefront/public catalog pages through domain resolution.
 6. Sales/order/invoice flow inside the tenant database.

@@ -3,7 +3,7 @@ import { BadRequestException, NotFoundException } from '../../../../../core/exce
 import { Injectable } from '../../../../../core/decorators/injectable.js'
 import type { TenantRuntimeContext } from '../../../../../core/tenant/tenant-context.service.js'
 import { dispatchPublicUuid } from '../../../../../shared/helpers/public-uuid.js'
-import type { StockBarcodeMode, StockSerialization, StockSerializationItem, StockSerializationMode } from '../../domain/entities/stock-ledger.entity.js'
+import type { StockBarcodeMode, StockLedgerEntry, StockSerialization, StockSerializationItem, StockSerializationMode } from '../../domain/entities/stock-ledger.entity.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
 
@@ -20,6 +20,8 @@ export interface StockLedgerSettingsInput {
 }
 
 export interface GenerateSerializationInput {
+  stock_ledger_entry_uuid?: string
+  stock_ledger_entry_id?: number
   purchase_receipt_uuid?: string
   purchase_receipt_id?: number
   purchase_receipt_item_id?: number
@@ -31,6 +33,17 @@ export interface GenerateSerializationInput {
   batch_no?: string | null
 }
 
+export interface StockLedgerEntryInput {
+  uuid?: string
+  entry_no?: string
+  entry_date?: string
+  purchase_receipt_uuid?: string | null
+  source_uuid?: string | null
+  source_no?: string | null
+  notes?: string | null
+  status?: string
+}
+
 export interface VerifySerializationInput {
   barcode?: string
   barcodes?: string[]
@@ -38,6 +51,71 @@ export interface VerifySerializationInput {
 
 @Injectable()
 export class StockLedgerRepository {
+  async listEntries(context: TenantRuntimeContext): Promise<StockLedgerEntry[]> {
+    const rows = await this.database(context)
+      .selectFrom('stock_ledger_entries')
+      .selectAll()
+      .where('tenant_id', '=', context.tenant.id)
+      .where('deleted_at', 'is', null)
+      .orderBy('entry_date', 'desc')
+      .orderBy('id', 'desc')
+      .execute()
+    return Promise.all(rows.map((row) => this.entryFromRow(context, row)))
+  }
+
+  async findEntry(context: TenantRuntimeContext, idOrUuid: string | number): Promise<StockLedgerEntry | null> {
+    const row = await this.database(context)
+      .selectFrom('stock_ledger_entries')
+      .selectAll()
+      .where('tenant_id', '=', context.tenant.id)
+      .where(this.idColumn(String(idOrUuid)), '=', this.idValue(String(idOrUuid)))
+      .executeTakeFirst()
+    return row ? this.entryFromRow(context, row) : null
+  }
+
+  async upsertEntry(context: TenantRuntimeContext, input: StockLedgerEntryInput) {
+    const companyId = await this.defaultCompanyId(context)
+    const accountingYearId = await this.defaultAccountingYearId(context)
+    const entryDate = input.entry_date?.trim() || new Date().toISOString().slice(0, 10)
+    const sourceUuid = emptyAsNull(input.purchase_receipt_uuid) ?? emptyAsNull(input.source_uuid)
+    const sourceReceipt = sourceUuid ? await this.findReceipt(context, sourceUuid) : null
+    const patch = {
+      entry_no: input.entry_no?.trim() || await this.nextEntryNo(context, companyId, accountingYearId),
+      entry_date: entryDate,
+      status: input.status?.trim() || 'draft',
+      source_type: 'purchaseReceipt',
+      source_uuid: sourceUuid,
+      source_no: emptyAsNull(input.source_no) ?? stringOrNull(sourceReceipt?.entry_no),
+      notes: emptyAsNull(input.notes),
+      updated_by: context.user.email,
+      updated_at: new Date(),
+    }
+
+    if (input.uuid) {
+      const existing = await this.findEntry(context, input.uuid)
+      if (!existing) throw new NotFoundException('Stock ledger entry was not found.')
+      await this.database(context)
+        .updateTable('stock_ledger_entries')
+        .set(patch)
+        .where('id', '=', existing.id)
+        .execute()
+      return this.findEntry(context, existing.id)
+    }
+
+    const result = await this.database(context)
+      .insertInto('stock_ledger_entries')
+      .values({
+        uuid: this.nextUuid(),
+        tenant_id: context.tenant.id,
+        company_id: companyId,
+        accounting_year_id: accountingYearId,
+        ...patch,
+        created_by: context.user.email,
+      })
+      .executeTakeFirst()
+    return this.findEntry(context, Number(result.insertId))
+  }
+
   async getSettings(context: TenantRuntimeContext, companyId = 0): Promise<Record<string, unknown>> {
     const resolvedCompanyId = companyId || await this.defaultCompanyId(context)
     const existing = await this.database(context)
@@ -131,6 +209,7 @@ export class StockLedgerRepository {
   async generateSerialization(context: TenantRuntimeContext, input: GenerateSerializationInput) {
     const receipt = await this.findReceipt(context, input.purchase_receipt_uuid ?? String(input.purchase_receipt_id ?? ''))
     if (!receipt) throw new NotFoundException('Purchase receipt was not found.')
+    const entry = await this.resolveEntryForSerialization(context, input, receipt)
 
     const item = await this.findReceiptItem(context, Number(receipt.id), input)
     if (!item) throw new NotFoundException('Purchase receipt item was not found.')
@@ -162,6 +241,7 @@ export class StockLedgerRepository {
       .insertInto('stock_serializations')
       .values({
         uuid: this.nextUuid(),
+        stock_ledger_entry_id: entry?.id ?? null,
         tenant_id: context.tenant.id,
         company_id: Number(receipt.company_id),
         accounting_year_id: Number(receipt.accounting_year_id),
@@ -232,6 +312,7 @@ export class StockLedgerRepository {
     }
 
     await this.refreshSerializationCounts(context, serialization.id)
+    if (serialization.stock_ledger_entry_id) await this.refreshEntryStatus(context, serialization.stock_ledger_entry_id)
     const updated = await this.findSerialization(context, serialization.id)
     return { serialization: updated, matched, unknown }
   }
@@ -257,6 +338,7 @@ export class StockLedgerRepository {
       .set({ status: 'posted', updated_at: new Date() })
       .where('id', '=', serialization.id)
       .execute()
+    if (serialization.stock_ledger_entry_id) await this.refreshEntryStatus(context, serialization.stock_ledger_entry_id)
 
     return this.findSerialization(context, serialization.id)
   }
@@ -275,6 +357,7 @@ export class StockLedgerRepository {
       .deleteFrom('stock_serializations')
       .where('id', '=', serialization.id)
       .execute()
+    if (serialization.stock_ledger_entry_id) await this.refreshEntryStatus(context, serialization.stock_ledger_entry_id)
 
     return { ok: true }
   }
@@ -323,6 +406,7 @@ export class StockLedgerRepository {
     return {
       id: Number(row.id),
       uuid: String(row.uuid),
+      stock_ledger_entry_id: row.stock_ledger_entry_id === null || row.stock_ledger_entry_id === undefined ? null : Number(row.stock_ledger_entry_id),
       tenant_id: Number(row.tenant_id),
       company_id: Number(row.company_id),
       accounting_year_id: Number(row.accounting_year_id),
@@ -352,6 +436,71 @@ export class StockLedgerRepository {
       updated_at: row.updated_at as Date,
       items: items.map(toSerializationItem),
     }
+  }
+
+  private async entryFromRow(context: TenantRuntimeContext, row: Record<string, unknown>): Promise<StockLedgerEntry> {
+    const serializationRows = await this.database(context)
+      .selectFrom('stock_serializations')
+      .selectAll()
+      .where('tenant_id', '=', context.tenant.id)
+      .where('stock_ledger_entry_id', '=', Number(row.id))
+      .orderBy('id', 'asc')
+      .execute()
+    const serializations = (await Promise.all(serializationRows.map((serialization) => this.findSerialization(context, Number(serialization.id))))).filter((item): item is StockSerialization => Boolean(item))
+    return {
+      id: Number(row.id),
+      uuid: String(row.uuid),
+      tenant_id: Number(row.tenant_id),
+      company_id: Number(row.company_id),
+      accounting_year_id: Number(row.accounting_year_id),
+      entry_no: String(row.entry_no),
+      entry_date: String(row.entry_date),
+      status: String(row.status),
+      source_type: String(row.source_type),
+      source_uuid: stringOrNull(row.source_uuid),
+      source_no: stringOrNull(row.source_no),
+      notes: stringOrNull(row.notes),
+      created_by: String(row.created_by),
+      updated_by: stringOrNull(row.updated_by),
+      created_at: row.created_at as Date,
+      updated_at: row.updated_at as Date,
+      deleted_at: row.deleted_at as Date | null,
+      generated_quantity: sum(serializations.map((item) => numberValue(item.generated_quantity))),
+      verified_quantity: sum(serializations.map((item) => numberValue(item.verified_quantity))),
+      posted_quantity: sum(serializations.map((item) => item.status === 'posted' ? numberValue(item.verified_quantity) : 0)),
+      serializations,
+    }
+  }
+
+  private async resolveEntryForSerialization(context: TenantRuntimeContext, input: GenerateSerializationInput, receipt: Record<string, unknown>) {
+    const idOrUuid = input.stock_ledger_entry_uuid ?? String(input.stock_ledger_entry_id ?? '')
+    if (idOrUuid) {
+      const entry = await this.findEntry(context, idOrUuid)
+      if (!entry) throw new NotFoundException('Stock ledger entry was not found.')
+      return entry
+    }
+    return this.upsertEntry(context, {
+      entry_date: String(receipt.entry_date),
+      purchase_receipt_uuid: String(receipt.uuid),
+      source_no: String(receipt.entry_no),
+    })
+  }
+
+  private async refreshEntryStatus(context: TenantRuntimeContext, entryId: number) {
+    const entry = await this.findEntry(context, entryId)
+    if (!entry) return
+    const status = entry.serializations.length === 0
+      ? 'draft'
+      : entry.serializations.every((item) => item.status === 'posted')
+        ? 'posted'
+        : entry.verified_quantity > 0
+          ? 'verified'
+          : 'draft'
+    await this.database(context)
+      .updateTable('stock_ledger_entries')
+      .set({ status, updated_at: new Date(), updated_by: context.user.email })
+      .where('id', '=', entryId)
+      .execute()
   }
 
   private async insertMovement(context: TenantRuntimeContext, serialization: StockSerialization, item: StockSerializationItem) {
@@ -511,6 +660,37 @@ export class StockLedgerRepository {
       .where('is_primary', '=', true)
       .executeTakeFirst()
     return Number(company?.id ?? 0)
+  }
+
+  private async defaultAccountingYearId(context: TenantRuntimeContext) {
+    const defaults = await this.database(context)
+      .selectFrom('default_companies')
+      .select('accounting_year_id')
+      .where('tenant_id', '=', context.tenant.id)
+      .where('is_active', '=', true)
+      .executeTakeFirst()
+    if (defaults?.accounting_year_id) return Number(defaults.accounting_year_id)
+    const year = await this.database(context)
+      .selectFrom('accounting_years')
+      .select('id')
+      .where('is_current_year', '=', true)
+      .executeTakeFirst()
+    return Number(year?.id ?? 0)
+  }
+
+  private async nextEntryNo(context: TenantRuntimeContext, companyId: number, accountingYearId: number) {
+    const rows = await this.database(context)
+      .selectFrom('stock_ledger_entries')
+      .select('entry_no')
+      .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', companyId)
+      .where('accounting_year_id', '=', accountingYearId)
+      .orderBy('id', 'desc')
+      .limit(1)
+      .execute()
+    const lastNo = String(rows[0]?.entry_no ?? '')
+    const nextNumber = (Number(lastNo.match(/(\d+)$/)?.[1] ?? 0) || 0) + 1
+    return `SL-${new Date().getFullYear()}-${String(nextNumber).padStart(4, '0')}`
   }
 
   private idColumn(idOrUuid: string) {

@@ -5,9 +5,35 @@ type TenantDatabase = Kysely<TenantDatabaseSchema>
 
 export async function migrateStockLedgerTables(database: TenantDatabase) {
   await sql.raw(`
+    CREATE TABLE IF NOT EXISTS stock_ledger_entries (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid CHAR(8) NOT NULL UNIQUE,
+      tenant_id INT NOT NULL,
+      company_id INT NOT NULL,
+      accounting_year_id INT NOT NULL,
+      entry_no VARCHAR(120) NOT NULL,
+      entry_date DATE NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'draft',
+      source_type VARCHAR(80) NOT NULL DEFAULT 'purchaseReceipt',
+      source_uuid VARCHAR(80) NULL,
+      source_no VARCHAR(120) NULL,
+      notes TEXT NULL,
+      created_by VARCHAR(191) NOT NULL,
+      updated_by VARCHAR(191) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      UNIQUE KEY uq_stock_ledger_entries_no (tenant_id, company_id, accounting_year_id, entry_no),
+      INDEX idx_stock_ledger_entries_date (tenant_id, entry_date, id),
+      INDEX idx_stock_ledger_entries_status (tenant_id, status)
+    )
+  `).execute(database)
+
+  await sql.raw(`
     CREATE TABLE IF NOT EXISTS stock_settings (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       uuid CHAR(8) NOT NULL UNIQUE,
+      stock_ledger_entry_id INT NULL,
       tenant_id INT NOT NULL,
       company_id INT NOT NULL,
       serialization_enabled TINYINT(1) NOT NULL DEFAULT 1,
@@ -86,6 +112,7 @@ export async function migrateStockLedgerTables(database: TenantDatabase) {
     CREATE TABLE IF NOT EXISTS stock_serializations (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       uuid CHAR(8) NOT NULL UNIQUE,
+      stock_ledger_entry_id INT NULL,
       tenant_id INT NOT NULL,
       company_id INT NOT NULL,
       accounting_year_id INT NOT NULL,
@@ -113,9 +140,19 @@ export async function migrateStockLedgerTables(database: TenantDatabase) {
       created_by VARCHAR(191) NOT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_stock_serializations_entry (tenant_id, stock_ledger_entry_id),
       INDEX idx_stock_serializations_receipt (tenant_id, purchase_receipt_id, purchase_receipt_item_id),
       INDEX idx_stock_serializations_status (tenant_id, status)
     )
+  `).execute(database)
+
+  await sql.raw(`
+    ALTER TABLE stock_serializations
+    ADD COLUMN IF NOT EXISTS stock_ledger_entry_id INT NULL AFTER uuid
+  `).execute(database)
+
+  await sql.raw(`
+    CREATE INDEX IF NOT EXISTS idx_stock_serializations_entry ON stock_serializations (tenant_id, stock_ledger_entry_id)
   `).execute(database)
 
   await sql.raw(`

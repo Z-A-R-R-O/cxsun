@@ -2,7 +2,7 @@ import { Inject } from '../../../../core/decorators/inject.js'
 import { Injectable } from '../../../../core/decorators/injectable.js'
 import { TenantContextService, type TenantRequestHeaders } from '../../../../core/tenant/tenant-context.service.js'
 import { StockLedgerEvent } from '../domain/events/stock-ledger.events.js'
-import { StockLedgerRepository, type GenerateSerializationInput, type StockLedgerSettingsInput, type VerifySerializationInput } from '../infrastructure/persistence/stock-ledger.repository.js'
+import { StockLedgerRepository, type GenerateSerializationInput, type StockLedgerEntryInput, type StockLedgerSettingsInput, type VerifySerializationInput } from '../infrastructure/persistence/stock-ledger.repository.js'
 import { StockLedgerEventBus } from './stock-ledger-event-bus.js'
 
 @Injectable()
@@ -16,6 +16,27 @@ export class StockLedgerService {
   async settings(headers: TenantRequestHeaders) {
     const context = await this.tenantContext.resolve(headers, 'company.manage')
     return this.stockLedger.getSettings(context)
+  }
+
+  async entries(headers: TenantRequestHeaders) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    return this.stockLedger.listEntries(context)
+  }
+
+  async entry(headers: TenantRequestHeaders, idOrUuid: string) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    return this.stockLedger.findEntry(context, idOrUuid)
+  }
+
+  async upsertEntry(headers: TenantRequestHeaders, input: StockLedgerEntryInput) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    const entry = await this.stockLedger.upsertEntry(context, input)
+    await this.events.publish(StockLedgerEvent('stock.ledger.entryUpserted', {
+      actorEmail: context.user.email,
+      payload: { entryUuid: entry?.uuid, entryNo: entry?.entry_no },
+      tenantId: context.tenant.id,
+    }))
+    return { ok: true, entry }
   }
 
   async upsertSettings(headers: TenantRequestHeaders, input: StockLedgerSettingsInput) {

@@ -1,37 +1,33 @@
 import { sql } from 'kysely'
-import { addSqliteColumnIfMissing, nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
+import { addMasterColumnIfMissing, nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
 export const tenantDomainDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant-domain',
   async migrate(database) {
-    await database.schema
-      .createTable('tenant_domains')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('tenant_id', 'integer', (col) => col.notNull())
-      .addColumn('domain', 'text', (col) => col.notNull().unique())
-      .addColumn('label', 'text', (col) => col.notNull())
-      .addColumn('is_primary', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('settings', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('deleted_at', 'text')
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS tenant_domains (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        domain VARCHAR(191) NOT NULL UNIQUE,
+        label VARCHAR(191) NOT NULL,
+        is_primary TINYINT(1) NOT NULL DEFAULT 0,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        settings LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        deleted_at DATETIME NULL,
+        INDEX idx_tenant_domains_tenant (tenant_id)
+      )
+    `).execute(database)
 
-    await addSqliteColumnIfMissing(database, 'tenant_domains', 'label', "text NOT NULL DEFAULT ''")
-    await addSqliteColumnIfMissing(database, 'tenant_domains', 'is_primary', 'integer NOT NULL DEFAULT 0')
-    await addSqliteColumnIfMissing(database, 'tenant_domains', 'settings', "text NOT NULL DEFAULT '{}'")
-    await addSqliteColumnIfMissing(database, 'tenant_domains', 'deleted_at', 'text')
+    await addMasterColumnIfMissing(database, 'tenant_domains', 'label', "VARCHAR(191) NOT NULL DEFAULT ''")
+    await addMasterColumnIfMissing(database, 'tenant_domains', 'is_primary', 'TINYINT(1) NOT NULL DEFAULT 0')
+    await addMasterColumnIfMissing(database, 'tenant_domains', 'settings', 'LONGTEXT NULL')
+    await addMasterColumnIfMissing(database, 'tenant_domains', 'deleted_at', 'DATETIME NULL')
   },
   async seed(database) {
     for (const item of [
-      { tenantSlug: 'aaran', domain: 'localhost', label: 'Aaran local development', isPrimary: true },
-      { tenantSlug: 'aaran', domain: '127.0.0.1', label: 'Aaran local loopback', isPrimary: false },
-      { tenantSlug: 'aaran', domain: 'aaran.local', label: 'Aaran local', isPrimary: false },
-      { tenantSlug: 'sathasivam', domain: 'sathasivam.local', label: 'Sathasivam local', isPrimary: true },
-      { tenantSlug: 'sampath', domain: 'sampath.local', label: 'Sampath local', isPrimary: true },
-      { tenantSlug: 'sathish', domain: 'sathish.local', label: 'Sathish local', isPrimary: true },
+      { tenantSlug: 'demo_app', domain: 'localhost', label: 'Demo-app local development', isPrimary: true },
     ]) {
       const tenant = await database.selectFrom('tenants').select('id').where('slug', '=', item.tenantSlug).executeTakeFirst()
       if (!tenant) continue

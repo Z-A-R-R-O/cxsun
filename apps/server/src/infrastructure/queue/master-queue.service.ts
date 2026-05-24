@@ -1,4 +1,5 @@
 import { Injectable } from '../../core/decorators/injectable.js'
+import { nowIso } from '../database/database-module.js'
 import { getDatabase } from '../database/connection.js'
 
 export interface QueueJobInput {
@@ -17,7 +18,7 @@ export class MasterQueueService {
         payload: JSON.stringify(input.payload),
         status: 'pending',
         attempts: 0,
-        run_at: input.runAt ?? new Date().toISOString(),
+        run_at: input.runAt ?? nowIso(),
       })
       .execute()
   }
@@ -32,4 +33,3 @@ export class MasterQueueService {
       .execute()
   }
 }
-

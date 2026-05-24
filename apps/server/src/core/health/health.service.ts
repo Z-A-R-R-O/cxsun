@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { Injectable } from '../decorators/injectable.js'
+import { settings } from '../../framework/config/index.js'
 
 export interface HealthStatus {
   status: 'ok'
@@ -17,7 +18,7 @@ export class HealthService {
       status: 'ok',
       uptime: Date.now() - this.startTime,
       timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version ?? '0.0.0',
+      version: settings.package.version,
     }
   }
 }

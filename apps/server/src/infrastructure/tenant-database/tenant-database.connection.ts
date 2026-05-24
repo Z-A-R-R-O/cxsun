@@ -4,6 +4,7 @@ import { Kysely, MysqlDialect, sql } from 'kysely'
 import type { TenantDatabaseSchema } from './tenant-database.schema.js'
 import type { Tenant } from '../../core/tenant/domain/tenant.types.js'
 import { getDatabase } from '../database/connection.js'
+import { nowIso } from '../database/database-module.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
 import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
@@ -16,9 +17,11 @@ import { migratePaymentEntryTables } from '../../modules/entries/payment/index.j
 import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
 import { migrateDocumentSettingsTables } from '../../modules/settings/document-settings/index.js'
 import { migrateMediaTables } from '../../modules/media/index.js'
+import { migrateTaskManagerTables } from '../../modules/task-manager/index.js'
 import { migrateContactMasterTable } from '../../modules/master/contact/index.js'
 import { migrateProductMasterTable } from '../../modules/master/product/index.js'
 import { migrateOrderMasterTable } from '../../modules/master/order/index.js'
+import { dbConfig } from '../../framework/config/index.js'
 
 type TenantDatabase = Kysely<TenantDatabaseSchema>
 
@@ -40,8 +43,8 @@ export function getTenantDatabase(tenant: Tenant): TenantDatabase {
         password: getTenantDatabasePassword(tenant.db_secret_ref),
         database: tenant.db_name,
         dateStrings: ['DATE'],
-        connectionLimit: Number(process.env.TENANT_DB_CONNECTION_LIMIT ?? 5),
-        connectTimeout: Number(process.env.TENANT_DB_CONNECT_TIMEOUT_MS ?? 2_000),
+        connectionLimit: dbConfig.tenant.connectionLimit,
+        connectTimeout: dbConfig.tenant.connectTimeoutMs,
       }),
     }),
   })
@@ -57,7 +60,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     user: tenant.db_user,
     password: getTenantDatabasePassword(tenant.db_secret_ref),
     multipleStatements: false,
-    connectTimeout: Number(process.env.TENANT_DB_CONNECT_TIMEOUT_MS ?? 2_000),
+    connectTimeout: dbConfig.tenant.connectTimeoutMs,
   })
 
   try {
@@ -120,6 +123,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateCompanySettingsTables(database)
   await migrateDocumentSettingsTables(database)
   await migrateMediaTables(database as never)
+  await migrateTaskManagerTables(database as never)
   await migrateContactMasterTable(database)
   await migrateProductMasterTable(database)
   await migrateOrderMasterTable(database)
@@ -163,7 +167,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
 }
 
 function getTenantDatabasePassword(secretRef: string) {
-  return process.env[secretRef] ?? process.env.MARIADB_ROOT_PASSWORD
+  return dbConfig.tenant.password(secretRef)
 }
 
 export async function syncTenantCompanyMetrics(tenant: Tenant): Promise<void> {
@@ -188,7 +192,7 @@ export async function syncTenantCompanyMetrics(tenant: Tenant): Promise<void> {
   `.execute(database)
 
   const row = metrics.rows[0]
-  const now = new Date().toISOString()
+  const now = nowIso()
 
   await getDatabase()
     .updateTable('tenants')

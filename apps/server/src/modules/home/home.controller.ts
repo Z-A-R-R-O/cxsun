@@ -2,16 +2,14 @@ import type { FastifyReply } from 'fastify'
 
 import { Controller, Get } from '../../core/decorators/controller.js'
 import { Res } from '../../core/decorators/http-params.js'
+import { getFrontendUrl } from '../../framework/config/index.js'
 
 @Controller()
 export class HomeController {
   @Get()
   async index(@Res() reply: FastifyReply) {
     const timestamp = new Date().toISOString()
-    const frontendUrl =
-      process.env.FRONTEND_URL ??
-      process.env.ELECTRON_DEV_SERVER_URL ??
-      `http://localhost:${process.env.VITE_PORT ?? '6010'}`
+    const frontendUrl = getFrontendUrl()
 
     return reply
       .type('text/html; charset=utf-8')

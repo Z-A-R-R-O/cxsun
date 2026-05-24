@@ -13,26 +13,6 @@ Default services:
 - Backend: `http://localhost:6001`
 - Frontend: `http://localhost:6010`
 
-## 1. Required Setup
-
-Install Docker and Docker Compose on the server, then clone or copy this project folder there.
-
-Optional values:
-
-```bash
-export GIT_BRANCH=main
-export PORT=6001
-export VITE_PORT=6010
-export VITE_API_BASE_URL=http://localhost:6001
-export DB_HOST=postgres
-export DB_PORT=5432
-export DB_NAME=codexsun_db
-export DB_USER=codexsun
-export DB_PASSWORD='DbPass1@@'
-export REDIS_HOST=redis
-export REDIS_PORT=6379
-```
-
 Create the shared Docker network once:
 
 ```bash

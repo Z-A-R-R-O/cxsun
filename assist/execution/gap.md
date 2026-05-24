@@ -63,7 +63,7 @@ A multi-tenant user can authenticate on one branded host and operate against ano
 
 ### 7. ✅ RESOLVED: hardcoded DB password fallback removed
 
-`tenant-database.connection.ts:139` — Final `?? 'Computer.1'` removed. Falls back from `process.env[secretRef]` to `process.env.MARIADB_ROOT_PASSWORD` only. Neither set → `undefined` → connection fails (fail-fast).
+`tenant-database.connection.ts` — Final `?? 'Computer.1'` removed. Tenant database passwords now resolve from `process.env[secretRef]` and fall back to `DB_PASSWORD`. Neither set → `undefined` → connection fails (fail-fast).
 
 ### 8. Resolved/monitor: `@UseGuards` class metadata is now wired
 
@@ -81,7 +81,7 @@ Remaining work is policy design, not decorator wiring: decide which public endpo
 
 `infrastructure/config.ts` and `loadConfig()` were dead code — never called from `main.ts` or `bootstrap.ts`. File deleted.
 
-**Remaining:** Add startup env var validation (e.g., `JWT_SECRET`, `MARIADB_ROOT_PASSWORD` must be set at boot).
+**Remaining:** Add startup env var validation (e.g., `JWT_SECRET`, `DB_PASSWORD` must be set at boot).
 
 ---
 

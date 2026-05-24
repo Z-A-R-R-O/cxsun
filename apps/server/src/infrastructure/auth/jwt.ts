@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto'
+import { settings } from '../../framework/config/index.js'
 
 export interface AuthTokenPayload {
   sub: number
@@ -9,13 +10,11 @@ export interface AuthTokenPayload {
   exp?: number
 }
 
-const JWT_SECRET = process.env.JWT_SECRET
-
 function getJwtSecret(): string {
-  if (!JWT_SECRET) {
+  if (!settings.auth.jwtSecret) {
     throw new Error('JWT_SECRET environment variable is required')
   }
-  return JWT_SECRET
+  return settings.auth.jwtSecret
 }
 
 export function signJwt(payload: AuthTokenPayload, expiresInSeconds = 24 * 60 * 60) {

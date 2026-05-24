@@ -51,6 +51,7 @@ export interface StockSerializationItem {
 export interface StockSerialization {
   id: number
   uuid: string
+  stock_ledger_entry_id: number | null
   purchase_receipt_no: string
   purchase_receipt_item_id: number
   product_name: string
@@ -66,6 +67,34 @@ export interface StockSerialization {
   barcode_mode: StockBarcodeMode
   status: string
   items: StockSerializationItem[]
+}
+
+export interface StockLedgerEntry {
+  id: number
+  uuid: string
+  tenant_id: number
+  company_id: number
+  accounting_year_id: number
+  entry_no: string
+  entry_date: string
+  status: string
+  source_type: string
+  source_uuid: string | null
+  source_no: string | null
+  notes: string | null
+  created_by: string
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  generated_quantity: number
+  verified_quantity: number
+  posted_quantity: number
+  serializations: StockSerialization[]
+}
+
+export type StockLedgerEntryInput = Partial<StockLedgerEntry> & {
+  purchase_receipt_uuid?: string | null
 }
 
 export interface StockLiveBalance {
@@ -87,6 +116,25 @@ export async function getStockLedgerSettings(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/stock/ledger/settings`, { cache: "no-store", headers: authHeaders(session) })
   if (!response.ok) throw new Error(`Stock settings failed with status ${response.status}.`)
   return (await response.json()) as StockLedgerSettings
+}
+
+export async function listStockLedgerEntries(session: AuthSession) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/stock/ledger/entries`, { cache: "no-store", headers: authHeaders(session) })
+  if (!response.ok) throw new Error(`Stock ledger list failed with status ${response.status}.`)
+  return (await response.json()) as StockLedgerEntry[]
+}
+
+export async function upsertStockLedgerEntry(session: AuthSession, input: StockLedgerEntryInput) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/stock/ledger/entries/upsert`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Stock ledger save failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; entry?: StockLedgerEntry; error?: string }
+  if (!result.ok || !result.entry) throw new Error(result.error ?? "Stock ledger save failed.")
+  return result.entry
 }
 
 export async function upsertStockLedgerSettings(session: AuthSession, input: Partial<StockLedgerSettings>) {
@@ -112,6 +160,7 @@ export async function getPurchaseReceiptIntake(session: AuthSession, receiptIdOr
 }
 
 export async function generateStockSerialization(session: AuthSession, input: {
+  stock_ledger_entry_uuid?: string
   purchase_receipt_uuid: string
   purchase_receipt_item_id: number
   quantity: number

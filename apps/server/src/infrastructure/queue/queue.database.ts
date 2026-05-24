@@ -4,17 +4,18 @@ import type { PlatformDatabaseModule } from '../database/database-module.js'
 export const queueDatabaseModule: PlatformDatabaseModule = {
   name: 'queue',
   async migrate(database) {
-    await database.schema
-      .createTable('queue_jobs')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('type', 'text', (col) => col.notNull())
-      .addColumn('payload', 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('pending'))
-      .addColumn('attempts', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('run_at', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS queue_jobs (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        type VARCHAR(120) NOT NULL,
+        payload LONGTEXT NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        attempts INT NOT NULL DEFAULT 0,
+        run_at DATETIME NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_queue_jobs_status_run_at (status, run_at)
+      )
+    `).execute(database)
   },
 }

@@ -3,7 +3,7 @@ import { Controller, Get, Post } from '../../../../../core/decorators/controller
 import { Inject } from '../../../../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../../../../core/tenant/tenant-context.service.js'
 import { StockLedgerService } from '../../application/stock-ledger.service.js'
-import type { GenerateSerializationInput, StockLedgerSettingsInput, VerifySerializationInput } from '../../infrastructure/persistence/stock-ledger.repository.js'
+import type { GenerateSerializationInput, StockLedgerEntryInput, StockLedgerSettingsInput, VerifySerializationInput } from '../../infrastructure/persistence/stock-ledger.repository.js'
 
 @Controller('api/v1/stock/ledger')
 export class StockLedgerV1Controller {
@@ -12,6 +12,21 @@ export class StockLedgerV1Controller {
   @Get('settings')
   settings(@Headers() headers: TenantRequestHeaders) {
     return this.stockLedger.settings(headers)
+  }
+
+  @Get('entries')
+  entries(@Headers() headers: TenantRequestHeaders) {
+    return this.stockLedger.entries(headers)
+  }
+
+  @Get('entries/:idOrUuid')
+  entry(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.stockLedger.entry(headers, idOrUuid)
+  }
+
+  @Post('entries/upsert')
+  upsertEntry(@Headers() headers: TenantRequestHeaders, @Body() body: StockLedgerEntryInput) {
+    return this.stockLedger.upsertEntry(headers, body)
   }
 
   @Post('settings')

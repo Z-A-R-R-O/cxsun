@@ -68,7 +68,7 @@ export class MigrationManagerService {
   private async fresh(command: MigrationCommand, results: MigrationStepResult[]) {
     if (command.target === 'master' || command.target === 'all') {
       await dropPlatformDatabase()
-      results.push({ step: 'master.drop', ok: true, message: 'Platform SQLite database removed.' })
+      results.push({ step: 'master.drop', ok: true, message: 'Master MariaDB database recreated.' })
     }
 
     if (command.target === 'tenant' || command.target === 'all') {

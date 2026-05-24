@@ -4,23 +4,24 @@ import { nowIso, type PlatformDatabaseModule } from '../../../../infrastructure/
 export const clientDatabaseModule: PlatformDatabaseModule = {
   name: 'client',
   async migrate(database) {
-    await database.schema
-      .createTable('clients')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('company_name', 'text')
-      .addColumn('category', 'text')
-      .addColumn('source', 'text')
-      .addColumn('phone', 'text')
-      .addColumn('email', 'text')
-      .addColumn('location', 'text')
-      .addColumn('notes', 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('deleted_at', 'text')
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(191) NOT NULL,
+        company_name VARCHAR(191) NULL,
+        category VARCHAR(80) NULL,
+        source VARCHAR(80) NULL,
+        phone VARCHAR(80) NULL,
+        email VARCHAR(191) NULL,
+        location VARCHAR(191) NULL,
+        notes TEXT NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        deleted_at DATETIME NULL,
+        INDEX idx_clients_name_category (name, category)
+      )
+    `).execute(database)
   },
   async seed(database) {
     const clients = [

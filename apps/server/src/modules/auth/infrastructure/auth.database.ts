@@ -6,54 +6,57 @@ const SUPER_ADMIN_EMAIL = 'sundar@sundar.com'
 const PLATFORM_ADMIN_EMAIL = 'admin@sundar.com'
 const SUPER_ADMIN_PASSWORD = 'Kalarani1@@'
 const PLATFORM_ADMIN_PASSWORD = 'Admin@123'
-const AARAN_TENANT_ADMIN_PASSWORD = 'Admin@123'
-const AARAN_USER_PASSWORD = 'User@123'
+const DEMO_TENANT_ADMIN_PASSWORD = 'Admin@123'
+const DEMO_USER_PASSWORD = 'User@123'
 
 export const authDatabaseModule: PlatformDatabaseModule = {
   name: 'auth-rbac',
   async migrate(database) {
-    await database.schema
-      .createTable('users')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('email', 'text', (col) => col.notNull().unique())
-      .addColumn('password_hash', 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(191) NOT NULL,
+        email VARCHAR(191) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('user_tenants')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('user_id', 'integer', (col) => col.notNull())
-      .addColumn('tenant_id', 'integer', (col) => col.notNull())
-      .addColumn('role', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS user_tenants (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        tenant_id INT NOT NULL,
+        role VARCHAR(80) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_user_tenants_user_tenant_role (user_id, tenant_id, role),
+        INDEX idx_user_tenants_tenant (tenant_id)
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('rbac_policies')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('code', 'text', (col) => col.notNull().unique())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('description', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS rbac_policies (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(120) NOT NULL UNIQUE,
+        name VARCHAR(191) NOT NULL,
+        description TEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).execute(database)
 
-    await database.schema
-      .createTable('tenant_rbac_policies')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('tenant_id', 'integer', (col) => col.notNull())
-      .addColumn('policy_code', 'text', (col) => col.notNull())
-      .addColumn('enabled', 'integer', (col) => col.notNull().defaultTo(1))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS tenant_rbac_policies (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        policy_code VARCHAR(120) NOT NULL,
+        enabled TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_tenant_policy (tenant_id, policy_code)
+      )
+    `).execute(database)
   },
   async seed(database) {
     await ensurePolicy(database, {
@@ -95,21 +98,21 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       name: 'Software Admin',
       email: PLATFORM_ADMIN_EMAIL,
       password: PLATFORM_ADMIN_PASSWORD,
-      tenantSlug: 'aaran',
+      tenantSlug: 'demo_app',
       role: 'software-admin',
     })
     await ensureUserWithTenant(database, {
-      name: 'Aaran Admin',
-      email: 'aaranoffice@gmail.com',
-      password: AARAN_TENANT_ADMIN_PASSWORD,
-      tenantSlug: 'aaran',
+      name: 'Demo Admin',
+      email: 'demo.admin@localhost',
+      password: DEMO_TENANT_ADMIN_PASSWORD,
+      tenantSlug: 'demo_app',
       role: 'admin',
     })
     await ensureUserWithTenant(database, {
-      name: 'Aaran User',
-      email: 'user.aaran@aaran.com',
-      password: AARAN_USER_PASSWORD,
-      tenantSlug: 'aaran',
+      name: 'Demo User',
+      email: 'demo.user@localhost',
+      password: DEMO_USER_PASSWORD,
+      tenantSlug: 'demo_app',
       role: 'user',
     })
     await retireLegacySeedUsers(database)

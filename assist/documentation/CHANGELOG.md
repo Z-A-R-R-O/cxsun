@@ -2,13 +2,27 @@
 
 ## Version State
 
-- **Current version:** `1.0.26`
-- **Release tag:** `v-1.0.26`
-- **Changelog label:** `v 1.0.26`
+- **Current version:** `1.0.27`
+- **Release tag:** `v-1.0.27`
+- **Changelog label:** `v 1.0.27`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.27
+
+### [v 1.0.27] 2026-05-24 9:35 pm - master database preflight and demo tenant setup
+
+- Bumped workspace version to 1.0.27
+- Added centralized server configuration holders under `framework/config` for sanitized `.env` loading, app settings, and database configuration.
+- Moved server-side database, auth, URL, and runtime settings off scattered `process.env` reads and through shared `settings` / `dbConfig` access.
+- Added server preflight checks for MariaDB connectivity, master database existence, and master table availability before launching dev.
+- Added interactive first-run setup with custom master database name support, plus non-interactive dev bootstrap for `concurrently`.
+- Changed base master seed to create `Demo-app` as the first active tenant with `demo_db` and the `localhost` primary domain.
+- Updated auth seed defaults to attach demo users to `demo_app` and restricted tenant setup to active, non-deleted tenants.
+- Fixed stock ledger tenant migration ordering so `stock_ledger_entry_id` exists before indexes are created.
+- Verified the release with server typecheck, server build, direct preflight migration setup, and full master/tenant database setup.
 
 ## v-1.0.26
 

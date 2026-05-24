@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { Barcode, Check, Printer, RefreshCw, Save, ScanLine, Settings2, Trash2 } from "lucide-react"
+import { ArrowLeft, Barcode, Check, Plus, Printer, RefreshCw, Save, ScanLine, Settings2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { AnimatedTabs, type AnimatedTab } from "src/components/ui/animated-tabs"
 import { Button } from "src/components/ui/button"
@@ -9,17 +9,21 @@ import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
-import { MasterListPaginationCard, buildMasterListShowingLabel } from "src/components/blocks/lists/master-list"
+import { MasterListEmptyState, MasterListPageFrame, MasterListPaginationCard, MasterListTableCard, MasterListToolbarCard, buildMasterListShowingLabel } from "src/components/blocks/lists/master-list"
 import { CommonRecordAutocompleteLookup, getCommonRecordName } from "src/features/master-data/interface/components/common-record-autocomplete-lookup"
 import { listPurchaseReceiptEntries } from "src/features/stock/inward/purchase-receipt/purchase-receipt-client"
 import type { PurchaseReceiptEntry } from "src/features/stock/inward/purchase-receipt/purchase-receipt-client"
+import { printBarcodeLabels } from "./barcode-print-designer"
 import {
   dropStockSerialization,
   generateStockSerialization,
   getPurchaseReceiptIntake,
   getStockLedgerSettings,
+  listStockLedgerEntries,
   listStockLiveBalances,
   postStockSerialization,
+  upsertStockLedgerEntry,
+  type StockLedgerEntry,
   upsertStockLedgerSettings,
   verifyStockSerialization,
   type StockSerialization,
@@ -29,8 +33,98 @@ import {
 } from "./stock-ledger-client"
 
 export function StockLedgerPage({ session }: { session: AuthSession }) {
+  const [view, setView] = useState<{ mode: "list" } | { mode: "upsert"; entry: StockLedgerEntry }>({ mode: "list" })
+  const [searchValue, setSearchValue] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const entriesQuery = useQuery({ queryKey: ["stock-ledger-entries", session.selectedTenant.slug], queryFn: () => listStockLedgerEntries(session) })
+  const entryMutation = useMutation({ mutationFn: (entry?: StockLedgerEntry) => upsertStockLedgerEntry(session, entry ? { uuid: entry.uuid, entry_date: entry.entry_date, entry_no: entry.entry_no, notes: entry.notes, source_uuid: entry.source_uuid, source_no: entry.source_no, status: entry.status } : {}) })
+  const entries = entriesQuery.data ?? []
+  const filteredEntries = entries.filter((entry) => [entry.entry_no, entry.source_no, entry.status, entry.created_by].some((value) => String(value ?? "").toLowerCase().includes(searchValue.trim().toLowerCase())))
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
+  const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+
+  async function createEntry() {
+    const entry = await entryMutation.mutateAsync(undefined)
+    toast.success("Stock ledger entry created", { description: entry.entry_no })
+    await entriesQuery.refetch()
+    setView({ mode: "upsert", entry })
+  }
+
+  async function refreshEntry(entry: StockLedgerEntry) {
+    const latest = (await entriesQuery.refetch()).data?.find((item) => item.uuid === entry.uuid)
+    if (latest) setView({ mode: "upsert", entry: latest })
+  }
+
+  if (view.mode === "upsert") {
+    return <StockLedgerWorkflowPage entry={view.entry} session={session} onBack={() => setView({ mode: "list" })} onEntryRefresh={() => void refreshEntry(view.entry)} />
+  }
+
+  return (
+    <MasterListPageFrame
+      title="Stock Ledger"
+      description="Create and review stock barcode verification entries."
+      technicalName="page.stock.ledger.list"
+      action={
+        <div className="flex items-center gap-2">
+          <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
+          <Button disabled={entryMutation.isPending} onClick={() => void createEntry()} type="button" className="h-9 rounded-md"><Plus className="size-4" />New</Button>
+        </div>
+      }
+    >
+      <MasterListToolbarCard
+        searchPlaceholder="Search entry no, receipt no, status, or creator"
+        searchValue={searchValue}
+        onSearchValueChange={(value) => {
+          setSearchValue(value)
+          setCurrentPage(1)
+        }}
+      />
+      <MasterListTableCard>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="bg-muted/50">
+              <tr><Header>Entry no</Header><Header>Date</Header><Header>Receipt</Header><Header>Status</Header><Header className="text-right">Generated</Header><Header className="text-right">Verified</Header><Header>Created</Header></tr>
+            </thead>
+            <tbody>
+              {pageEntries.map((entry) => (
+                <tr key={entry.uuid} className="border-t border-border/70">
+                  <td className="px-3 py-2"><button type="button" className="font-semibold hover:underline" onClick={() => setView({ mode: "upsert", entry })}>{entry.entry_no}</button><div className="font-mono text-xs text-muted-foreground">{entry.uuid}</div></td>
+                  <td className="px-3 py-2">{formatDate(entry.entry_date)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{entry.source_no ?? "-"}</td>
+                  <td className="px-3 py-2"><span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{entry.status}</span></td>
+                  <td className="px-3 py-2 text-right">{entry.generated_quantity}</td>
+                  <td className="px-3 py-2 text-right">{entry.verified_quantity}</td>
+                  <td className="px-3 py-2 text-muted-foreground"><div>{entry.created_by}</div><div className="text-xs">{formatDateTime(entry.created_at)}</div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {pageEntries.length === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading stock ledger entries." : "No stock ledger entries found."}</MasterListEmptyState> : null}
+      </MasterListTableCard>
+      <MasterListPaginationCard
+        page={currentPage}
+        rowsPerPage={rowsPerPage}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredEntries.length })}
+        singularLabel="entries"
+        totalCount={filteredEntries.length}
+        totalPages={totalPages}
+        onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+        onPageChange={setCurrentPage}
+        onPreviousPage={() => setCurrentPage((page) => Math.max(1, page - 1))}
+        onRowsPerPageChange={(value) => {
+          setRowsPerPage(value)
+          setCurrentPage(1)
+        }}
+      />
+    </MasterListPageFrame>
+  )
+}
+
+function StockLedgerWorkflowPage({ entry, onBack, onEntryRefresh, session }: { entry: StockLedgerEntry; onBack(): void; onEntryRefresh(): void; session: AuthSession }) {
   const [activeStep, setActiveStep] = useState("intake")
-  const [selectedReceiptUuid, setSelectedReceiptUuid] = useState("")
+  const [selectedReceiptUuid, setSelectedReceiptUuid] = useState(entry.source_uuid ?? "")
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [quantity, setQuantity] = useState("1")
   const [mode, setMode] = useState<StockSerializationMode>("partial")
@@ -54,9 +148,19 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
     queryKey: ["stock-ledger-intake", session.selectedTenant.slug, selectedReceiptUuid],
     queryFn: () => getPurchaseReceiptIntake(session, selectedReceiptUuid),
   })
+  const entryUpdateMutation = useMutation({ mutationFn: (input: { purchase_receipt_uuid?: string | null; source_no?: string | null }) => upsertStockLedgerEntry(session, { uuid: entry.uuid, entry_date: entry.entry_date, entry_no: entry.entry_no, notes: entry.notes, status: entry.status, ...input }) })
 
   const selectedItem = useMemo(() => intakeQuery.data?.items.find((item) => item.id === selectedItemId) ?? null, [intakeQuery.data?.items, selectedItemId])
-  const previousSerializations = useMemo(() => (intakeQuery.data?.serializations ?? []).filter((item) => item.purchase_receipt_item_id === selectedItemId), [intakeQuery.data?.serializations, selectedItemId])
+  const previousSerializations = useMemo(() => {
+    const sourceSerializations = intakeQuery.data?.serializations.length ? intakeQuery.data.serializations : entry.serializations
+    return sourceSerializations.filter((item) => item.stock_ledger_entry_id === entry.id && (!selectedItemId || item.purchase_receipt_item_id === selectedItemId))
+  }, [entry.id, entry.serializations, intakeQuery.data?.serializations, selectedItemId])
+  const verifySerializations = useMemo(() => {
+    const byUuid = new Map<string, StockSerialization>()
+    previousSerializations.forEach((item) => byUuid.set(item.uuid, item))
+    if (serialization) byUuid.set(serialization.uuid, serialization)
+    return Array.from(byUuid.values())
+  }, [previousSerializations, serialization])
   const settings = settingsQuery.data
   useEffect(() => {
     if (!settings) return
@@ -78,6 +182,7 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
     mutationFn: () => {
       if (!selectedReceiptUuid || !selectedItem) throw new Error("Select a purchase receipt product first.")
       return generateStockSerialization(session, {
+        stock_ledger_entry_uuid: entry.uuid,
         batch_no: batchNo.trim() || null,
         mode: effectiveMode,
         purchase_receipt_item_id: selectedItem.id,
@@ -92,19 +197,21 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
       setSerialization(next)
       setActiveStep("verify")
       void intakeQuery.refetch()
+      onEntryRefresh()
     },
   })
 
   const verifyMutation = useMutation({
-    mutationFn: (barcodes: string[]) => {
-      if (!serialization) throw new Error("Generate serials first.")
-      return verifyStockSerialization(session, serialization.uuid, barcodes)
+    mutationFn: (input: { serializationUuid: string; barcodes: string[] }) => {
+      return verifyStockSerialization(session, input.serializationUuid, input.barcodes)
     },
     onSuccess: (result) => {
       setSerialization(result.serialization ?? null)
       setScanValue("")
       if (result.unknown.length) toast.warning("Some scans were unknown", { description: result.unknown.join(", ") })
       else toast.success("Scan verified")
+      void intakeQuery.refetch()
+      onEntryRefresh()
     },
   })
 
@@ -119,6 +226,7 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
       setActiveStep("live")
       void balancesQuery.refetch()
       void intakeQuery.refetch()
+      onEntryRefresh()
     },
   })
   const dropMutation = useMutation({
@@ -127,6 +235,7 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
       toast.success("Generated barcodes dropped")
       setSerialization(null)
       void intakeQuery.refetch()
+      onEntryRefresh()
     },
     onError: (error) => toast.error("Cannot drop barcodes", { description: error instanceof Error ? error.message : "Posted stock cannot be dropped or revised." }),
   })
@@ -149,7 +258,13 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
   function scanCurrentValue() {
     const value = scanValue.trim()
     if (!value) return
-    void verifyMutation.mutate([value])
+    const matchedSerialization = verifySerializations.find((item) => item.items.some((row) => row.barcode_value === value))
+    if (!matchedSerialization) {
+      toast.warning("Barcode not found", { description: value })
+      setScanValue("")
+      return
+    }
+    void verifyMutation.mutate({ serializationUuid: matchedSerialization.uuid, barcodes: [value] })
   }
 
   const stepOrder = ["intake", "settings", "generate", "verify", "live"]
@@ -179,6 +294,7 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
                   setSelectedReceiptUuid(receipt?.uuid ?? "")
                   setSelectedItemId(null)
                   setSerialization(null)
+                  if (receipt) void entryUpdateMutation.mutate({ purchase_receipt_uuid: receipt.uuid, source_no: receipt.entry_no }, { onSuccess: onEntryRefresh })
                 }}
               />
               <WarehouseAutocomplete session={session} value={warehouseId ?? settings?.default_warehouse_id ?? ""} onChange={(id, name) => { setWarehouseId(id); setWarehouseName(name) }} />
@@ -293,7 +409,6 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
                   </Button>
                 </div>
               </div>
-              <StepActions><Button type="button" variant="outline" className="rounded-md" onClick={goBack}>Back</Button><Button disabled={!serialization} type="button" className="rounded-md" onClick={goNext}>Next</Button></StepActions>
             </CardContent>
           </Card>
           <PreviousGeneratedCard
@@ -302,45 +417,46 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
             serializations={previousSerializations}
             onDrop={(item) => void dropMutation.mutate(item.uuid)}
           />
+          <StepActions><Button type="button" variant="outline" className="rounded-md" onClick={goBack}>Back</Button><Button type="button" className="rounded-md" onClick={goNext}>Next</Button></StepActions>
         </div>
       ),
     },
     {
       value: "verify",
       label: "4. Verify",
-      content: serialization ? (
-        <Card className="rounded-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
-              <span>{serialization.product_name} labels</span>
-              <span className="text-sm font-normal text-muted-foreground">{serialization.verified_quantity}/{serialization.generated_quantity} verified</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-              <Input className="h-11 rounded-md" placeholder="Scan generated or physical barcode" value={scanValue} onChange={(event) => setScanValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); scanCurrentValue() } }} />
-              <Button disabled={verifyMutation.isPending} type="button" className="h-11 rounded-md" onClick={scanCurrentValue}><ScanLine className="size-4" />Verify scan</Button>
-            </div>
-            <SerialTable serialization={serialization} />
-            <StepActions>
-              <Button disabled={dropMutation.isPending || serialization.status === "posted"} type="button" variant="outline" className="rounded-md" onClick={() => void dropMutation.mutate(serialization.uuid)}>Drop before confirm</Button>
-              <Button type="button" variant="outline" className="rounded-md" onClick={goBack}>Back</Button>
-              <Button disabled={postMutation.isPending || serialization.verified_quantity <= 0} type="button" className="rounded-md" onClick={() => void postMutation.mutate()}>
-                <Save className={cn("size-4", postMutation.isPending && "animate-spin")} />Confirm stock
-              </Button>
-              <Button disabled={serialization.verified_quantity <= 0} type="button" variant="outline" className="rounded-md" onClick={goNext}>Next</Button>
-            </StepActions>
-          </CardContent>
-        </Card>
-      ) : (
-        previousSerializations.length ? (
-          <PreviousGeneratedCard
-            isDropping={dropMutation.isPending}
-            selectedItem={selectedItem}
-            serializations={previousSerializations}
-            onDrop={(item) => void dropMutation.mutate(item.uuid)}
-          />
-        ) : <EmptyStep title="Generate serials first" body="Use the Generate tab before scanning or printing labels." />
+      content: (
+        <div className="space-y-4">
+          <Card className="rounded-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
+                <span>{selectedItem?.product_name ?? serialization?.product_name ?? "Barcode verification"}</span>
+                <span className="text-sm font-normal text-muted-foreground">{verifySerializations.reduce((total, item) => total + item.verified_quantity, 0)}/{verifySerializations.reduce((total, item) => total + item.generated_quantity, 0)} verified</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                <Input className="h-11 rounded-md" placeholder="Scan barcode" value={scanValue} onChange={(event) => setScanValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); scanCurrentValue() } }} />
+                <Button disabled={verifyMutation.isPending || !verifySerializations.length} type="button" className="h-11 rounded-md" onClick={scanCurrentValue}><ScanLine className="size-4" />Verify scan</Button>
+              </div>
+            </CardContent>
+          </Card>
+          {verifySerializations.length ? (
+            <PreviousGeneratedCard
+              isDropping={dropMutation.isPending}
+              selectedItem={selectedItem}
+              serializations={verifySerializations}
+              showPrintControls={false}
+              onDrop={(item) => void dropMutation.mutate(item.uuid)}
+            />
+          ) : <EmptyStep title="Generate serials first" body="Use the Generate tab before scanning labels." />}
+          <StepActions>
+            <Button type="button" variant="outline" className="rounded-md" onClick={goBack}>Back</Button>
+            <Button disabled={postMutation.isPending || !serialization || serialization.verified_quantity <= 0} type="button" className="rounded-md" onClick={() => void postMutation.mutate()}>
+              <Save className={cn("size-4", postMutation.isPending && "animate-spin")} />Confirm stock
+            </Button>
+            <Button type="button" variant="outline" className="rounded-md" onClick={goNext}>Next</Button>
+          </StepActions>
+        </div>
       ),
     },
     {
@@ -358,9 +474,12 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
   return (
     <main className="mx-auto flex w-[calc(100%-2rem)] max-w-[1500px] flex-col gap-5 py-6 sm:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Stock Ledger</h1>
-          <p className="text-sm text-muted-foreground">Generate, verify, and post purchase receipt stock labels.</p>
+        <div className="flex min-w-0 items-start gap-3">
+          <Button type="button" variant="outline" size="icon" className="mt-1 size-9 rounded-md" onClick={onBack}><ArrowLeft className="size-4" /></Button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-normal">Stock Ledger</h1>
+            <p className="text-sm text-muted-foreground">{entry.entry_no} - {formatDate(entry.entry_date)} - Created by {entry.created_by}</p>
+          </div>
         </div>
         <Button type="button" variant="outline" className="rounded-md" onClick={() => { void receiptsQuery.refetch(); void balancesQuery.refetch(); void settingsQuery.refetch(); }}>
           <RefreshCw className="size-4" />Refresh
@@ -441,7 +560,7 @@ function ModeLookup({ mode, onAuto, onChange, override }: { mode: StockSerializa
   )
 }
 
-function PreviousGeneratedCard({ isDropping, onDrop, selectedItem, serializations }: { isDropping: boolean; onDrop(serialization: StockSerialization): void; selectedItem: StockLedgerReceiptIntakeItem | null; serializations: StockSerialization[] }) {
+function PreviousGeneratedCard({ isDropping, onDrop, selectedItem, serializations, showPrintControls = true }: { isDropping: boolean; onDrop(serialization: StockSerialization): void; selectedItem: StockLedgerReceiptIntakeItem | null; serializations: StockSerialization[]; showPrintControls?: boolean }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
@@ -480,6 +599,27 @@ function PreviousGeneratedCard({ isDropping, onDrop, selectedItem, serialization
     })
   }
 
+  function printLabels(items: StockSerializationItem[], serialization: StockSerialization) {
+    printBarcodeLabels(items, serialization, { onError: (message) => toast.error(message) })
+  }
+
+  function dropSelectedLabels() {
+    if (!selectedRows.length) return
+    const selectedSerializations = Array.from(new Map(selectedRows.map((row) => [row.serialization.uuid, row.serialization])).values())
+    const hasVerifiedLabels = selectedSerializations.some((serialization) => serialization.items.some((item) => Boolean(item.is_verified)))
+    if (hasVerifiedLabels) {
+      toast.warning("Cannot drop verified barcodes", { description: "Only unverified generated barcodes can be dropped." })
+      return
+    }
+    const hasPostedStock = selectedSerializations.some((serialization) => serialization.status === "posted" || serialization.items.some((item) => Boolean(item.stock_movement_id)))
+    if (hasPostedStock) {
+      toast.warning("Cannot drop posted stock", { description: "Posted stock cannot be dropped or revised." })
+      return
+    }
+    selectedSerializations.forEach((serialization) => onDrop(serialization))
+    setSelectedIds(new Set())
+  }
+
   return (
     <Card className="rounded-md">
       <CardContent className="space-y-3 p-0">
@@ -491,38 +631,48 @@ function PreviousGeneratedCard({ isDropping, onDrop, selectedItem, serialization
                 <StatusPill label="Generated" value={totalCount} />
                 <StatusPill label="Verified" value={verifiedCount} tone={verifiedCount === totalCount ? "success" : "muted"} />
               </div>
-              <Button disabled={!selectedRows.length} type="button" variant="outline" className="rounded-md" onClick={() => printBarcodeLabels(selectedRows.map((row) => row.item), selectedRows[0].serialization)}>
-                <Printer className="size-4" />Print selected
-              </Button>
+              {showPrintControls ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button disabled={!selectedRows.length} type="button" variant="outline" className="rounded-md" onClick={() => printLabels(selectedRows.map((row) => row.item), selectedRows[0].serialization)}>
+                    <Printer className="size-4" />Print selected
+                  </Button>
+                  <Button disabled={!selectedRows.length || isDropping} type="button" variant="outline" className="rounded-md transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive" onClick={dropSelectedLabels}>
+                    <Trash2 className="size-4" />Drop selected
+                  </Button>
+                </div>
+              ) : null}
             </div>
             <div className="overflow-x-auto border-y border-border/70">
               <table className="w-full min-w-[980px] text-sm">
                 <thead className="bg-muted/50">
                   <tr>
-                    <Header><Input aria-label="Select visible labels" checked={allPageSelected} className="size-4" type="checkbox" onChange={(event) => togglePage(event.target.checked)} /></Header>
+                    {showPrintControls ? <Header><Input aria-label="Select visible labels" checked={allPageSelected} className="size-4" type="checkbox" onChange={(event) => togglePage(event.target.checked)} /></Header> : null}
                     <Header>Batch</Header>
                     <Header>Serial</Header>
                     <Header>Barcode</Header>
-                    <Header>Status</Header>
-                    <Header className="text-right">Action</Header>
+                    <Header className="text-center">Status</Header>
+                    {showPrintControls ? <Header className="text-right">Action</Header> : null}
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map(({ item, serialization }) => {
                     const isPosted = serialization.status === "posted" || Boolean(item.stock_movement_id)
+                    const hasVerifiedItems = serialization.items.some((row) => Boolean(row.is_verified))
                     return (
                       <tr key={item.uuid} className="border-t border-border/60">
-                        <td className="px-3 py-2"><Input aria-label={`Select ${item.barcode_value}`} checked={selectedIds.has(item.uuid)} className="size-4" type="checkbox" onChange={(event) => toggleItem(item, event.target.checked)} /></td>
+                        {showPrintControls ? <td className="px-3 py-2"><Input aria-label={`Select ${item.barcode_value}`} checked={selectedIds.has(item.uuid)} className="size-4" type="checkbox" onChange={(event) => toggleItem(item, event.target.checked)} /></td> : null}
                         <td className="px-3 py-2 text-muted-foreground">{item.batch_no ?? serialization.batch_no ?? "-"}</td>
                         <td className="px-3 py-2 font-medium">{item.serial_no}</td>
                         <td className="px-3 py-2 font-mono text-xs">{item.barcode_value}</td>
-                        <td className="px-3 py-2">{item.is_verified ? <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700"><Check className="size-3" />Verified</span> : <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Pending</span>}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-end gap-2">
-                            <Button aria-label={`Print ${item.barcode_value}`} title="Print label" type="button" size="icon" variant="outline" className="size-8 rounded-md transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary" onClick={() => printBarcodeLabels([item], serialization)}><Printer className="size-3.5" /></Button>
-                            <Button aria-label={`Drop ${item.barcode_value}`} title="Drop generated labels" disabled={isPosted || isDropping} type="button" size="icon" variant="outline" className="size-8 rounded-md transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:hover:border-border disabled:hover:bg-background disabled:hover:text-muted-foreground" onClick={() => onDrop(serialization)}><Trash2 className="size-3.5" /></Button>
-                          </div>
-                        </td>
+                        <td className="px-3 py-2 text-center">{item.is_verified ? <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700"><Check className="size-3" />Verified</span> : <span className="inline-flex rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Pending</span>}</td>
+                        {showPrintControls ? (
+                          <td className="px-3 py-2">
+                            <div className="flex justify-end gap-2">
+                              <Button aria-label={`Print ${item.barcode_value}`} title="Print label" type="button" size="icon" variant="outline" className="size-8 rounded-md transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary" onClick={() => printLabels([item], serialization)}><Printer className="size-3.5" /></Button>
+                              <Button aria-label={`Drop ${item.barcode_value}`} title="Drop generated labels" disabled={isPosted || hasVerifiedItems || isDropping} type="button" size="icon" variant="outline" className="size-8 rounded-md transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive disabled:hover:border-border disabled:hover:bg-background disabled:hover:text-muted-foreground" onClick={() => onDrop(serialization)}><Trash2 className="size-3.5" /></Button>
+                            </div>
+                          </td>
+                        ) : null}
                       </tr>
                     )
                   })}
@@ -564,46 +714,6 @@ function StatusPill({ label, tone = "muted", value }: { label: string; tone?: "m
       <span className={cn("font-semibold", tone === "success" ? "text-emerald-900" : "text-foreground")}>{value}</span>
     </div>
   )
-}
-
-function printBarcodeLabels(items: StockSerializationItem[], serialization: StockSerialization) {
-  if (!items.length) return
-  const labelHtml = items.map((item) => `
-    <div class="label">
-      <div class="product">${escapeHtml(serialization.product_name)}</div>
-      <div class="barcode">${escapeHtml(item.barcode_value)}</div>
-      <div class="meta">Batch: ${escapeHtml(item.batch_no ?? "-")} &nbsp; Serial: ${escapeHtml(item.serial_no)}</div>
-    </div>
-  `).join("")
-  const printWindow = window.open("", "_blank", "width=900,height=700")
-  if (!printWindow) {
-    window.print()
-    return
-  }
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Barcode Labels</title>
-        <style>
-          @page { size: auto; margin: 8mm; }
-          body { margin: 0; font-family: Arial, sans-serif; color: #000; }
-          .sheet { display: grid; grid-template-columns: repeat(3, 64mm); gap: 4mm; padding: 2mm; }
-          .label { border: 1px solid #111; min-height: 28mm; padding: 3mm; box-sizing: border-box; page-break-inside: avoid; }
-          .product { font-size: 10px; font-weight: 700; margin-bottom: 2mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .barcode { font-family: "Courier New", monospace; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-align: center; border: 1px solid #111; padding: 2mm 1mm; }
-          .meta { margin-top: 2mm; font-size: 9px; }
-        </style>
-      </head>
-      <body><div class="sheet">${labelHtml}</div></body>
-    </html>
-  `)
-  printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
-}
-
-function escapeHtml(value: string) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;")
 }
 
 function modeLabel(mode: StockSerializationMode) {
@@ -701,56 +811,6 @@ function purchaseReceiptLabel(receipt: PurchaseReceiptEntry) {
   return [receipt.entry_no, receipt.supplier_name, receipt.entry_date].filter(Boolean).join(" - ")
 }
 
-function SerialTable({ serialization }: { serialization: StockSerialization }) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const totalCount = serialization.items.length
-  const totalPages = Math.max(1, Math.ceil(totalCount / rowsPerPage))
-  const safePage = Math.min(currentPage, totalPages)
-  const pageItems = serialization.items.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage)
-
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages)
-  }, [currentPage, totalPages])
-
-  return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto border-y border-border/70">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead className="bg-muted/50"><tr><Header>Serial</Header><Header>Batch</Header><Header>Barcode</Header><Header className="text-right">Qty</Header><Header>Status</Header></tr></thead>
-          <tbody>
-            {pageItems.map((item) => (
-              <tr key={item.uuid} className="border-t border-border/60">
-                <td className="px-3 py-2 font-medium">{item.serial_no}</td>
-                <td className="px-3 py-2 text-muted-foreground">{item.batch_no ?? "-"}</td>
-                <td className="px-3 py-2 font-mono text-xs">{item.barcode_value}</td>
-                <td className="px-3 py-2 text-right">{item.quantity}</td>
-                <td className="px-3 py-2">{item.is_verified ? <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700"><Check className="size-3" />Verified</span> : <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Pending</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <MasterListPaginationCard
-        page={safePage}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={[25, 50, 100, 200, 500]}
-        showingLabel={buildMasterListShowingLabel({ page: safePage, pageSize: rowsPerPage, totalCount })}
-        singularLabel="labels"
-        totalCount={totalCount}
-        totalPages={totalPages}
-        onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-        onPageChange={setCurrentPage}
-        onPreviousPage={() => setCurrentPage((page) => Math.max(1, page - 1))}
-        onRowsPerPageChange={(value) => {
-          setRowsPerPage(value)
-          setCurrentPage(1)
-        }}
-      />
-    </div>
-  )
-}
-
 function LiveStockTable({ balances }: { balances: Array<{ id: number; product_name: string; warehouse_name: string | null; batch_no: string | null; serial_no: string | null; barcode_value: string | null; quantity_available: number }> }) {
   return (
     <div className="overflow-x-auto rounded-md border border-border/70">
@@ -819,4 +879,14 @@ function renderBarcodePreview(format: { barcode_format: string; batch_format: st
     .replaceAll("{productCode}", "P001")
     .replaceAll("{batchNo}", renderBatchPreview(format.batch_format))
     .replaceAll("{serialNo}", renderSerialPreview(format.serial_format, 1))
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "Not set"
+  return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value))
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Not set"
+  return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
 }

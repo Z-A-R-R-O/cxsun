@@ -1,6 +1,7 @@
 import { Injectable } from '../../../core/decorators/injectable.js'
 import { hashPassword } from '../../../infrastructure/auth/password-hash.js'
 import { getDatabase } from '../../../infrastructure/database/connection.js'
+import { nowIso } from '../../../infrastructure/database/database-module.js'
 import type { AuthTenantAccess, PlatformUserStatus, PlatformUserUpsertInput, TenantUserRecord, TenantUserSummary } from '../domain/auth.types.js'
 
 @Injectable()
@@ -106,7 +107,7 @@ export class AuthRepository {
 
   async upsertPlatformUser(input: RequiredPlatformUserInput) {
     const database = getDatabase()
-    const now = new Date().toISOString()
+    const now = nowIso()
     let userId = input.user_id
 
     if (userId) {

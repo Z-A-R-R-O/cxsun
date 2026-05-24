@@ -8,6 +8,7 @@ import {
   Brush,
   Building2,
   CalendarDays,
+  ClipboardCheck,
   ContactRound,
   CircleDollarSign,
   CreditCard,
@@ -18,6 +19,7 @@ import {
   Image,
   Landmark,
   Layers3,
+  ListChecks,
   LayoutDashboard,
   Link2,
   Map,
@@ -43,7 +45,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "billing" | "media" | "ecommerce" | "crm" | "inventory" | "sites"
+export type DashboardAppId = "application" | "billing" | "media" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -147,6 +149,20 @@ export const dashboardApps: DashboardAppDefinition[] = [
     menuGroups: [
       { title: "Library", icon: Image, items: [item("media", "library", "Media Library", Image)] },
       { title: "Management", icon: Settings, items: [item("media", "links", "Links", Link2), item("media", "sharing", "Sharing", Globe2)] },
+    ],
+  }),
+  withMenu({
+    id: "taskmanager",
+    name: "Task Manager",
+    shortName: "Tasks",
+    description: "Office automation for staff assignments, GST verification, auditor follow-up, and performance activity tracking.",
+    status: "active",
+    accent: "bg-cyan-700 text-white",
+    icon: ClipboardCheck,
+    menuGroups: [
+      { title: "Work", icon: ListChecks, items: [item("taskmanager", "tasks", "Tasks", ClipboardCheck), item("taskmanager", "performance", "Performance", BarChart3)] },
+      { title: "Follow-up", icon: FileText, items: [item("taskmanager", "gst-verification", "GST Verification", FileText), item("taskmanager", "auditor-follow-up", "Auditor Follow-up", FileText)] },
+      { title: "Settings", icon: Settings, items: [item("taskmanager", "settings", "Task Settings", Settings)] },
     ],
   }),
   withMenu({

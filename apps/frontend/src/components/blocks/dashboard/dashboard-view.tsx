@@ -103,6 +103,9 @@ const GstStatementReportPage = lazy(() =>
 const MediaManagerPage = lazy(() =>
   import('src/features/media/media-page').then((module) => ({ default: module.MediaManagerPage })),
 )
+const TaskManagerPage = lazy(() =>
+  import('src/features/task-manager/task-manager-page').then((module) => ({ default: module.TaskManagerPage })),
+)
 const SalesSettingsPage = lazy(() =>
   import('src/features/settings/settings-page').then((module) => ({ default: module.SalesSettingsPage })),
 )
@@ -136,6 +139,17 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
   ) {
     return page
   }
+  return "overview"
+}
+
+function dashboardAppFromPage(page: DashboardPage): DashboardAppId | null {
+  if (!page.startsWith("app-")) return null
+  const appId = page.split("-")[1]
+  return appId && isDashboardAppId(appId) ? appId : null
+}
+
+function defaultPageForApp(appId: DashboardAppId): DashboardPage {
+  if (appId === "taskmanager") return "app-taskmanager-tasks"
   return "overview"
 }
 
@@ -183,15 +197,22 @@ export function DashboardView({
   onBackHome: () => void
 }) {
   const authSurface: AuthSurface = mode === "super-admin" ? "super-admin" : mode
-  const [activePage, setActivePage] = useState<DashboardPage>(() => dashboardPageFromPath(basePath))
+  const initialPage = dashboardPageFromPath(basePath)
+  const [activePage, setActivePage] = useState<DashboardPage>(() => initialPage)
   const [session, setSession] = useState<AuthSession | null>(() => getStoredSession(authSurface))
   const [authPage, setAuthPage] = useState<"login" | "forgot-password">("login")
-  const [activeApp, setActiveApp] = useState<DashboardAppId>(() => readStoredApp())
+  const [activeApp, setActiveApp] = useState<DashboardAppId>(() => dashboardAppFromPage(initialPage) ?? readStoredApp())
   const [enabledApps, setEnabledApps] = useState<Record<DashboardAppId, boolean>>(() => readStoredEnabledApps())
 
   useEffect(() => {
     function syncDashboardPage() {
-      setActivePage(dashboardPageFromPath(basePath))
+      const nextPage = dashboardPageFromPath(basePath)
+      setActivePage(nextPage)
+      const nextApp = dashboardAppFromPage(nextPage)
+      if (nextApp) {
+        setActiveApp(nextApp)
+        window.localStorage.setItem("cxsun.activeApp", nextApp)
+      }
     }
 
     window.addEventListener("popstate", syncDashboardPage)
@@ -261,6 +282,11 @@ export function DashboardView({
     }
 
     setActivePage(page)
+    const nextApp = dashboardAppFromPage(page)
+    if (nextApp) {
+      setActiveApp(nextApp)
+      window.localStorage.setItem("cxsun.activeApp", nextApp)
+    }
     pushDashboardPage(basePath, page)
   }
 
@@ -271,8 +297,9 @@ export function DashboardView({
 
     setActiveApp(appId)
     window.localStorage.setItem("cxsun.activeApp", appId)
-    setActivePage("overview")
-    pushDashboardPage(basePath, "overview")
+    const nextPage = defaultPageForApp(appId)
+    setActivePage(nextPage)
+    pushDashboardPage(basePath, nextPage)
   }
 
   function toggleApp(appId: DashboardAppId, enabled: boolean) {
@@ -359,6 +386,8 @@ export function DashboardView({
             <GstStatementReportPage session={session} />
           ) : visiblePage === "app-media-library" || visiblePage === "app-media-links" || visiblePage === "app-media-sharing" ? (
             <MediaManagerPage session={session} />
+          ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-tasks" || visiblePage === "app-taskmanager-gst-verification" || visiblePage === "app-taskmanager-auditor-follow-up" ? (
+            <TaskManagerPage session={session} />
           ) : visiblePage === "app-billing-settings" ? (
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (

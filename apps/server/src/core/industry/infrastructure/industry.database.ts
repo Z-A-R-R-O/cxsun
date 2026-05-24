@@ -1,26 +1,26 @@
 import { sql } from 'kysely'
-import { addSqliteColumnIfMissing, nowIso, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
+import { addMasterColumnIfMissing, nowIso, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
 export const industryDatabaseModule: PlatformDatabaseModule = {
   name: 'industry',
   async migrate(database) {
-    await database.schema
-      .createTable('industries')
-      .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
-      .addColumn('code', 'text', (col) => col.notNull().unique())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('payload_schema', 'text', (col) => col.notNull())
-      .addColumn('default_features', 'text', (col) => col.notNull())
-      .addColumn('default_ui_settings', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('deleted_at', 'text')
-      .execute()
+    await sql.raw(`
+      CREATE TABLE IF NOT EXISTS industries (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(80) NOT NULL UNIQUE,
+        name VARCHAR(191) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        payload_schema LONGTEXT NOT NULL,
+        default_features LONGTEXT NOT NULL,
+        default_ui_settings LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        deleted_at DATETIME NULL
+      )
+    `).execute(database)
 
-    await addSqliteColumnIfMissing(database, 'industries', 'status', "text NOT NULL DEFAULT 'active'")
-    await addSqliteColumnIfMissing(database, 'industries', 'deleted_at', 'text')
+    await addMasterColumnIfMissing(database, 'industries', 'status', "VARCHAR(32) NOT NULL DEFAULT 'active'")
+    await addMasterColumnIfMissing(database, 'industries', 'deleted_at', 'DATETIME NULL')
   },
   async seed(database) {
     for (const industry of [
