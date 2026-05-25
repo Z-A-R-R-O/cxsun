@@ -14,6 +14,17 @@ const commonDefinitions = masterDataDefinitions.filter((definition) => definitio
 const standaloneMasterDefinitions = [contactMasterDefinition, productMasterDefinition, orderMasterDefinition]
 const allDefinitions = [...masterDataDefinitions, ...standaloneMasterDefinitions]
 const testDirectory = dirname(fileURLToPath(import.meta.url))
+const commonColumnContracts: Record<string, string[]> = {
+  accountingYear: ['name', 'start_date', 'end_date', 'books_start', 'is_current_year'],
+  cities: ['name', 'district_id'],
+  countries: ['name', 'code', 'phone_code'],
+  districts: ['name', 'state_id'],
+  hsnCodes: ['code', 'description'],
+  pincodes: ['name', 'city_id'],
+  states: ['name', 'code', 'country_id'],
+  taxes: ['rate_percent', 'description'],
+  transports: ['name', 'gst', 'vehicle_no', 'address', 'contact_no', 'contact_person'],
+}
 
 assert.ok(masterDataDefinitions.length > 0, 'master-data definitions must not be empty')
 assert.ok(commonDefinitions.length > 0, 'common module definitions must exist')
@@ -38,12 +49,11 @@ for (const definition of allDefinitions) {
 
 for (const definition of commonDefinitions) {
   const columnKeys = definition.columns.map((column) => column.key)
-  if (definition.key === 'countries' || definition.key === 'states') {
-    assert.ok(columnKeys.includes('code'), `${definition.key} must keep Code`)
-    continue
-  }
-
-  assert.deepEqual(columnKeys, ['name'], `${definition.key} common module must only expose Name`)
+  assert.deepEqual(
+    columnKeys,
+    commonColumnContracts[definition.key] ?? ['name'],
+    `${definition.key} common module columns must match its contract`,
+  )
 }
 
 for (const definition of standaloneMasterDefinitions) {

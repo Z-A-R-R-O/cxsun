@@ -1,5 +1,5 @@
 import { sql } from 'kysely'
-import { addMasterColumnIfMissing, nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
+import type { PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
 export const tenantDomainDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant-domain',
@@ -19,53 +19,16 @@ export const tenantDomainDatabaseModule: PlatformDatabaseModule = {
         INDEX idx_tenant_domains_tenant (tenant_id)
       )
     `).execute(database)
-
-    await addMasterColumnIfMissing(database, 'tenant_domains', 'label', "VARCHAR(191) NOT NULL DEFAULT ''")
-    await addMasterColumnIfMissing(database, 'tenant_domains', 'is_primary', 'TINYINT(1) NOT NULL DEFAULT 0')
-    await addMasterColumnIfMissing(database, 'tenant_domains', 'settings', 'LONGTEXT NULL')
-    await addMasterColumnIfMissing(database, 'tenant_domains', 'deleted_at', 'DATETIME NULL')
   },
   async seed(database) {
-    for (const item of [
-      { tenantSlug: 'demo_app', domain: 'localhost', label: 'Demo-app local development', isPrimary: true },
-    ]) {
-      const tenant = await database.selectFrom('tenants').select('id').where('slug', '=', item.tenantSlug).executeTakeFirst()
-      if (!tenant) continue
-      await ensureTenantDomain(database, {
-        tenantId: tenant.id,
-        domain: item.domain,
-        label: item.label,
-        isPrimary: item.isPrimary,
-      })
-    }
+    await sql.raw(`
+      UPDATE tenant_domains
+      INNER JOIN tenants ON tenants.id = tenant_domains.tenant_id
+      SET tenant_domains.status = 'suspend',
+          tenant_domains.deleted_at = CURRENT_TIMESTAMP,
+          tenant_domains.updated_at = CURRENT_TIMESTAMP
+      WHERE tenants.status <> 'active'
+         OR tenants.deleted_at IS NOT NULL
+    `).execute(database)
   },
-}
-
-async function ensureTenantDomain(
-  database: PlatformDatabase,
-  data: { tenantId: number; domain: string; label: string; isPrimary: boolean },
-) {
-  const domain = normalizeDomain(data.domain)
-  const existing = await database.selectFrom('tenant_domains').select('id').where('domain', '=', domain).executeTakeFirst()
-  const row = {
-    tenant_id: data.tenantId,
-    domain,
-    label: data.label,
-    is_primary: data.isPrimary ? 1 : 0,
-    status: 'active',
-    settings: JSON.stringify({ landing: { mode: 'tenant' } }),
-    deleted_at: null,
-    updated_at: nowIso(),
-  }
-
-  if (existing) {
-    await database.updateTable('tenant_domains').set(row).where('id', '=', existing.id).execute()
-    return
-  }
-
-  await database.insertInto('tenant_domains').values(row).execute()
-}
-
-function normalizeDomain(value: string) {
-  return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
 }

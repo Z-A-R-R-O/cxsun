@@ -73,7 +73,7 @@ Super-admin should orchestrate the platform, not become the default path for ten
 
 In the super-admin UI, keep navigation split into two easy areas:
 
-- `Platform / Master Database`: tenant, domain, industry, client manager, system update, and user manager.
+- `Platform / Master Database`: tenant, domain, industry, system update, and admin user manager.
 - `Tenant Database`: tenant-owned modules such as company that resolve into tenant database context.
 
 ## Data Model Picture

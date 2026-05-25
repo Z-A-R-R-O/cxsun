@@ -191,7 +191,7 @@ export function TenantListPage({ session }: { session: AuthSession }) {
           setCurrentPage(1)
         }}
         onShowAllColumns={() => setVisibleColumns(defaultTenantColumnVisibility)}
-        searchPlaceholder="Search tenant, code, slug, database, company count, or status"
+        searchPlaceholder="Search tenant, corporate ID, mobile, slug, database, or status"
         searchValue={searchValue}
       />
       <MasterListTableCard>
@@ -202,6 +202,8 @@ export function TenantListPage({ session }: { session: AuthSession }) {
                 <ListHeader>#</ListHeader>
                 {visibleColumns.name ? <SortableHeader label="Tenant" column="name" sortState={sortState} onSort={toggleSort} /> : null}
                 {visibleColumns.code ? <SortableHeader label="Code" column="code" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.corporateId ? <SortableHeader label="Corporate ID" column="corporateId" sortState={sortState} onSort={toggleSort} /> : null}
+                {visibleColumns.mobile ? <SortableHeader label="Mobile" column="mobile" sortState={sortState} onSort={toggleSort} /> : null}
                 {visibleColumns.slug ? <SortableHeader label="Slug" column="slug" sortState={sortState} onSort={toggleSort} /> : null}
                 {visibleColumns.database ? <SortableHeader label="Database" column="database" sortState={sortState} onSort={toggleSort} /> : null}
                 {visibleColumns.companies ? <SortableHeader label="Companies" column="companies" sortState={sortState} onSort={toggleSort} /> : null}
@@ -224,6 +226,8 @@ export function TenantListPage({ session }: { session: AuthSession }) {
                     </td>
                   ) : null}
                   {visibleColumns.code ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.code}</td> : null}
+                  {visibleColumns.corporateId ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.corporateId}</td> : null}
+                  {visibleColumns.mobile ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.mobile || "-"}</td> : null}
                   {visibleColumns.slug ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.slug}</td> : null}
                   {visibleColumns.database ? <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{tenant.dbName}</td> : null}
                   {visibleColumns.companies ? <td className="px-4 py-2 tabular-nums">{tenant.companyCount}</td> : null}
@@ -307,6 +311,8 @@ function TenantShowPage({
               rows={[
                 ["Name", tenant.name],
                 ["Code", tenant.code],
+                ["Corporate ID", tenant.corporateId],
+                ["Mobile", tenant.mobile],
                 ["Slug", tenant.slug],
                 ["Status", <StatusBadge key="status" status={tenant.status} />],
               ]}
@@ -444,6 +450,8 @@ function buildTenantTabs({
         <div className="space-y-6 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm md:p-6">
           <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
             <TextField label="Tenant code" value={form.code || (tenant ? "" : "Auto")} disabled={!tenant} onChange={(value) => setField(setForm, "code", value.replace(/\D/g, ""))} />
+            <TextField label="Corporate ID" value={form.corporateId} inputClassName="font-mono uppercase" onChange={(value) => setField(setForm, "corporateId", corporateId(value))} />
+            <TextField label="Mobile" value={form.mobile} inputClassName="font-mono" onChange={(value) => setField(setForm, "mobile", value.replace(/\D/g, ""))} />
             <TextField label="Tenant name" value={form.name} onChange={(value) => setTenantName(setForm, value, Boolean(tenant))} />
             <TextField label="Slug" value={form.slug} inputClassName="font-mono lowercase" onChange={(value) => setTenantSlug(setForm, value, Boolean(tenant))} />
             <SwitchRow
@@ -655,7 +663,7 @@ function setTenantName(setForm: Dispatch<SetStateAction<TenantFormState>>, value
     }
 
     const nextSlug = slugify(value)
-    return { ...current, name: value, slug: nextSlug, dbName: databaseName(nextSlug) }
+    return { ...current, name: value, corporateId: corporateId(nextSlug), slug: nextSlug, dbName: databaseName(nextSlug) }
   })
 }
 
@@ -670,6 +678,10 @@ function setTenantSlug(setForm: Dispatch<SetStateAction<TenantFormState>>, value
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "")
+}
+
+function corporateId(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9_]+/g, "_").replace(/^_+|_+$/g, "")
 }
 
 function databaseName(value: string) {

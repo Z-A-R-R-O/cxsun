@@ -1,6 +1,6 @@
 # AI Agent Assist System
 
-**Project version:** 1.0.27
+**Project version:** 1.0.29
 
 This directory is the working guide for AI agents on `cxsun`. It records project rules, current architecture, session plans, task tracking, and release notes.
 
@@ -37,7 +37,7 @@ Root scripts use the active apps:
 
 The active backend separates platform data from tenant data.
 
-- Master MariaDB stores site content, industries, tenants, tenant domains, users, user-tenant access, platform RBAC policy catalog, tenant policy toggles, clients, and queue jobs.
+- Master MariaDB stores site content, industries, tenants, tenant domains, admin users, platform RBAC policy catalog, tenant policy toggles, and queue jobs.
 - Tenant MariaDB databases store tenant-local companies, company child tables, accounting years, default company selection, and tenant-local RBAC role-policy assignments.
 - Application tables keep `id INT AUTO_INCREMENT PRIMARY KEY` for internal joins and `uuid CHAR(8) NOT NULL UNIQUE` for public/API references. New public IDs are 8-character uppercase alphanumeric values from the shared public UUID helper; plan 16-character public IDs later when growth requires it.
 - The request path for tenant data is `URL host/domain -> tenant_domains -> tenants -> JWT/user_tenants check -> tenant database`.
@@ -52,7 +52,6 @@ Current backend boundary layout:
 - `apps/server/src/modules/foundation`: reusable engines and compatibility registries (`master-record`, `master-data`).
 - `apps/server/src/modules/common/<group>/<module>`: standalone common tenant modules.
 - `apps/server/src/modules/master/<module>`: standalone master modules (`company`, `contact`, `product`, `order`).
-- `apps/server/src/modules/crm/client`: Client Manager platform module.
 - `apps/server/src/modules/entries/sales`: tenant-isolated sales entries.
 
 Current important API surfaces:
@@ -75,8 +74,8 @@ Current important API surfaces:
 
 The active frontend dashboard is split by authenticated role:
 
-- `super-admin` sees two orchestration areas: Platform / Master Database for tenant, domain, industry, client manager, system update, and user manager; Tenant Database for tenant-owned modules such as company.
-- `admin` sees the software operations dashboard for helpdesk, bugs, client notes, and update/support work.
+- `super-admin` sees two orchestration areas: Platform / Master Database for tenant, domain, industry, system update, and admin user manager; Tenant Database for tenant-owned modules such as company.
+- `admin` sees the software operations dashboard for helpdesk, bugs, and update/support work.
 - Tenant roles (`admin`, `manager`, `staff`, and `user`) see only the tenant dashboard, currently focused on tenant database companies and tenant-local roles. The `super-admin` role is reserved for the single platform owner account.
 
 Keep these boundaries explicit when adding pages. Do not add platform orchestration pages to the tenant dashboard.

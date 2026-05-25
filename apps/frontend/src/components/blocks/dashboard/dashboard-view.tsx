@@ -40,6 +40,9 @@ const SystemUpdateView = lazy(() =>
 const TenantListPage = lazy(() =>
   import('src/features/tenant/interface/pages/tenant-list-page').then((module) => ({ default: module.TenantListPage })),
 )
+const AppSetupPage = lazy(() =>
+  import('src/features/app-setup/app-setup-page').then((module) => ({ default: module.AppSetupPage })),
+)
 const CompanyPage = lazy(() =>
   import('src/features/company/company-page').then((module) => ({ default: module.CompanyPage })),
 )
@@ -48,9 +51,6 @@ const DefaultCompanyPage = lazy(() =>
 )
 const IndustryPage = lazy(() =>
   import('src/features/industry/industry-page').then((module) => ({ default: module.IndustryPage })),
-)
-const ClientPage = lazy(() =>
-  import('src/features/client/client-page').then((module) => ({ default: module.ClientPage })),
 )
 const TenantDomainPage = lazy(() =>
   import('src/features/tenant-domain/tenant-domain-page').then((module) => ({ default: module.TenantDomainPage })),
@@ -127,10 +127,10 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
   if (appModulePages.includes(page as DashboardPage)) return page as DashboardPage
   if (
     page === "tenant" ||
+    page === "setup" ||
     page === "tenant-domain" ||
     page === "industry" ||
     page === "company" ||
-    page === "client" ||
     page === "system-update" ||
     page === "user-manager" ||
     page === "helpdesk" ||
@@ -154,8 +154,8 @@ function defaultPageForApp(appId: DashboardAppId): DashboardPage {
 }
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "tenant", "tenant-domain", "industry", "company", "client", "system-update", "user-manager"],
-  admin: ["overview", "company", "helpdesk", "bugs", "client", "system-update"],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "user-manager"],
+  admin: ["overview", "company", "helpdesk", "bugs", "system-update"],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
 
@@ -167,12 +167,12 @@ const dashboardTitles: Record<DashboardMode, string> = {
 
 const pageLabels: Partial<Record<DashboardPage, string>> = {
   "tenant": "Tenants",
+  "setup": "App Setup",
   "tenant-domain": "Tenant Domains",
   "industry": "Industries",
   "company": "Companies",
-  "client": "Client Manager",
   "system-update": "System Update",
-  "user-manager": "User Manager",
+  "user-manager": "Admin User Manager",
   "helpdesk": "Helpdesk",
   "bugs": "Bugs",
   "tenant-roles": "Tenant Roles",
@@ -218,6 +218,16 @@ export function DashboardView({
     window.addEventListener("popstate", syncDashboardPage)
     return () => window.removeEventListener("popstate", syncDashboardPage)
   }, [basePath])
+
+  useEffect(() => {
+    function handleAuthInvalid() {
+      setSession(null)
+      window.history.replaceState(null, "", loginPath)
+    }
+
+    window.addEventListener("cxsun:auth-invalid", handleAuthInvalid)
+    return () => window.removeEventListener("cxsun:auth-invalid", handleAuthInvalid)
+  }, [loginPath])
 
   const needsLogin = !session || !roleMatchesSurface(session.selectedTenant.role, authSurface)
   const defaultCompanyContextQuery = useQuery({
@@ -340,7 +350,9 @@ export function DashboardView({
           onLogout={logout}
         />
         <Suspense fallback={<DashboardRouteFallback />}>
-          {visiblePage === "tenant" ? (
+          {visiblePage === "setup" ? (
+            <AppSetupPage session={session} />
+          ) : visiblePage === "tenant" ? (
             <TenantListPage session={session} />
           ) : visiblePage === "tenant-domain" ? (
             <TenantDomainPage session={session} />
@@ -352,8 +364,6 @@ export function DashboardView({
             <CompanyPage session={session} />
           ) : visiblePage === "app-application-default-company" ? (
             <DefaultCompanyPage session={session} />
-          ) : visiblePage === "client" ? (
-            <ClientPage session={session} />
           ) : visiblePage === "system-update" ? (
             <SystemUpdateView session={session} />
           ) : visiblePage === "user-manager" ? (

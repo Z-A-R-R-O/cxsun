@@ -2,13 +2,45 @@
 
 ## Version State
 
-- **Current version:** `1.0.27`
-- **Release tag:** `v-1.0.27`
-- **Changelog label:** `v 1.0.27`
+- **Current version:** `1.0.29`
+- **Release tag:** `v-1.0.29`
+- **Changelog label:** `v 1.0.29`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.29
+
+### [v 1.0.29] 2026-05-25 10:16 am - auth session and dynamic dev port mapping
+
+- Bumped workspace version to 1.0.29
+- Fixed dynamic dev port mapping so server preflight writes the selected backend port and frontend preflight/Vite proxy use that live API target instead of falling back to `localhost:6001`.
+- Centralized frontend API base URL handling and removed duplicated hardcoded `6001` defaults from tenant, system update, auth, and public site calls.
+- Fixed stale admin-session 403s after restart by making the admin-user seeder idempotent; seeded admin password hashes and `updated_at` no longer rotate unless the account actually changes.
+- Added frontend auth invalidation handling so protected API 403 responses clear stored sessions and return the dashboard to login cleanly.
+- Reworked the super-admin navigation polish: restored Tenant under the Admin group, removed the separate Tenant section/Company wiring, and moved System Update into a new Setting section.
+- Verified with server/frontend typechecks, server/frontend production builds, `db:fresh`, and a seed-stability smoke test that reused the same super-admin token before and after `db:seed`.
+
+## v-1.0.28
+
+### [v 1.0.28] 2026-05-25 8:48 am - tenant-local auth and fresh migration stability
+
+- Bumped workspace version to 1.0.28
+- Reworked authentication around tenant-local identities: master keeps tenant login identifiers and admin users, while each tenant database owns its users and user-tenant access.
+- Added corporate ID/mobile login resolution with default `CODEXSUN` and `9655227738` tenant identifiers.
+- Split tenant, admin, and super-admin login surfaces so each dashboard uses the correct identity source and route family.
+- Simplified admin and super-admin login to email/password only, with platform roles stored directly on `admin_users`.
+- Removed tenant-specific admin user mappings so first master setup can seed admin users without creating or installing a tenant database.
+- Removed master `users` / `user_tenants` table ownership and removed hardcoded login fallbacks outside the admin seeder.
+- Seeded the platform super-admin and software-admin identities in the admin user seeder.
+- Flattened fresh migrations so module table definitions own their final columns instead of running add/drop/alter compatibility passes.
+- Fixed fresh master and tenant provisioning order so `db:fresh` recreates master, seeds the default tenant, drops tenant databases, and rebuilds tenant schemas cleanly.
+- Fixed tenant accounting-year seeding by including `books_start` in the module definition and seed rows.
+- Updated startup preflight so direct app startup uses project-local binaries, avoids killing existing servers in non-interactive mode, and moves to the next free port.
+- Removed the unused Client Manager feature, including sidebar/dashboard entries, frontend pages, backend module wiring, `/api/v1/clients` routes, and the platform `clients` table migration.
+- Reworked the super-admin User Manager into Admin User Manager backed by master `admin_users`, with dedicated `/api/v1/admin-users` list/upsert APIs and admin-role/status forms.
+- Verified with server typecheck, server build, master-data contract test, `db:fresh`, and preflight startup health checks.
 
 ## v-1.0.27
 

@@ -25,11 +25,11 @@ const supportCards = {
     items: ["rbac_roles", "rbac_policies", "rbac_role_policies", "company.manage"],
   },
   "user-manager": {
-    eyebrow: "Platform / master database",
+    eyebrow: "Tenant database",
     title: "User manager",
-    description: "Platform users, access assignments, and super-admin identity controls belong with master database modules.",
+    description: "Tenant users and role access live inside each tenant database; admin identities stay in master admin tables.",
     Icon: ShieldCheck,
-    items: ["platform_users", "user_tenants", "surface access", "role boundaries"],
+    items: ["users", "user_tenants", "admin_users", "role boundaries"],
   },
 }
 

@@ -84,7 +84,6 @@ apps/server/src/
 └── modules/
     ├── auth/
     ├── common/<group>/<module>/
-    ├── crm/client/
     ├── entries/sales/
     ├── foundation/master-data/
     ├── foundation/master-record/
@@ -113,7 +112,6 @@ Avoid direct cross-module imports. Use explicit public module exports, applicati
 - Put reusable engines and compatibility registries under `apps/server/src/modules/foundation`.
 - Put every common business module under `apps/server/src/modules/common/<group>/<module>`.
 - Put standalone master modules under `apps/server/src/modules/master/<module>`.
-- Put CRM/support modules under `apps/server/src/modules/crm/<module>`.
 - Put tenant transaction/entry modules under `apps/server/src/modules/entries/<module>`.
 - Keep internal folder moves API-stable unless the user explicitly requests a route change.
 

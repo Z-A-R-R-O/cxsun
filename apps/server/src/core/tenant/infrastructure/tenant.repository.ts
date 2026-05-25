@@ -5,6 +5,8 @@ import type { Tenant, TenantUpsertData } from '../domain/tenant.types.js'
 const tenantColumns = [
   'id',
   'code',
+  'corporate_id',
+  'mobile',
   'slug',
   'name',
   'status',
@@ -67,6 +69,14 @@ export class TenantRepository {
       .selectFrom('tenants')
       .select(tenantColumns)
       .where('slug', '=', slug)
+      .executeTakeFirst() as Promise<Tenant | undefined>
+  }
+
+  async findByCorporateId(corporateId: string): Promise<Tenant | undefined> {
+    return getDatabase()
+      .selectFrom('tenants')
+      .select(tenantColumns)
+      .where('corporate_id', '=', corporateId)
       .executeTakeFirst() as Promise<Tenant | undefined>
   }
 
@@ -156,6 +166,34 @@ export class TenantRepository {
     return Boolean(tenant)
   }
 
+  async hasCorporateId(corporateId: string, exceptId?: number): Promise<boolean> {
+    const query = getDatabase()
+      .selectFrom('tenants')
+      .select('id')
+      .where('corporate_id', '=', corporateId)
+
+    const tenant = exceptId
+      ? await query.where('id', '!=', exceptId).executeTakeFirst()
+      : await query.executeTakeFirst()
+
+    return Boolean(tenant)
+  }
+
+  async hasMobile(mobile: string | null, exceptId?: number): Promise<boolean> {
+    if (!mobile) return false
+
+    const query = getDatabase()
+      .selectFrom('tenants')
+      .select('id')
+      .where('mobile', '=', mobile)
+
+    const tenant = exceptId
+      ? await query.where('id', '!=', exceptId).executeTakeFirst()
+      : await query.executeTakeFirst()
+
+    return Boolean(tenant)
+  }
+
   async insert(data: TenantUpsertData): Promise<Tenant> {
     await getDatabase()
       .insertInto('tenants')
@@ -181,6 +219,8 @@ export class TenantRepository {
       .updateTable('tenants')
       .set({
         code: data.code,
+        corporate_id: data.corporate_id,
+        mobile: data.mobile,
         slug: data.slug,
         name: data.name,
         status: data.status,

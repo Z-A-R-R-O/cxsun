@@ -14,6 +14,8 @@ export function toTenantForm(tenant: TenantRecord): TenantFormState {
   return {
     id: tenant.id,
     code: String(tenant.code),
+    corporateId: tenant.corporateId,
+    mobile: tenant.mobile ?? "",
     slug: tenant.slug,
     name: tenant.name,
     status: tenant.status,
@@ -31,6 +33,8 @@ export function toTenantUpsertInput(form: TenantFormState): TenantUpsertInput {
   return {
     id: form.id,
     code: form.code ? Number(form.code) : null,
+    corporate_id: form.corporateId.trim() || null,
+    mobile: form.mobile.replace(/\D/g, "") || null,
     slug: form.slug.trim() || null,
     name: form.name.trim(),
     status: form.status,
@@ -83,6 +87,8 @@ export function filterTenants(params: {
       [
         tenant.name,
         tenant.code,
+        tenant.corporateId,
+        tenant.mobile,
         tenant.slug,
         tenant.dbHost,
         tenant.dbName,
@@ -127,6 +133,10 @@ function getComparableValue(tenant: TenantRecord, key: TenantColumnId) {
       return String(tenant.code).padStart(8, "0")
     case "database":
       return tenant.dbName
+    case "corporateId":
+      return tenant.corporateId
+    case "mobile":
+      return tenant.mobile ?? ""
     case "companies":
       return String(tenant.companyCount).padStart(8, "0")
     case "activeCompanies":

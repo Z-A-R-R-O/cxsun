@@ -85,28 +85,6 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
     )
   `).execute(database)
 
-  await addSalesItemColumnIfMissing(database, 'colour', 'VARCHAR(120) NULL')
-  await addSalesItemColumnIfMissing(database, 'po_no', 'VARCHAR(120) NULL')
-  await addSalesItemColumnIfMissing(database, 'dc_no', 'VARCHAR(120) NULL')
-  await addSalesItemColumnIfMissing(database, 'size', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'customer_gstin', 'VARCHAR(40) NULL')
-  await addSalesEntryColumnIfMissing(database, 'customer_state_code', 'VARCHAR(40) NULL')
-  await addSalesEntryColumnIfMissing(database, 'customer_state_name', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'irn', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'ack_no', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'ack_date', 'DATE NULL')
-  await addSalesEntryColumnIfMissing(database, 'signed_qr', 'TEXT NULL')
-  await addSalesEntryColumnIfMissing(database, 'eway_bill_no', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'eway_bill_date', 'DATE NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_id', 'VARCHAR(80) NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_name', 'VARCHAR(191) NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_gst', 'VARCHAR(40) NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_address', 'TEXT NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_contact_no', 'VARCHAR(80) NULL')
-  await addSalesEntryColumnIfMissing(database, 'transport_contact_person', 'VARCHAR(120) NULL')
-  await addSalesEntryColumnIfMissing(database, 'vehicle_no', 'VARCHAR(80) NULL')
-  await addSalesEntryColumnIfMissing(database, 'eway_part', 'VARCHAR(20) NULL')
-
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS sales_entry_comments (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -132,32 +110,4 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
       INDEX idx_sales_entry_activities_parent (sales_entry_id, id)
     )
   `).execute(database)
-}
-
-async function addSalesEntryColumnIfMissing(database: TenantDatabase, column: string, definition: string) {
-  const existing = await sql<{ COLUMN_NAME: string }>`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'sales_entries'
-      AND COLUMN_NAME = ${column}
-  `.execute(database)
-
-  if (existing.rows.length > 0) return
-
-  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN ${column} ${definition}`).execute(database)
-}
-
-async function addSalesItemColumnIfMissing(database: TenantDatabase, column: string, definition: string) {
-  const existing = await sql<{ COLUMN_NAME: string }>`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'sales_entry_items'
-      AND COLUMN_NAME = ${column}
-  `.execute(database)
-
-  if (existing.rows.length > 0) return
-
-  await sql.raw(`ALTER TABLE sales_entry_items ADD COLUMN ${column} ${definition}`).execute(database)
 }

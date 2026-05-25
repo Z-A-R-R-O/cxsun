@@ -1823,3 +1823,102 @@ ok fine set preflight cli to check database connection and table if no table ask
 ```
 update version and create log in changelog
 ```
+
+## Current Prompt
+
+```
+remove demo db setup and  create new app setup in  /sa/setup with step by step app setting with configration  and wire it to super admin dashboard
+```
+
+## Current Prompt
+
+```
+read assist readme and find for setup is super admin
+
+and fix enable to type database name to enter with underscore as abc_db
+```
+
+## Current Prompt
+
+```
+and also add input for password for admin user
+```
+
+## Current Prompt
+
+```
+> concurrently -k -n server,web "npm -w apps/server run dev" "npm -w apps/frontend run dev"
+
+[server] 
+[server] > @cxsun/server@1.0.27 dev
+[server] > node ../../apps/cli/preflight.mjs server
+[server] 
+[web] 
+[web] > @cxsun/frontend@1.0.27 dev
+[web] > node ../../apps/cli/preflight.mjs frontend
+[web] 
+[server]   ok Master database ready: cxsun_master (13 tables)
+[web] 
+[web]   VITE v8.0.12  ready in 497 ms
+[web] 
+[web]   ->  Local:   http://localhost:6010/
+[web]   ->  Network: http://192.168.1.6:6010/
+[web]   ->  Network: http://172.29.112.1:6010/
+[server] 
+[server] E:\Workspace\cxsun\node_modules\fastify\lib\route.js:370
+[server]             throw new FST_ERR_DUPLICATED_ROUTE(opts.method, opts.url)
+[server]                   ^
+[server] FastifyError: Method 'GET' already declared for route '/api/v1/tenants'
+
+move app setup in to framework as module structure
+```
+
+## Current Prompt
+
+```
+move this setup modules into framwork and finalise that it is in modular standalone setup no dependency of other modules
+```
+
+## Current Prompt
+
+```
+change app name and app slug to tenant name and tenant slug and add tenant code there
+```
+
+## Current Prompt
+
+```
+in database ask for complete database setup may in later database can out of box
+```
+
+## Current Prompt
+
+```
+add another  input for same server or other server as option if same server dont ask for crediantial if other server ask for credential , by default same server make copy of default setting from .env via settings
+```
+
+## Current Prompt
+
+```
+make database server as switch
+```
+
+## Current Prompt
+
+```
+move Database server lable out side of switch and keep switch with same alignment and size
+```
+
+## Current Prompt
+
+```
+react-dom_client.js?v=91f2f55e:14337 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+app-setup-page.tsx?t=1779641141037:262 Uncaught ReferenceError: ServerModeField is not defined
+:6001/api/v1/setup/apps:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+```
+
+## Current Prompt
+
+```
+check for previous Domain localhost if found skip to create domain and do next step
+```

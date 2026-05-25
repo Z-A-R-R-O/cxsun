@@ -11,13 +11,13 @@ const dashboardCopy = {
     title: "Super admin control",
     description: "Work from two clean areas: platform/master database modules and tenant-database modules.",
     metrics: [
-      { label: "Master Modules", value: "5", trend: "Tenant, domain, industry, updates, users", description: "SQLite-backed platform control data", direction: "up" as const },
+      { label: "Master Modules", value: "5", trend: "Tenant, domain, industry, updates, admin users", description: "MariaDB-backed platform control data", direction: "up" as const },
       { label: "Tenant Database", value: "Company", trend: "Tenant-owned data lane", description: "Company records resolve into tenant database context", direction: "up" as const },
-      { label: "Platform Masters", value: "Live", trend: "Client notes and industries available", description: "SQLite-backed orchestration data", direction: "up" as const },
+      { label: "Platform Masters", value: "Live", trend: "Industries and admin users available", description: "MariaDB-backed orchestration data", direction: "up" as const },
       { label: "Security Surface", value: "JWT", trend: "Tenant runtime requires auth", description: "Company APIs use tenant context", direction: "up" as const },
     ],
     cards: [
-      { title: "Platform / Master Database", body: "Manage tenants, domains, industries, system updates, user manager, and platform-side support notes.", Icon: Network },
+      { title: "Platform / Master Database", body: "Manage tenants, domains, industries, system updates, and admin users.", Icon: Network },
       { title: "Tenant Database", body: "Keep tenant-owned modules such as Company in the tenant database lane so ownership is obvious.", Icon: ShieldCheck },
       { title: "Provisioning Control", body: "Startup prepares each configured tenant database before the API accepts traffic.", Icon: Building2 },
     ],
@@ -29,7 +29,6 @@ const dashboardCopy = {
       { label: "Helpdesk", value: "Ready", trend: "Support desk separated", description: "Software operators stay outside tenant data", direction: "up" as const },
       { label: "Bugs", value: "Triage", trend: "Issue flow prepared", description: "Bug handling has its own admin lane", direction: "up" as const },
       { label: "Updates", value: "Live", trend: "System update view available", description: "Admin can monitor runtime update flow", direction: "up" as const },
-      { label: "Client Notes", value: "Open", trend: "Scratch client manager available", description: "Independent support notes stay platform-side", direction: "up" as const },
     ],
     cards: [
       { title: "Helpdesk", body: "Track support questions and operational help without entering isolated tenant company records.", Icon: Headset },
@@ -48,7 +47,7 @@ const dashboardCopy = {
     cards: [
       { title: "Companies", body: "Create and maintain company records inside the selected tenant database.", Icon: Building2 },
       { title: "Tenant Roles", body: "Tenant-local roles and policy assignments live in the tenant database.", Icon: ShieldCheck },
-      { title: "Clean Boundary", body: "Tenant users do not see platform tenant, industry, client manager, or update orchestration pages.", Icon: Network },
+      { title: "Clean Boundary", body: "Tenant users do not see platform tenant, industry, admin-user manager, or update orchestration pages.", Icon: Network },
     ],
   },
 }

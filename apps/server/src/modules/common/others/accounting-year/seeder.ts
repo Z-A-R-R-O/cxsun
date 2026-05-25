@@ -14,6 +14,7 @@ export async function seedAccountingYearCommonTable(database: Kysely<TenantDatab
       .set({
         start_date: row.start_date,
         end_date: row.end_date,
+        books_start: row.books_start,
         is_current_year: row.is_current_year,
       })
       .where('name', '=', row.name)
@@ -29,6 +30,7 @@ function financialYearSeed(startYear: number) {
     name: `FY ${startYear}-${String(startYear + 1).slice(-2)}`,
     start_date: `${startYear}-04-01`,
     end_date: `${startYear + 1}-03-31`,
+    books_start: `${startYear}-04-01`,
     is_current_year: startYear === currentFinancialYear,
   }
 }

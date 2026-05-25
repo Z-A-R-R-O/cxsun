@@ -87,30 +87,6 @@ export async function migratePurchaseEntryTables(database: TenantDatabase) {
     )
   `).execute(database)
 
-  await addPurchaseItemColumnIfMissing(database, 'colour', 'VARCHAR(120) NULL')
-  await addPurchaseItemColumnIfMissing(database, 'po_no', 'VARCHAR(120) NULL')
-  await addPurchaseItemColumnIfMissing(database, 'dc_no', 'VARCHAR(120) NULL')
-  await addPurchaseItemColumnIfMissing(database, 'size', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'supplier_gstin', 'VARCHAR(40) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'supplier_state_code', 'VARCHAR(40) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'supplier_state_name', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'supplier_bill_no', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'supplier_bill_date', 'DATE NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'irn', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'ack_no', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'ack_date', 'DATE NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'signed_qr', 'TEXT NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'eway_bill_no', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'eway_bill_date', 'DATE NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_id', 'VARCHAR(80) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_name', 'VARCHAR(191) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_gst', 'VARCHAR(40) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_address', 'TEXT NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_contact_no', 'VARCHAR(80) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'transport_contact_person', 'VARCHAR(120) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'vehicle_no', 'VARCHAR(80) NULL')
-  await addPurchaseEntryColumnIfMissing(database, 'eway_part', 'VARCHAR(20) NULL')
-
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS purchase_entry_comments (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -136,33 +112,5 @@ export async function migratePurchaseEntryTables(database: TenantDatabase) {
       INDEX idx_purchase_entry_activities_parent (purchase_entry_id, id)
     )
   `).execute(database)
-}
-
-async function addPurchaseEntryColumnIfMissing(database: TenantDatabase, column: string, definition: string) {
-  const existing = await sql<{ COLUMN_NAME: string }>`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'purchase_entries'
-      AND COLUMN_NAME = ${column}
-  `.execute(database)
-
-  if (existing.rows.length > 0) return
-
-  await sql.raw(`ALTER TABLE purchase_entries ADD COLUMN ${column} ${definition}`).execute(database)
-}
-
-async function addPurchaseItemColumnIfMissing(database: TenantDatabase, column: string, definition: string) {
-  const existing = await sql<{ COLUMN_NAME: string }>`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'purchase_entry_items'
-      AND COLUMN_NAME = ${column}
-  `.execute(database)
-
-  if (existing.rows.length > 0) return
-
-  await sql.raw(`ALTER TABLE purchase_entry_items ADD COLUMN ${column} ${definition}`).execute(database)
 }
 

@@ -23,6 +23,7 @@ import { Button } from './components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { TooltipProvider } from './components/ui/tooltip'
 import { APP_NAME } from './lib/branding'
+import { apiBaseUrl } from './lib/api-base-url'
 import { cn } from './lib/utils'
 
 type View =
@@ -79,9 +80,6 @@ interface PlatformFeature {
   Icon: typeof LayoutDashboard
 }
 
-const configuredApiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:6001'
-const apiBaseUrl = configuredApiBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
 const DashboardView = lazy(() =>
   import('src/components/blocks/dashboard/dashboard-view').then((module) => ({
     default: module.DashboardView,
@@ -400,6 +398,57 @@ function App() {
     )
   }
 
+  if (
+    activeView === 'login' ||
+    activeView === 'admin-login' ||
+    activeView === 'super-admin-login' ||
+    activeView === 'forgot-password'
+  ) {
+    return (
+      <TooltipProvider>
+        <div className="grid min-h-screen place-items-center bg-background px-4 py-10 text-foreground">
+          <div className="w-full max-w-[560px]">
+            <Suspense fallback={<GlobalLoader label="Loading account access" />}>
+              {activeView === 'forgot-password' ? (
+                <ForgotPasswordForm onBackToLogin={() => navigate({ page: 'home', view: 'login' })} />
+              ) : (
+                <LoginForm
+                  surface={
+                    activeView === 'super-admin-login'
+                      ? 'super-admin'
+                      : activeView === 'admin-login'
+                        ? 'admin'
+                        : 'tenant'
+                  }
+                  subtitle={
+                    activeView === 'super-admin-login'
+                      ? ''
+                      : activeView === 'admin-login'
+                        ? 'Admin helpdesk access'
+                        : 'Client login'
+                  }
+                  onAuthenticated={() =>
+                    navigate({
+                      page: 'home',
+                      view:
+                        activeView === 'super-admin-login'
+                          ? 'super-admin-dashboard'
+                          : activeView === 'admin-login'
+                            ? 'admin-dashboard'
+                            : 'tenant-dashboard',
+                    })
+                  }
+                  onForgotPassword={() => navigate({ page: 'home', view: 'forgot-password' })}
+                />
+              )}
+            </Suspense>
+          </div>
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    )
+  }
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background text-foreground">
@@ -427,10 +476,7 @@ function App() {
               Dashboard
             </button>
             <button
-              className={cn(
-                'rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground',
-                activeView === 'login' && 'bg-muted text-foreground',
-              )}
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
               onClick={() => navigate({ page: 'home', view: 'login' })}
               type="button"
             >
@@ -483,50 +529,6 @@ function App() {
       </header>
 
       <main>
-        {activeView === 'login' ||
-        activeView === 'admin-login' ||
-        activeView === 'super-admin-login' ||
-        activeView === 'forgot-password' ? (
-          <section className="cx-container grid min-h-[calc(100svh-210px)] place-items-center py-16">
-            <div className="w-full max-w-[560px]">
-              <Suspense fallback={<GlobalLoader label="Loading account access" />}>
-                {activeView === 'forgot-password' ? (
-                  <ForgotPasswordForm onBackToLogin={() => navigate({ page: 'home', view: 'login' })} />
-                ) : (
-                  <LoginForm
-                    surface={
-                      activeView === 'super-admin-login'
-                        ? 'super-admin'
-                        : activeView === 'admin-login'
-                          ? 'admin'
-                          : 'tenant'
-                    }
-                    subtitle={
-                      activeView === 'super-admin-login'
-                        ? 'Super admin orchestration access'
-                        : activeView === 'admin-login'
-                          ? 'Admin helpdesk access'
-                          : 'Tenant workspace access'
-                    }
-                    onAuthenticated={() =>
-                      navigate({
-                        page: 'home',
-                        view:
-                          activeView === 'super-admin-login'
-                            ? 'super-admin-dashboard'
-                            : activeView === 'admin-login'
-                              ? 'admin-dashboard'
-                              : 'tenant-dashboard',
-                      })
-                    }
-                    onForgotPassword={() => navigate({ page: 'home', view: 'forgot-password' })}
-                  />
-                )}
-              </Suspense>
-            </div>
-          </section>
-        ) : (
-          <>
         <section className="cx-container grid gap-8 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-20">
           <div>
             <span className="text-sm font-bold uppercase tracking-wide text-primary">
@@ -647,8 +649,6 @@ function App() {
             ))}
           </div>
         </section>
-          </>
-        )}
       </main>
 
       <footer className="border-t bg-card py-8">

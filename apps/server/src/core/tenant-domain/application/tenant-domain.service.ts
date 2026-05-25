@@ -14,7 +14,7 @@ export class TenantDomainService {
   }
 
   async upsert(input: TenantDomainUpsertInput) {
-    const id = numberOrUndefined(input.id)
+    let id = numberOrUndefined(input.id)
     const tenantId = numberOrUndefined(input.tenant_id ?? input.tenantId)
     const domain = normalizeDomain(input.domain ?? '')
     const label = input.label?.trim() || domain
@@ -28,6 +28,14 @@ export class TenantDomainService {
 
     if (!domain) {
       return { ok: false, error: 'Domain is required.' }
+    }
+
+    const existingDomain = id ? undefined : await this.domains.findByDomain(domain)
+    if (existingDomain && existingDomain.status === 'active' && !existingDomain.deleted_at) {
+      return { ok: false, error: 'Domain is already mapped.' }
+    }
+    if (existingDomain) {
+      id = existingDomain.id
     }
 
     if (await this.domains.hasDomain(domain, id)) {

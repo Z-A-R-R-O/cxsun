@@ -50,6 +50,8 @@ export interface IndustriesTable {
 export interface TenantsTable {
   id: Generated<number>
   code: number
+  corporate_id: string | null
+  mobile: string | null
   slug: string
   name: string
   status: string
@@ -81,38 +83,15 @@ export interface TenantDomainsTable {
   deleted_at: string | null
 }
 
-export interface ClientsTable {
-  id: Generated<number>
-  name: string
-  company_name: string | null
-  category: string | null
-  source: string | null
-  phone: string | null
-  email: string | null
-  location: string | null
-  notes: string
-  status: string
-  created_at: Generated<string>
-  updated_at: Generated<string>
-  deleted_at: string | null
-}
-
-export interface UsersTable {
+export interface AdminUsersTable {
   id: Generated<number>
   name: string
   email: string
   password_hash: string
+  role: string
   status: string
   created_at: Generated<string>
   updated_at: Generated<string>
-}
-
-export interface UserTenantsTable {
-  id: Generated<number>
-  user_id: number
-  tenant_id: number
-  role: string
-  created_at: Generated<string>
 }
 
 export interface RbacPoliciesTable {
@@ -151,9 +130,7 @@ export interface DatabaseSchema {
   industries: IndustriesTable
   tenants: TenantsTable
   tenant_domains: TenantDomainsTable
-  clients: ClientsTable
-  users: UsersTable
-  user_tenants: UserTenantsTable
+  admin_users: AdminUsersTable
   rbac_policies: RbacPoliciesTable
   tenant_rbac_policies: TenantRbacPoliciesTable
   queue_jobs: QueueJobsTable

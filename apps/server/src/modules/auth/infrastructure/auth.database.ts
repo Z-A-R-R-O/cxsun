@@ -1,38 +1,25 @@
 import { sql } from 'kysely'
-import { hashPassword } from '../../../infrastructure/auth/password-hash.js'
+import { hashPassword, verifyPassword } from '../../../infrastructure/auth/password-hash.js'
 import { nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
 const SUPER_ADMIN_EMAIL = 'sundar@sundar.com'
-const PLATFORM_ADMIN_EMAIL = 'admin@sundar.com'
 const SUPER_ADMIN_PASSWORD = 'Kalarani1@@'
-const PLATFORM_ADMIN_PASSWORD = 'Admin@123'
-const DEMO_TENANT_ADMIN_PASSWORD = 'Admin@123'
-const DEMO_USER_PASSWORD = 'User@123'
+const ADMIN_EMAIL = 'admin@admin.com'
+const ADMIN_PASSWORD = 'Admin1@@'
 
 export const authDatabaseModule: PlatformDatabaseModule = {
   name: 'auth-rbac',
   async migrate(database) {
     await sql.raw(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS admin_users (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(191) NOT NULL,
         email VARCHAR(191) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(80) NOT NULL,
         status VARCHAR(32) NOT NULL DEFAULT 'active',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `).execute(database)
-
-    await sql.raw(`
-      CREATE TABLE IF NOT EXISTS user_tenants (
-        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        tenant_id INT NOT NULL,
-        role VARCHAR(80) NOT NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_user_tenants_user_tenant_role (user_id, tenant_id, role),
-        INDEX idx_user_tenants_tenant (tenant_id)
       )
     `).execute(database)
 
@@ -83,39 +70,19 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       }
     }
 
-    const superAdminId = await ensureUser(database, {
-      name: 'Sundar',
+    await ensureAdminUser(database, {
+      name: 'SUNDAR',
       email: SUPER_ADMIN_EMAIL,
       password: SUPER_ADMIN_PASSWORD,
+      role: 'super-admin',
     })
-    await ensureOnlySuperAdminUser(database, superAdminId)
-
-    for (const tenant of allTenants) {
-      await ensureUserTenant(database, superAdminId, tenant.id, 'super-admin')
-    }
-
-    await ensureUserWithTenant(database, {
-      name: 'Software Admin',
-      email: PLATFORM_ADMIN_EMAIL,
-      password: PLATFORM_ADMIN_PASSWORD,
-      tenantSlug: 'demo_app',
+    await ensureAdminUser(database, {
+      name: 'ADMIN',
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
       role: 'software-admin',
     })
-    await ensureUserWithTenant(database, {
-      name: 'Demo Admin',
-      email: 'demo.admin@localhost',
-      password: DEMO_TENANT_ADMIN_PASSWORD,
-      tenantSlug: 'demo_app',
-      role: 'admin',
-    })
-    await ensureUserWithTenant(database, {
-      name: 'Demo User',
-      email: 'demo.user@localhost',
-      password: DEMO_USER_PASSWORD,
-      tenantSlug: 'demo_app',
-      role: 'user',
-    })
-    await retireLegacySeedUsers(database)
+
   },
 }
 
@@ -141,82 +108,48 @@ async function ensureTenantPolicy(database: PlatformDatabase, tenantId: number, 
   await database.insertInto('tenant_rbac_policies').values({ tenant_id: tenantId, policy_code: policyCode, enabled: 1 }).execute()
 }
 
-async function ensureUser(database: PlatformDatabase, data: { name: string; email: string; password: string }) {
-  const existing = await database.selectFrom('users').select('id').where('email', '=', data.email).executeTakeFirst()
+async function ensureAdminUser(database: PlatformDatabase, data: { name: string; email: string; password: string; role: string }) {
+  const existing = await database
+    .selectFrom('admin_users')
+    .select(['id', 'name', 'email', 'password_hash', 'role', 'status'])
+    .where('email', '=', data.email)
+    .executeTakeFirst()
+
+  if (existing) {
+    const passwordMatches = verifyPassword(data.password, existing.password_hash)
+    const nextRow: {
+      name?: string
+      email?: string
+      password_hash?: string
+      role?: string
+      status?: string
+      updated_at?: string
+    } = {}
+
+    if (existing.name !== data.name) nextRow.name = data.name
+    if (existing.email !== data.email) nextRow.email = data.email
+    if (!passwordMatches) nextRow.password_hash = hashPassword(data.password)
+    if (existing.role !== data.role) nextRow.role = data.role
+    if (existing.status !== 'active') nextRow.status = 'active'
+
+    if (Object.keys(nextRow).length > 0) {
+      nextRow.updated_at = nowIso()
+      await database.updateTable('admin_users').set(nextRow).where('id', '=', existing.id).execute()
+    }
+
+    return existing.id
+  }
+
   const row = {
     name: data.name,
     email: data.email,
     password_hash: hashPassword(data.password),
+    role: data.role,
     status: 'active',
     updated_at: nowIso(),
   }
 
-  if (existing) {
-    await database.updateTable('users').set(row).where('id', '=', existing.id).execute()
-    return existing.id
-  }
-
-  await database.insertInto('users').values(row).execute()
-  const created = await database.selectFrom('users').select('id').where('email', '=', data.email).executeTakeFirstOrThrow()
+  await database.insertInto('admin_users').values(row).execute()
+  const created = await database.selectFrom('admin_users').select('id').where('email', '=', data.email).executeTakeFirstOrThrow()
   return created.id
-}
-
-async function ensureUserWithTenant(
-  database: PlatformDatabase,
-  data: { name: string; email: string; password: string; tenantSlug: string; role: string },
-) {
-  const userId = await ensureUser(database, data)
-  const tenant = await database.selectFrom('tenants').select('id').where('slug', '=', data.tenantSlug).executeTakeFirstOrThrow()
-  await ensureUserTenant(database, userId, tenant.id, data.role)
-}
-
-async function ensureUserTenant(database: PlatformDatabase, userId: number, tenantId: number, role: string) {
-  const existing = await database
-    .selectFrom('user_tenants')
-    .select('id')
-    .where('user_id', '=', userId)
-    .where('tenant_id', '=', tenantId)
-    .executeTakeFirst()
-
-  if (existing) {
-    await database.updateTable('user_tenants').set({ role }).where('id', '=', existing.id).execute()
-    return
-  }
-
-  await database.insertInto('user_tenants').values({ user_id: userId, tenant_id: tenantId, role }).execute()
-}
-
-async function ensureOnlySuperAdminUser(database: PlatformDatabase, superAdminId: number) {
-  await database
-    .updateTable('user_tenants')
-    .set({ role: 'admin' })
-    .where('role', '=', 'super-admin')
-    .where('user_id', '!=', superAdminId)
-    .execute()
-}
-
-async function retireLegacySeedUsers(database: PlatformDatabase) {
-  for (const email of [
-    'sundar.admin@sundar.com',
-    'software.admin@sundar.com',
-    'sathish.admin@sundar.com',
-    'sampath.admin@sundar.com',
-    'sathasivam.admin@sundar.com',
-  ]) {
-    const user = await database
-      .selectFrom('users')
-      .select('id')
-      .where('email', '=', email)
-      .executeTakeFirst()
-
-    if (!user) {
-      continue
-    }
-
-    await database
-      .updateTable('users')
-      .set({ status: 'suspend', updated_at: nowIso() })
-      .where('id', '=', user.id)
-      .execute()
-  }
 }

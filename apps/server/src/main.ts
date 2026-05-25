@@ -13,7 +13,7 @@ const provisioning = await provisioner.provisionAll()
 
 for (const result of provisioning) {
   if (result.ok) {
-    console.log(`  ✓ Tenant database ready: ${result.tenant} -> ${result.database}`)
+    console.log(`  ok Tenant database ready: ${result.tenant} -> ${result.database}`)
   } else {
     console.warn(`  ! Tenant database failed: ${result.tenant} -> ${result.error}`)
   }
@@ -25,7 +25,7 @@ try {
   const healthUrl = `http://localhost:${(app as any).port || 6001}/health`
   const res = await fetch(healthUrl)
   const body = await res.json()
-  console.log(`  ✓ Health check: ${JSON.stringify(body)}`)
+  console.log(`  ok Health check: ${JSON.stringify(body)}`)
 } catch (err) {
   console.error(err)
   process.exit(1)

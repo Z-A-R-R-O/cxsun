@@ -1,6 +1,10 @@
+import { apiBaseUrl } from "src/lib/api-base-url"
+
 export interface AuthTenant {
   id: number
   code: number
+  corporate_id: string | null
+  mobile: string | null
   slug: string
   name: string
   status: string
@@ -16,9 +20,7 @@ export interface AuthSession {
 
 export type AuthSurface = "tenant" | "admin" | "super-admin"
 
-const configuredApiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:6001"
-export const apiBaseUrl = configuredApiBaseUrl.replace(/\/api(\/v\d+)?\/?$/, "").replace(/\/$/, "")
+export { apiBaseUrl }
 
 function sessionKey(surface: AuthSurface = "tenant") {
   return `cxsun.auth.${surface}.session`
@@ -27,8 +29,14 @@ function sessionKey(surface: AuthSurface = "tenant") {
 export function getStoredSession(surface: AuthSurface = "tenant"): AuthSession | null {
   try {
     const value = localStorage.getItem(sessionKey(surface))
-    return value ? (JSON.parse(value) as AuthSession) : null
+    const session = value ? (JSON.parse(value) as AuthSession) : null
+    if (!session || !isUsableToken(session.token)) {
+      clearSession(surface)
+      return null
+    }
+    return session
   } catch {
+    clearSession(surface)
     return null
   }
 }
@@ -39,6 +47,29 @@ export function storeSession(session: AuthSession, surface: AuthSurface = "tenan
 
 export function clearSession(surface: AuthSurface = "tenant") {
   localStorage.removeItem(sessionKey(surface))
+}
+
+export function clearAllSessions() {
+  clearSession("tenant")
+  clearSession("admin")
+  clearSession("super-admin")
+}
+
+export function notifyAuthInvalid() {
+  clearAllSessions()
+  window.dispatchEvent(new Event("cxsun:auth-invalid"))
+}
+
+function isUsableToken(token: string) {
+  try {
+    const body = token.split(".")[1] ?? ""
+    const base64 = body.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(body.length / 4) * 4, "=")
+    const payload = JSON.parse(atob(base64)) as { exp?: number; iat?: number }
+    const now = Math.floor(Date.now() / 1000)
+    return Boolean(payload.iat && payload.exp && payload.exp > now)
+  } catch {
+    return false
+  }
 }
 
 export function switchTenant(
@@ -72,11 +103,11 @@ export function roleMatchesSurface(role: string, surface: AuthSurface): boolean 
 }
 
 export async function login(
-  input: { email: string; password: string },
+  input: { corporateId?: string; email: string; password: string },
   surface: AuthSurface = "tenant",
 ) {
   const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, surface }),
     cache: "no-store",
     headers: {
       Accept: "application/json",

@@ -1,29 +1,30 @@
 #!/usr/bin/env node
 
 import { execSync, spawn, spawnSync } from 'child_process'
-import { readFileSync, existsSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, existsSync, statSync, writeFileSync } from 'fs'
 import { createInterface } from 'readline'
 import { resolve } from 'path'
 import { createConnection } from 'mysql2/promise'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const ENV_PATH = resolve(ROOT, '.env')
-const APP = process.argv[2] // 'server' | 'frontend'
+const DEV_STATE_DIR = resolve(ROOT, 'build', 'dev')
+const SERVER_STATE_PATH = resolve(DEV_STATE_DIR, 'server.json')
+const APP = process.argv[2]
 
 if (!APP || !['server', 'frontend'].includes(APP)) {
   console.log('Usage: node preflight.mjs <server|frontend>')
   process.exit(1)
 }
 
-// ── Load .env ────────────────────────────────────────
 function loadDotEnv() {
   if (!existsSync(ENV_PATH)) return {}
   return Object.fromEntries(
     readFileSync(ENV_PATH, 'utf8')
       .split('\n')
-      .map(l => l.match(/^\s*([^#=]+?)\s*=\s*(.*?)\s*$/))
+      .map((line) => line.match(/^\s*([^#=]+?)\s*=\s*(.*?)\s*$/))
       .filter(Boolean)
-      .map(m => [m[1].trim(), parseEnvValue(m[2])]),
+      .map((match) => [match[1].trim(), parseEnvValue(match[2])]),
   )
 }
 
@@ -40,6 +41,35 @@ function setDotEnvValue(key, value) {
   writeFileSync(ENV_PATH, lines.join('\n'))
 }
 
+function writeServerState(port) {
+  mkdirSync(DEV_STATE_DIR, { recursive: true })
+  writeFileSync(SERVER_STATE_PATH, JSON.stringify({
+    port,
+    apiBaseUrl: `http://localhost:${port}`,
+    healthUrl: `http://localhost:${port}/health`,
+    updatedAt: new Date().toISOString(),
+  }, null, 2))
+}
+
+function readServerState(maxAgeMs = 60_000) {
+  if (!existsSync(SERVER_STATE_PATH)) return null
+
+  try {
+    const ageMs = Date.now() - statSync(SERVER_STATE_PATH).mtimeMs
+    if (ageMs > maxAgeMs) return null
+
+    const state = JSON.parse(readFileSync(SERVER_STATE_PATH, 'utf8'))
+    const port = Number(state.port)
+    if (!Number.isInteger(port) || port <= 0) return null
+    return {
+      port,
+      apiBaseUrl: String(state.apiBaseUrl || `http://localhost:${port}`),
+    }
+  } catch {
+    return null
+  }
+}
+
 function parseEnvValue(value) {
   const trimmed = String(value ?? '').trim()
   if (!trimmed) return ''
@@ -52,36 +82,72 @@ function parseEnvValue(value) {
   return trimmed.replace(/\s+#.*$/, '').trim()
 }
 
-// ── Port helpers ─────────────────────────────────────
-function isPortInUse(p) {
+function isPortInUse(port) {
   try {
     const cmd = process.platform === 'win32'
-      ? `netstat -ano | findstr "\\<${p}\\>" | findstr LISTENING`
-      : `lsof -i :${p} 2>/dev/null || ss -tlnp | grep ":${p} "`
+      ? `netstat -ano | findstr "\\<${port}\\>" | findstr LISTENING`
+      : `lsof -i :${port} 2>/dev/null || ss -tlnp | grep ":${port} "`
     execSync(cmd, { stdio: 'pipe' })
     return true
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
-function getPidOnPort(p) {
+function getPidOnPort(port) {
   try {
     if (process.platform !== 'win32') return null
-    const out = execSync(`netstat -ano | findstr "\\<${p}\\>" | findstr LISTENING`, { encoding: 'utf8' })
+    const out = execSync(`netstat -ano | findstr "\\<${port}\\>" | findstr LISTENING`, { encoding: 'utf8' })
     const line = out.split('\n').find(Boolean)
     if (!line) return null
     return Number(line.trim().split(/\s+/).pop())
-  } catch { return null }
+  } catch {
+    return null
+  }
+}
+
+function nextFreePort(port) {
+  let candidate = port
+  while (isPortInUse(candidate)) candidate++
+  return candidate
 }
 
 function ask(query) {
-  return new Promise((resolve) => {
+  return new Promise((resolveAnswer) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout })
-    rl.question(query, (a) => { rl.close(); resolve(a) })
+    rl.question(query, (answer) => {
+      rl.close()
+      resolveAnswer(answer)
+    })
   })
+}
+
+async function waitForServerState(env) {
+  if (APP !== 'frontend' || process.env.VITE_API_BASE_URL) {
+    return
+  }
+
+  for (let attempt = 0; attempt < 240; attempt++) {
+    const state = readServerState()
+    if (state) {
+      env.VITE_API_BASE_URL = state.apiBaseUrl
+      console.log(`  ok Frontend API target: ${state.apiBaseUrl}`)
+      return
+    }
+
+    await new Promise((resolveWait) => setTimeout(resolveWait, 250))
+  }
+
+  env.VITE_API_BASE_URL = `http://localhost:${defaults.server}`
+  console.log(`  ! Frontend API target not announced yet. Using ${env.VITE_API_BASE_URL}`)
 }
 
 function tsxCommand() {
   return resolve(ROOT, 'node_modules', '.bin', process.platform === 'win32' ? 'tsx.cmd' : 'tsx')
+}
+
+function binCommand(name) {
+  return resolve(ROOT, 'node_modules', '.bin', process.platform === 'win32' ? `${name}.cmd` : name)
 }
 
 function databaseConfig(env) {
@@ -143,7 +209,7 @@ async function checkServerDatabase(env) {
     let databaseName = config.database
 
     if (process.stdin.isTTY) {
-      const createAnswer = await ask('     Create/setup master and demo tenant now? (Y/n): ')
+      const createAnswer = await ask('     Create/setup master and tenant now? (Y/n): ')
       const createChoice = createAnswer.trim().toLowerCase() || 'y'
       if (createChoice !== 'y' && createChoice !== 'yes') {
         console.log('  Cancelled database setup.\n')
@@ -165,13 +231,18 @@ async function checkServerDatabase(env) {
     if (databaseName !== config.database) {
       setDotEnvValue('DB_NAME', databaseName)
     }
-    console.log(`  Setting up ${databaseName} with Demo-app tenant, demo_db, and localhost domain...\n`)
 
-    const setup = spawnSync(tsxCommand(), ['src/core/migration-manager/cli.ts', 'setup', '--target=all'], {
+    console.log(`  Setting up ${databaseName} master database...\n`)
+
+    const setupCommand = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : tsxCommand()
+    const setupArgs = process.platform === 'win32'
+      ? ['/d', '/s', '/c', `${tsxCommand()} src/core/migration-manager/cli.ts setup --target=master`]
+      : ['src/core/migration-manager/cli.ts', 'setup', '--target=master']
+    const setup = spawnSync(setupCommand, setupArgs, {
       cwd: resolve(ROOT, 'apps/server'),
       stdio: 'inherit',
       env: { ...process.env, ...env, DB_NAME: databaseName },
-      shell: process.platform === 'win32',
+      shell: false,
     })
 
     if (setup.status !== 0) {
@@ -185,7 +256,6 @@ async function checkServerDatabase(env) {
   }
 }
 
-// ── Main ─────────────────────────────────────────────
 const env = loadDotEnv()
 const defaults = { server: 6001, frontend: 6010 }
 const envKey = APP === 'server' ? 'PORT' : 'VITE_PORT'
@@ -195,57 +265,60 @@ if (APP === 'server') {
   await checkServerDatabase(env)
 }
 
-const launch = (finalPort) => {
-  const cwd = resolve(ROOT, `apps/${APP}`)
-  const cmd = APP === 'server'
-    ? `tsx watch src/main.ts`
-    : `vite --host 0.0.0.0`
-  const child = spawn(cmd, [], {
-    cwd,
-    stdio: 'inherit',
-    shell: true,
-    env: { ...process.env, ...env, [envKey]: String(finalPort) },
-  })
-  child.on('exit', (code) => process.exit(code ?? 0))
-}
-
 if (isPortInUse(port)) {
   const pid = getPidOnPort(port)
-  console.log(`\n  ⚠ Port ${port} is already in use${pid ? ` (PID ${pid})` : ''}`)
+  console.log(`\n  ! Port ${port} is already in use${pid ? ` (PID ${pid})` : ''}`)
 
-  // Auto-kill when non-TTY (pipelines, CI), otherwise prompt
-  const isTTY = process.stdin.isTTY
-  if (!isTTY) {
-    console.log('  Non-interactive — attempting to kill existing process...')
-  }
+  if (process.stdin.isTTY) {
+    const answer = await ask('     (K)ill | (N)ext port | (A)bort [K/n/a]: ')
+    const choice = answer.trim().toLowerCase() || 'k'
 
-  const ans = isTTY ? await ask(`     (K)ill | (N)ext port | (A)bort [K/n/a]: `) : 'k'
-  const c = ans.trim().toLowerCase() || 'k'
-
-  if (c === 'k') {
-    try {
-      if (pid) {
-        execSync(process.platform === 'win32'
-          ? `taskkill /pid ${pid} /f`
-          : `kill -9 ${pid}`, { stdio: 'pipe' })
-        console.log(`  ✓ Killed PID ${pid}\n`)
-      } else {
-        console.log(`  ⚠ Could not detect PID. Use next port instead.\n`)
-        while (isPortInUse(port)) port++
-        console.log(`  ✓ Using port ${port}\n`)
+    if (choice === 'k') {
+      try {
+        if (!pid) throw new Error('PID not found')
+        execSync(process.platform === 'win32' ? `taskkill /pid ${pid} /f` : `kill -9 ${pid}`, { stdio: 'pipe' })
+        console.log(`  ok Killed PID ${pid}\n`)
+      } catch {
+        port = nextFreePort(port)
+        console.log(`  ! Could not kill process. Using port ${port}\n`)
       }
-    } catch {
-      console.log(`  ✗ Failed to kill. Use next port instead.\n`)
-      while (isPortInUse(port)) port++
-      console.log(`  ✓ Using port ${port}\n`)
+    } else if (choice === 'n') {
+      port = nextFreePort(port)
+      console.log(`  ok Using port ${port}\n`)
+    } else {
+      console.log('  Cancelled.\n')
+      process.exit(1)
     }
-  } else if (c === 'n') {
-    while (isPortInUse(port)) port++
-    console.log(`  ✓ Using port ${port}\n`)
   } else {
-    console.log('  Cancelled.\n')
-    process.exit(1)
+    port = nextFreePort(port)
+    console.log(`  Non-interactive startup - using port ${port}\n`)
   }
 }
 
-launch(port)
+if (APP === 'server') {
+  writeServerState(port)
+} else {
+  await waitForServerState(env)
+}
+
+const cwd = resolve(ROOT, `apps/${APP}`)
+const command = process.platform === 'win32'
+  ? process.env.ComSpec || 'cmd.exe'
+  : APP === 'server'
+    ? tsxCommand()
+    : binCommand('vite')
+const args = process.platform === 'win32'
+  ? ['/d', '/s', '/c', APP === 'server'
+    ? `${tsxCommand()} watch src/main.ts`
+    : `${binCommand('vite')} --host 0.0.0.0`]
+  : APP === 'server'
+    ? ['watch', 'src/main.ts']
+    : ['--host', '0.0.0.0']
+const child = spawn(command, args, {
+  cwd,
+  stdio: 'inherit',
+  shell: false,
+  env: { ...process.env, ...env, [envKey]: String(port) },
+})
+
+child.on('exit', (code) => process.exit(code ?? 0))

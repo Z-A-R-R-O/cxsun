@@ -8,10 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card
 import { Progress } from "src/components/ui/progress"
 import { cn } from "src/lib/utils"
 import { authHeaders, type AuthSession } from "src/features/auth/auth-client"
-
-const configuredApiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:6001"
-const apiBaseUrl = configuredApiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")
+import { apiBaseUrl } from "src/lib/api-base-url"
 
 interface SystemUpdateStep {
   name: string

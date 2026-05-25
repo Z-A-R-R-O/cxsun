@@ -3,12 +3,10 @@
 import * as React from "react"
 import {
   Bug,
-  Building2,
   BriefcaseBusiness,
   Factory,
   Globe2,
   Headset,
-  NotebookPen,
   RefreshCw,
   UserRoundCog,
   Users,
@@ -45,12 +43,12 @@ interface SidebarNavItem {
 export type DashboardMode = "super-admin" | "admin" | "tenant"
 export type DashboardPage =
   | "overview"
+  | "setup"
   | "app-dashboard"
   | "tenant"
   | "tenant-domain"
   | "industry"
   | "company"
-  | "client"
   | "system-update"
   | "user-manager"
   | "helpdesk"
@@ -62,23 +60,21 @@ const superAdminNav = [
   {
     title: "Admin",
     url: "#",
-    icon: Building2,
+    icon: BriefcaseBusiness,
     defaultOpen: true,
     items: [
       { title: "Tenant", url: "#", icon: Users },
       { title: "Domain", url: "#", icon: Globe2 },
       { title: "Industry", url: "#", icon: Factory },
-      { title: "Client Manager", url: "#", icon: NotebookPen },
-      { title: "System Update", url: "#", icon: RefreshCw },
-      { title: "User Manager", url: "#", icon: UserRoundCog },
+      { title: "Admin User Manager", url: "#", icon: UserRoundCog },
     ],
   },
   {
-    title: "Tenant",
+    title: "Setting",
     url: "#",
-    icon: BriefcaseBusiness,
+    icon: RefreshCw,
     items: [
-      { title: "Company", url: "#", icon: Building2 },
+      { title: "System Update", url: "#", icon: RefreshCw },
     ],
   },
 ] as const
@@ -91,9 +87,7 @@ const adminNav = [
     defaultOpen: true,
     items: [
       { title: "Helpdesk", url: "#", icon: Headset },
-      { title: "Company", url: "#", icon: Building2 },
       { title: "Bugs", url: "#", icon: Bug },
-      { title: "Client Manager", url: "#", icon: NotebookPen },
       { title: "System Update", url: "#", icon: RefreshCw },
     ],
   },
@@ -106,17 +100,16 @@ function dashboardPageUrl(basePath: string, page: DashboardPage) {
 function pageFromTitle(title: string): DashboardPage | undefined {
   const pages: Record<string, DashboardPage> = {
     Bugs: "bugs",
-    Company: "company",
-    "Client Manager": "client",
     "Default Company": "app-application-default-company",
     Domain: "tenant-domain",
     Helpdesk: "helpdesk",
     Industry: "industry",
     Overview: "overview",
     Roles: "tenant-roles",
+    Setup: "setup",
     "System Update": "system-update",
     Tenant: "tenant",
-    "User Manager": "user-manager",
+    "Admin User Manager": "user-manager",
   }
 
   return pages[title]

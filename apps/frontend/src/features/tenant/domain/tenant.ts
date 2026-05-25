@@ -2,11 +2,13 @@ import type { CommonListColumnOption, CommonListFilterOption } from "src/compone
 
 export type TenantStatus = "active" | "not_active" | "suspend"
 export type TenantStatusFilter = "all" | TenantStatus
-export type TenantColumnId = "name" | "code" | "slug" | "database" | "companies" | "activeCompanies" | "concepts" | "updated" | "status"
+export type TenantColumnId = "name" | "code" | "corporateId" | "mobile" | "slug" | "database" | "companies" | "activeCompanies" | "concepts" | "updated" | "status"
 
 export interface TenantRecord {
   id: number
   code: number
+  corporateId: string
+  mobile: string | null
   slug: string
   name: string
   status: TenantStatus
@@ -28,6 +30,8 @@ export interface TenantRecord {
 export interface TenantUpsertInput {
   id?: number
   code?: number | null
+  corporate_id?: string | null
+  mobile?: string | null
   slug?: string | null
   name: string
   status: TenantStatus
@@ -43,6 +47,8 @@ export interface TenantUpsertInput {
 export interface TenantFormState {
   id?: number
   code: string
+  corporateId: string
+  mobile: string
   slug: string
   name: string
   status: TenantStatus
@@ -65,6 +71,8 @@ export const tenantStatusFilters: readonly CommonListFilterOption[] = [
 export const tenantColumnCatalog = [
   { id: "name", label: "Tenant" },
   { id: "code", label: "Code" },
+  { id: "corporateId", label: "Corporate ID" },
+  { id: "mobile", label: "Mobile" },
   { id: "slug", label: "Slug" },
   { id: "database", label: "Database" },
   { id: "companies", label: "Companies" },
@@ -80,6 +88,8 @@ export const tenantColumnCatalog = [
 export const defaultTenantColumnVisibility: Record<TenantColumnId, boolean> = {
   name: true,
   code: true,
+  corporateId: true,
+  mobile: true,
   slug: true,
   database: true,
   companies: true,
@@ -91,6 +101,8 @@ export const defaultTenantColumnVisibility: Record<TenantColumnId, boolean> = {
 
 export const emptyTenantForm: TenantFormState = {
   code: "",
+  corporateId: "",
+  mobile: "",
   slug: "",
   name: "",
   status: "active",

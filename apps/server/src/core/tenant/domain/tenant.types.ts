@@ -3,6 +3,8 @@ export type TenantStatus = 'active' | 'not_active' | 'suspend'
 export interface Tenant {
   id: number
   code: number
+  corporate_id: string | null
+  mobile: string | null
   slug: string
   name: string
   status: TenantStatus
@@ -24,6 +26,8 @@ export interface Tenant {
 export interface TenantUpsertInput {
   id?: number
   code?: number | null
+  corporate_id?: string | null
+  mobile?: string | null
   slug?: string | null
   name: string
   status: TenantStatus
@@ -38,6 +42,8 @@ export interface TenantUpsertInput {
 
 export interface TenantUpsertData {
   code: number
+  corporate_id: string
+  mobile: string | null
   slug: string
   name: string
   status: TenantStatus

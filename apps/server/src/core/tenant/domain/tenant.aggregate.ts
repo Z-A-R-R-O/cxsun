@@ -6,6 +6,8 @@ export class TenantAggregate {
     const code = input.id ? Number(input.code) : nextCode
     const name = input.name?.trim()
     const slug = normalizeTenantSlug(input.slug || name || `tenant-${code}`)
+    const corporateId = normalizeCorporateId(input.corporate_id || slug || `tenant-${code}`)
+    const mobile = normalizeMobile(input.mobile || '')
     const status = input.status
     const dbName = normalizeTenantDatabaseName(input.db_name || slug)
     const dbHost = input.db_host?.trim() || dbConfig.tenant.defaults.host
@@ -28,6 +30,10 @@ export class TenantAggregate {
 
     if (!slug) {
       throw new TenantValidationError('Tenant slug is required.')
+    }
+
+    if (!corporateId) {
+      throw new TenantValidationError('Corporate ID is required.')
     }
 
     if (!isJsonObject(payloadSettings)) {
@@ -56,6 +62,8 @@ export class TenantAggregate {
 
     return {
       code,
+      corporate_id: corporateId,
+      mobile,
       slug,
       name,
       status,
@@ -82,6 +90,15 @@ function normalizeTenantSlug(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '')
+}
+
+function normalizeCorporateId(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+function normalizeMobile(value: string) {
+  const normalized = value.replace(/\D/g, '')
+  return normalized || null
 }
 
 function normalizeTenantDatabaseName(value: string) {

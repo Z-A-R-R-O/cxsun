@@ -1,12 +1,15 @@
 export interface LoginInput {
   email?: string
   password?: string
-  tenantCode?: string
+  corporateId?: string
+  surface?: 'tenant' | 'admin' | 'super-admin'
 }
 
 export interface AuthTenantAccess {
   id: number
   code: number
+  corporate_id: string | null
+  mobile: string | null
   slug: string
   name: string
   status: string
@@ -38,6 +41,25 @@ export interface TenantUserRecord {
   created_at: string
   updated_at: string
   access_created_at: string
+}
+
+export interface AdminUserRecord {
+  id: number
+  name: string
+  email: string
+  role: string
+  status: PlatformUserStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminUserUpsertInput {
+  id?: number
+  name?: string
+  email?: string
+  password?: string
+  role?: string
+  status?: PlatformUserStatus
 }
 
 export interface PlatformUserUpsertInput {

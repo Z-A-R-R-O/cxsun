@@ -147,11 +147,6 @@ export async function migrateStockLedgerTables(database: TenantDatabase) {
   `).execute(database)
 
   await sql.raw(`
-    ALTER TABLE stock_serializations
-    ADD COLUMN IF NOT EXISTS stock_ledger_entry_id INT NULL AFTER uuid
-  `).execute(database)
-
-  await sql.raw(`
     CREATE INDEX IF NOT EXISTS idx_stock_serializations_entry ON stock_serializations (tenant_id, stock_ledger_entry_id)
   `).execute(database)
 

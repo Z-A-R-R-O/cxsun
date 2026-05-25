@@ -69,13 +69,16 @@ export class MigrationManagerService {
     if (command.target === 'master' || command.target === 'all') {
       await dropPlatformDatabase()
       results.push({ step: 'master.drop', ok: true, message: 'Master MariaDB database recreated.' })
+      await migratePlatformDatabase()
+      results.push({ step: 'master.migrate', ok: true, message: 'Platform migrations completed.' })
+      await seedPlatformDatabase()
+      results.push({ step: 'master.seed', ok: true, message: 'Platform seeds completed.' })
     }
 
     if (command.target === 'tenant' || command.target === 'all') {
       await this.dropTenant(command, results)
+      await this.provisionTenant(command, results)
     }
-
-    await this.setup(command, results)
   }
 
   private async setup(command: MigrationCommand, results: MigrationStepResult[]) {

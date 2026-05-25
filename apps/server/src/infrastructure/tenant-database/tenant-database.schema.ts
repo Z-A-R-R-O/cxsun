@@ -233,6 +233,27 @@ export interface TenantRbacRolePoliciesTable {
   created_at: Generated<Date>
 }
 
+export interface TenantUsersTable {
+  id: Generated<number>
+  uuid: string
+  name: string
+  email: string
+  password_hash: string
+  status: string
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
+export interface TenantUserTenantsTable {
+  id: Generated<number>
+  uuid: string
+  user_id: number
+  role: string
+  status: string
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
 export interface TenantCommonCountriesTable {
   id: Generated<number>
   uuid: string
@@ -788,6 +809,8 @@ export interface TenantDatabaseSchema {
   rbac_roles: TenantRbacRolesTable
   rbac_policies: TenantRbacPoliciesTable
   rbac_role_policies: TenantRbacRolePoliciesTable
+  users: TenantUsersTable
+  user_tenants: TenantUserTenantsTable
   common_countries: TenantCommonCountriesTable
   common_states: TenantCommonStatesTable
   common_districts: TenantCommonDistrictsTable

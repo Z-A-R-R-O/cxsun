@@ -38,6 +38,14 @@ export class UpsertTenantUseCase {
           return { ok: false, error: 'Tenant slug is already used.' }
         }
 
+        if (await this.tenants.hasCorporateId(payload.corporate_id, input.id)) {
+          return { ok: false, error: 'Corporate ID is already used.' }
+        }
+
+        if (await this.tenants.hasMobile(payload.mobile, input.id)) {
+          return { ok: false, error: 'Mobile number is already used.' }
+        }
+
         const tenant = await this.tenants.update(input.id, payload)
         this.events.publish(tenantUpdated(tenant.id, tenant.code))
 
@@ -50,6 +58,14 @@ export class UpsertTenantUseCase {
 
       if (await this.tenants.hasSlug(payload.slug)) {
         return { ok: false, error: 'Tenant slug is already used.' }
+      }
+
+      if (await this.tenants.hasCorporateId(payload.corporate_id)) {
+        return { ok: false, error: 'Corporate ID is already used.' }
+      }
+
+      if (await this.tenants.hasMobile(payload.mobile)) {
+        return { ok: false, error: 'Mobile number is already used.' }
       }
 
       const tenant = await this.tenants.insert(payload)

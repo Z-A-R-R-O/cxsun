@@ -6,7 +6,9 @@ export interface AuthTokenPayload {
   email: string
   role: string
   tenantCode: string
+  identitySource?: 'tenant' | 'platform'
   superAdmin?: boolean
+  iat?: number
   exp?: number
 }
 
@@ -19,9 +21,11 @@ function getJwtSecret(): string {
 
 export function signJwt(payload: AuthTokenPayload, expiresInSeconds = 24 * 60 * 60) {
   const header = { alg: 'HS256', typ: 'JWT' }
+  const issuedAt = Math.floor(Date.now() / 1000)
   const body = {
     ...payload,
-    exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+    iat: issuedAt,
+    exp: issuedAt + expiresInSeconds,
   }
 
   const unsigned = `${base64UrlJson(header)}.${base64UrlJson(body)}`

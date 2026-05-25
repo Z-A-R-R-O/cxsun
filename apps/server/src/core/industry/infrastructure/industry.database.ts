@@ -1,5 +1,5 @@
 import { sql } from 'kysely'
-import { addMasterColumnIfMissing, nowIso, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
+import { nowIso, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
 export const industryDatabaseModule: PlatformDatabaseModule = {
   name: 'industry',
@@ -18,9 +18,6 @@ export const industryDatabaseModule: PlatformDatabaseModule = {
         deleted_at DATETIME NULL
       )
     `).execute(database)
-
-    await addMasterColumnIfMissing(database, 'industries', 'status', "VARCHAR(32) NOT NULL DEFAULT 'active'")
-    await addMasterColumnIfMissing(database, 'industries', 'deleted_at', 'DATETIME NULL')
   },
   async seed(database) {
     for (const industry of [

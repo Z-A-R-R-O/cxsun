@@ -1,9 +1,11 @@
-import { authHeaders, type AuthSession } from "src/features/auth/auth-client"
+import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { TenantRecord, TenantUpsertInput } from "../domain/tenant"
 
 interface TenantApiRecord {
   id: number
   code: number
+  corporate_id: string | null
+  mobile: string | null
   slug: string
   name: string
   status: "active" | "not_active" | "suspend"
@@ -28,9 +30,6 @@ interface TenantUpsertResult {
   error?: string
 }
 
-const configuredApiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:6001"
-const apiBaseUrl = configuredApiBaseUrl.replace(/\/api(\/v\d+)?\/?$/, "").replace(/\/$/, "")
 const tenantApiPath = "/api/v1/tenants"
 
 export async function listTenants(session: AuthSession, options?: { signal?: AbortSignal }) {
@@ -120,6 +119,8 @@ function toTenantRecord(record: TenantApiRecord): TenantRecord {
   return {
     id: record.id,
     code: record.code,
+    corporateId: record.corporate_id ?? "",
+    mobile: record.mobile,
     slug: record.slug,
     name: record.name,
     status: record.status,

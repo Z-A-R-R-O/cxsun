@@ -15,7 +15,7 @@ Read `assist/context/product-picture.md` alongside this file for the product-lev
 | 2026-05-15 | Use platform SQLite plus tenant MariaDB databases. | Historical decision; replaced on 2026-05-24 when master/platform persistence moved to MariaDB. |
 | 2026-05-24 | Use MariaDB for both master/platform persistence and tenant-isolated databases. | Platform metadata now uses the same deployable database engine as tenants, avoiding SQLite concurrency and deployment limits while preserving tenant database isolation. |
 | 2026-05-15 | Split dashboards into super-admin, admin, and tenant modes. | Platform orchestration, software support operations, and tenant-isolated company/RBAC work have different responsibilities and should not share one mixed dashboard. |
-| 2026-05-16 | Keep framework/platform modules in `core`, reusable record engines in `modules/foundation`, and business modules in bounded module groups. | The backend now separates core runtime, shared helpers, foundation primitives, CRM, master, common, and entries so modules can be reused, dropped, or enhanced independently. |
+| 2026-05-16 | Keep framework/platform modules in `core`, reusable record engines in `modules/foundation`, and business modules in bounded module groups. | The backend now separates core runtime, shared helpers, foundation primitives, master, common, and entries so modules can be reused, dropped, or enhanced independently. |
 | 2026-05-16 | Use `id INT AUTO_INCREMENT PRIMARY KEY` plus `uuid CHAR(8) NOT NULL UNIQUE` on application tables. | Numeric IDs stay fast and stable for internal joins, while short uppercase alphanumeric public UUIDs hide sequence IDs from APIs and UI. Move public UUIDs to 16 characters later when scale requires it. |
 | 2026-05-22 | Route user-facing frontend modules to feature-owned standalone pages. | Product, contact, company, sales, and future modules should keep custom UI behavior inside their own feature pages instead of expanding generic master-data/common-data pages with module-specific branches. |
 
@@ -51,7 +51,6 @@ Run targeted checks during development, or `npm run check` before finalizing mea
 - Put backend framework code and platform/core modules under `apps/server/src/core`.
 - Put backend cross-cutting shared helpers under `apps/server/src/shared`.
 - Put reusable generic module engines under `apps/server/src/modules/foundation`.
-- Put CRM modules under `apps/server/src/modules/crm`.
 - Put standalone master modules under `apps/server/src/modules/master`.
 - Put business common modules under `apps/server/src/modules/common/<group>/<module>`.
 - Put tenant entries under `apps/server/src/modules/entries`.
@@ -117,7 +116,6 @@ apps/server/src/
   modules/
     auth/
     common/<group>/<module>/
-    crm/client/
     entries/sales/
     foundation/master-data/
     foundation/master-record/
@@ -137,14 +135,13 @@ Boundary rules:
 - `foundation/master-data` is the compatibility registry/API around common module definitions. It must not become the owner of standalone master modules.
 - `common/<group>/<module>` modules own common tenant tables and endpoints under `/api/v1/common/<moduleKey>`.
 - `master/<module>` modules own standalone master domains such as company, contact, product, and order.
-- `crm/client` owns the platform Client Manager surface and platform `clients` table.
 - `entries/sales` owns tenant sales entry records, comments, tools, activity, and queue events.
 - Keep public HTTP routes stable when moving internal folders unless the user explicitly asks to change the API.
 
 ## Dashboard Mode Notes
 
-- `super-admin`: split into two clear navigation areas. Platform / Master Database contains tenant, domain, industry, client manager, system update, and user manager. Tenant Database contains tenant-owned modules such as company.
-- `admin`: software operations; helpdesk, bug triage, client notes, and system update.
+- `super-admin`: split into two clear navigation areas. Platform / Master Database contains tenant, domain, industry, system update, and admin user manager. Tenant Database contains tenant-owned modules such as company.
+- `admin`: software operations; helpdesk, bug triage, and system update.
 - `tenant`: isolated client workspace; tenant database companies and tenant-local roles.
 
 The frontend enforces this with dashboard mode route guards in `DashboardView` and separate sidebar menus in `AppSidebar`.

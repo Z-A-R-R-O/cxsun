@@ -72,10 +72,10 @@ export class CxApp {
 
   async start(): Promise<void> {
     await this.app.listen({ port: this.port, host: this.host })
-    console.log(`\n  ✓ Server running at http://localhost:${this.port}`)
+    console.log(`\n  ok Server running at http://localhost:${this.port}`)
   }
 
-  // ── Module bootstrap ──────────────────────────────────
+  // Module bootstrap
 
   private async bootstrapModule(moduleClass: ClassProvider): Promise<void> {
     const metadata: ModuleMetadata =
@@ -100,7 +100,7 @@ export class CxApp {
     }
   }
 
-  // ── Controller registration ──────────────────────────
+  // Controller registration
 
   private registerController(controllerClass: ClassProvider): void {
     const prefix: string =
@@ -167,7 +167,7 @@ export class CxApp {
     }
   }
 
-  // ── Parameter resolution ────────────────────────────
+  // Parameter resolution
 
   private resolveHandlerParams(
     prototype: any,
@@ -216,7 +216,7 @@ export class CxApp {
     return args
   }
 
-  // ── Shutdown ─────────────────────────────────────────
+  // Shutdown
 
   private registerShutdown(): void {
     let isShuttingDown = false
@@ -225,21 +225,21 @@ export class CxApp {
       if (isShuttingDown) return
       isShuttingDown = true
 
-      console.log(`\n  ╰ Received ${signal}, shutting down gracefully...`)
+      console.log(`\n  Received ${signal}, shutting down gracefully...`)
 
       const timeout = setTimeout(() => {
-        console.error('  ✗ Forced exit after timeout')
+        console.error('  x Forced exit after timeout')
         process.exit(1)
       }, this.gracePeriodMs)
 
       try {
         await this.app.close()
         clearTimeout(timeout)
-        console.log('  ✓ Server closed')
+        console.log('  ok Server closed')
         process.exit(0)
       } catch (err) {
         clearTimeout(timeout)
-        console.error('  ✗ Error during shutdown:', err)
+        console.error('  x Error during shutdown:', err)
         process.exit(1)
       }
     }

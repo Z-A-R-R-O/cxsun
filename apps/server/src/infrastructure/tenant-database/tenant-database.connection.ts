@@ -109,7 +109,6 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .addColumn('deleted_at', 'datetime')
     .execute()
 
-  await ensureCompanyColumns(database)
   await createCompanyChildTables(database)
   await createContactCommunicationTables(database)
   await migrateCommonModuleTables(database)
@@ -161,8 +160,9 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
     .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
     .execute()
 
+  await createTenantUsersTable(database)
+
   await seedTenantDatabase(database, tenant)
-  await ensureTenantUuidColumns(database)
   await syncTenantCompanyMetrics(tenant)
 }
 
@@ -267,41 +267,98 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
   for (const roleCode of ['admin']) {
     await ensureRolePolicy(database, roleCode, 'rbac.manage')
   }
+
 }
 
-async function ensureCompanyColumns(database: TenantDatabase) {
-  await addColumnIfMissing(database, 'companies', 'uuid', 'CHAR(8) NULL AFTER id')
-  await addColumnIfMissing(database, 'companies', 'tenant_id', 'INT NOT NULL DEFAULT 0')
-  await addColumnIfMissing(database, 'companies', 'industry_id', 'INT NOT NULL DEFAULT 0')
-  await addColumnIfMissing(database, 'companies', 'code', 'VARCHAR(64) NULL')
-  await addColumnIfMissing(database, 'companies', 'legal_name', 'VARCHAR(220) NULL')
-  await addColumnIfMissing(database, 'companies', 'tagline', 'VARCHAR(220) NULL')
-  await addColumnIfMissing(database, 'companies', 'short_about', 'VARCHAR(500) NULL')
-  await addColumnIfMissing(database, 'companies', 'gstin_uin', 'VARCHAR(30) NULL')
-  await addColumnIfMissing(database, 'companies', 'pan', 'VARCHAR(30) NULL')
-  await addColumnIfMissing(database, 'companies', 'date_of_incorporation', 'DATE NULL')
-  await addColumnIfMissing(database, 'companies', 'msme_no', 'VARCHAR(80) NULL')
-  await addColumnIfMissing(database, 'companies', 'msme_category', 'VARCHAR(80) NULL')
-  await addColumnIfMissing(database, 'companies', 'tan', 'VARCHAR(30) NULL')
-  await addColumnIfMissing(database, 'companies', 'tds_available', 'TINYINT(1) NOT NULL DEFAULT 0')
-  await addColumnIfMissing(database, 'companies', 'tds_section', 'VARCHAR(80) NULL')
-  await addColumnIfMissing(database, 'companies', 'tds_rate_percent', 'DOUBLE NULL')
-  await addColumnIfMissing(database, 'companies', 'tcs_available', 'TINYINT(1) NOT NULL DEFAULT 0')
-  await addColumnIfMissing(database, 'companies', 'tcs_section', 'VARCHAR(80) NULL')
-  await addColumnIfMissing(database, 'companies', 'tcs_rate_percent', 'DOUBLE NULL')
-  await addColumnIfMissing(database, 'companies', 'website', 'VARCHAR(240) NULL')
-  await addColumnIfMissing(database, 'companies', 'description', 'TEXT NULL')
-  await addColumnIfMissing(database, 'companies', 'primary_email', 'VARCHAR(180) NULL')
-  await addColumnIfMissing(database, 'companies', 'primary_phone', 'VARCHAR(80) NULL')
-  await addColumnIfMissing(database, 'companies', 'is_primary', 'TINYINT(1) NOT NULL DEFAULT 0')
-  await addColumnIfMissing(database, 'companies', 'is_active', 'TINYINT(1) NOT NULL DEFAULT 1')
-  await addColumnIfMissing(database, 'companies', 'status', "VARCHAR(32) NOT NULL DEFAULT 'active'")
-  await addColumnIfMissing(database, 'companies', 'settings', 'JSON NULL')
-  await addColumnIfMissing(database, 'companies', 'features', 'JSON NULL')
-  await sql`ALTER TABLE companies MODIFY deleted_at DATETIME NULL`.execute(database)
-  await sql`UPDATE companies SET code = CONCAT('COMP_', id) WHERE code IS NULL OR code = ''`.execute(database)
-  await sql`UPDATE companies SET tenant_id = ${0} WHERE tenant_id IS NULL`.execute(database)
-  await sql`UPDATE companies SET industry_id = ${0} WHERE industry_id IS NULL`.execute(database)
+async function createTenantUsersTable(database: TenantDatabase) {
+  await database.schema
+    .createTable('users')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
+    .addColumn('name', 'varchar(191)', (col) => col.notNull())
+    .addColumn('email', 'varchar(191)', (col) => col.notNull().unique())
+    .addColumn('password_hash', 'varchar(255)', (col) => col.notNull())
+    .addColumn('status', 'varchar(32)', (col) => col.notNull().defaultTo('active'))
+    .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .addColumn('updated_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .execute()
+
+  await database.schema
+    .createTable('user_tenants')
+    .ifNotExists()
+    .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+    .addColumn('uuid', 'char(8)')
+    .addColumn('user_id', 'integer', (col) => col.notNull())
+    .addColumn('role', 'varchar(80)', (col) => col.notNull())
+    .addColumn('status', 'varchar(32)', (col) => col.notNull().defaultTo('active'))
+    .addColumn('created_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .addColumn('updated_at', 'datetime', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+    .execute()
+
+}
+
+export async function ensureTenantUser(
+  database: TenantDatabase,
+  user: { name: string; email: string; passwordHash: string; role: string; status?: string },
+) {
+  const existing = await database
+    .selectFrom('users')
+    .select('id')
+    .where('email', '=', user.email)
+    .executeTakeFirst()
+
+  const row = {
+    name: user.name,
+    email: user.email,
+    password_hash: user.passwordHash,
+    status: user.status ?? 'active',
+    updated_at: new Date(),
+  }
+
+  let userId = existing?.id
+  if (existing) {
+    await database.updateTable('users').set(row).where('id', '=', existing.id).execute()
+  } else {
+    await database
+      .insertInto('users')
+      .values({
+        ...row,
+        uuid: nextPublicUuid(),
+      })
+      .execute()
+    userId = (await database.selectFrom('users').select('id').where('email', '=', user.email).executeTakeFirstOrThrow()).id
+  }
+
+  if (!userId) {
+    throw new Error(`Tenant user was not persisted: ${user.email}`)
+  }
+
+  await ensureTenantUserAccess(database, userId, user.role, user.status ?? 'active')
+  return userId
+}
+
+async function ensureTenantUserAccess(database: TenantDatabase, userId: number, role: string, status: string) {
+  const existing = await database
+    .selectFrom('user_tenants')
+    .select('id')
+    .where('user_id', '=', userId)
+    .where('role', '=', role)
+    .executeTakeFirst()
+
+  const row = {
+    user_id: userId,
+    role,
+    status,
+    updated_at: new Date(),
+  }
+
+  if (existing) {
+    await database.updateTable('user_tenants').set(row).where('id', '=', existing.id).execute()
+    return
+  }
+
+  await database.insertInto('user_tenants').values({ ...row, uuid: nextPublicUuid() }).execute()
 }
 
 async function createCompanyChildTables(database: TenantDatabase) {
@@ -491,22 +548,6 @@ async function createContactCommunicationTables(database: TenantDatabase) {
   `).execute(database)
 }
 
-async function addColumnIfMissing(database: TenantDatabase, table: string, column: string, definition: string) {
-  const existing = await sql<{ COLUMN_NAME: string }>`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = ${table}
-      AND COLUMN_NAME = ${column}
-  `.execute(database)
-
-  if (existing.rows.length > 0) {
-    return
-  }
-
-  await sql.raw(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`).execute(database)
-}
-
 async function seedAccountingYears(database: TenantDatabase) {
   const existingYears = await database
     .selectFrom('accounting_years')
@@ -675,135 +716,6 @@ async function ensureRolePolicy(database: TenantDatabase, roleCode: string, poli
     .insertInto('rbac_role_policies')
     .values({ uuid: nextPublicUuid(), role_code: roleCode, policy_code: policyCode })
     .execute()
-}
-
-const tenantUuidTables = [
-  'companies',
-  'accounting_years',
-  'default_companies',
-  'company_logos',
-  'address_book',
-  'company_emails',
-  'company_phones',
-  'contact_emails',
-  'contact_phones',
-  'contact_social_links',
-  'contact_bank_accounts',
-  'contact_gst_details',
-  'company_social_links',
-  'company_bank_accounts',
-  'rbac_roles',
-  'rbac_policies',
-  'rbac_role_policies',
-  'common_countries',
-  'common_states',
-  'common_districts',
-  'common_cities',
-  'common_pincodes',
-  'common_contact_groups',
-  'common_contact_types',
-  'common_address_types',
-  'common_bank_names',
-  'common_product_groups',
-  'common_product_categories',
-  'common_product_types',
-  'common_units',
-  'common_hsn_codes',
-  'common_taxes',
-  'common_brands',
-  'common_colours',
-  'common_sizes',
-  'common_currencies',
-  'common_order_types',
-  'common_styles',
-  'common_transports',
-  'common_warehouses',
-  'common_destinations',
-  'common_payment_terms',
-  'common_months',
-  'common_stock_rejection_types',
-  'sales_entries',
-  'sales_entry_items',
-  'sales_entry_comments',
-  'sales_entry_activities',
-  'purchase_entries',
-  'purchase_entry_items',
-  'purchase_entry_comments',
-  'purchase_entry_activities',
-  'stock_purchase_receipts',
-  'stock_purchase_receipt_items',
-  'stock_purchase_receipt_comments',
-  'stock_purchase_receipt_activities',
-  'stock_delivery_notes',
-  'stock_delivery_note_items',
-  'stock_delivery_note_comments',
-  'stock_delivery_note_activities',
-  'receipt_entries',
-  'receipt_entry_comments',
-  'receipt_entry_activities',
-  'payment_entries',
-  'payment_entry_comments',
-  'payment_entry_activities',
-  'company_settings',
-  'document_number_settings',
-  'media_assets',
-  'media_asset_links',
-  'media_asset_activities',
-  'masters_contacts',
-  'masters_products',
-  'masters_orders',
-] as const
-
-async function ensureTenantUuidColumns(database: TenantDatabase) {
-  for (const table of tenantUuidTables) {
-    const exists = await sql<{ TABLE_NAME: string }>`
-      SELECT TABLE_NAME
-      FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ${table}
-    `.execute(database)
-
-    if (!exists.rows.length) continue
-
-    await addColumnIfMissing(database, table, 'uuid', 'CHAR(8) NULL AFTER id')
-    await backfillUuidValues(database, table)
-
-    try {
-      await sql.raw(`ALTER TABLE \`${table}\` MODIFY \`uuid\` CHAR(8) NOT NULL`).execute(database)
-      await sql.raw(`ALTER TABLE \`${table}\` ADD UNIQUE KEY \`uk_${table}_uuid\` (\`uuid\`)`).execute(database)
-    } catch {
-      // Existing tenant databases may already have the NOT NULL column or unique key.
-    }
-  }
-}
-
-async function backfillUuidValues(database: TenantDatabase, table: string) {
-  const rows = await sql<{ id: number | string | bigint }>`
-    SELECT id FROM ${sql.table(table)} WHERE uuid IS NULL OR uuid = ''
-  `.execute(database)
-
-  for (const row of rows.rows) {
-    await sql`
-      UPDATE ${sql.table(table)}
-      SET uuid = ${await nextUniquePublicUuid(database, table)}
-      WHERE id = ${Number(row.id)}
-    `.execute(database)
-  }
-}
-
-async function nextUniquePublicUuid(database: TenantDatabase, table: string) {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const uuid = nextPublicUuid()
-    const existing = await sql<{ id: number | string | bigint }>`
-      SELECT id FROM ${sql.table(table)} WHERE uuid = ${uuid} LIMIT 1
-    `.execute(database)
-
-    if (!existing.rows.length) {
-      return uuid
-    }
-  }
-
-  throw new Error(`Could not generate public uuid for ${table}.`)
 }
 
 function nextPublicUuid() {

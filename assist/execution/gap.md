@@ -15,7 +15,7 @@
 | `health.controller.ts` | None | Yes (intentional) |
 | `auth-v1.controller.ts` | None | Yes (login must be open) |
 
-Remaining unprotected: `clients-v1.controller.ts`, `system-update.controller.ts` (need module registration and guard addition).
+Remaining unprotected: `system-update.controller.ts` (need module registration and guard addition).
 
 **Guard registered** in `AppModule` via `guards: [AuthGuard]` so DI resolution works. Bootstrap instantiates it via `container.get(AuthGuard)` and calls `canActivate()`.
 

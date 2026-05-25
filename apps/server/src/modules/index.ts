@@ -1,5 +1,4 @@
 import { AuthModule } from './auth/auth.module.js'
-import { ClientModule } from './crm/client/client.module.js'
 import { CompanyModule } from './master/company/company.module.js'
 import { commonModuleClasses } from './common/index.js'
 import { ContactsModule } from './master/contact/index.js'
@@ -20,6 +19,7 @@ import { DocumentSettingsModule } from './settings/document-settings/index.js'
 import { MediaModule } from './media/index.js'
 import { TaskManagerModule } from './task-manager/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
+import { AppSetupModule } from '../framework/setup/app-setup/index.js'
 import { HealthModule } from '../core/health/health.module.js'
 import { IndustryModule } from '../core/industry/industry.module.js'
 import { TenantDomainModule } from '../core/tenant-domain/tenant-domain.module.js'
@@ -36,7 +36,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     AuthModule,
     TenantModule,
     TenantDomainModule,
-    ClientModule,
+    AppSetupModule,
     IndustryModule,
     ...commonModuleClasses,
     MasterDataModule,

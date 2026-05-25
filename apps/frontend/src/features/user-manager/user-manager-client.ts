@@ -1,14 +1,25 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 
-export type PlatformUserStatus = "active" | "inactive" | "suspend"
+export type AdminUserStatus = "active" | "inactive" | "suspend"
+export type AdminUserRole = "super-admin" | "software-admin" | "support-admin" | "helpdesk-admin"
 
-export interface TenantUserSummary {
-  tenant_id: number
-  tenant_code: number
-  tenant_slug: string
-  tenant_name: string
-  tenant_status: string
-  user_count: number
+export interface AdminUserRecord {
+  id: number
+  name: string
+  email: string
+  role: AdminUserRole
+  status: AdminUserStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminUserUpsertInput {
+  id?: number
+  name: string
+  email: string
+  password?: string
+  role: AdminUserRole
+  status: AdminUserStatus
 }
 
 export interface TenantUserRecord {
@@ -21,30 +32,35 @@ export interface TenantUserRecord {
   name: string
   email: string
   role: string
-  status: PlatformUserStatus
+  status: AdminUserStatus
   created_at: string
   updated_at: string
   access_created_at: string
 }
 
-export interface PlatformUserUpsertInput {
-  access_id?: number
-  user_id?: number
-  tenant_id: number
-  name: string
-  email: string
-  password?: string
-  role: string
-  status: PlatformUserStatus
-}
-
-export async function listUserTenantSummaries(session: AuthSession) {
-  const response = await fetch(`${apiBaseUrl}/api/v1/users/tenant-summary`, {
+export async function listAdminUsers(session: AuthSession) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin-users`, {
     cache: "no-store",
     headers: authHeaders(session),
   })
-  if (!response.ok) throw new Error(`User tenant summary failed with status ${response.status}.`)
-  return (await response.json()) as TenantUserSummary[]
+  if (!response.ok) throw new Error(`Admin users failed with status ${response.status}.`)
+  return (await response.json()) as AdminUserRecord[]
+}
+
+export async function upsertAdminUser(session: AuthSession, input: AdminUserUpsertInput) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin-users/upsert`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: {
+      ...authHeaders(session),
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Admin user save failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; user?: AdminUserRecord; error?: string }
+  if (!result.ok || !result.user) throw new Error(result.error ?? "Admin user save failed.")
+  return result.user
 }
 
 export async function listTenantUsers(session: AuthSession, tenantId: number) {
@@ -56,38 +72,19 @@ export async function listTenantUsers(session: AuthSession, tenantId: number) {
   return (await response.json()) as TenantUserRecord[]
 }
 
-export async function upsertPlatformUser(session: AuthSession, input: PlatformUserUpsertInput) {
-  const response = await fetch(`${apiBaseUrl}/api/v1/users/upsert`, {
-    body: JSON.stringify(input),
-    cache: "no-store",
-    headers: {
-      ...authHeaders(session),
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  })
-  if (!response.ok) throw new Error(`User save failed with status ${response.status}.`)
-  const result = (await response.json()) as { ok: boolean; user?: TenantUserRecord; error?: string }
-  if (!result.ok || !result.user) throw new Error(result.error ?? "User save failed.")
-  return result.user
-}
-
-export function emptyPlatformUser(tenantId: number): PlatformUserUpsertInput {
+export function emptyAdminUser(): AdminUserUpsertInput {
   return {
-    tenant_id: tenantId,
     name: "",
     email: "",
     password: "",
-    role: "user",
+    role: "software-admin",
     status: "active",
   }
 }
 
-export function toPlatformUserInput(user: TenantUserRecord): PlatformUserUpsertInput {
+export function toAdminUserInput(user: AdminUserRecord): AdminUserUpsertInput {
   return {
-    access_id: user.access_id,
-    user_id: user.user_id,
-    tenant_id: user.tenant_id,
+    id: user.id,
     name: user.name,
     email: user.email,
     password: "",
