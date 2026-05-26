@@ -4,6 +4,8 @@ Updated: 2026-05-26
 
 This is the first real client map for CXSun. Each row is a tenant scope unless noted. Tenant databases can hold multiple companies, so Sathasivam stays one tenant with Sukraa Garments and Mathan Knitters as companies.
 
+For clean cloud installation, `db:seed` creates only CODEXSUN Shared Billing and Aaran Associates. All other planned clients stay in this reference list and should be created manually through Super Admin when each tenant is ready to onboard.
+
 ## Domain Strategy
 
 - Local development uses exact host-file mappings to `127.0.0.1`, including `.local` tenant aliases.
@@ -49,7 +51,7 @@ npm run hosts:check
 
 ## Implementation Notes
 
-- The live scope catalog is stored in `apps/server/src/core/tenant/live-client-scope.ts`.
-- `db:seed` upserts tenant rows, tenant app settings, domain mappings, industry records, and scoped company seed names.
+- The first-install seed catalog is stored in `apps/server/src/core/tenant/live-client-scope.ts`.
+- `db:seed` upserts tenant rows, tenant app settings, domain mappings, industry records, and scoped company seed names only for CODEXSUN and Aaran Associates.
 - Public pages resolve strictly through `GET /api/site/tenant-static`; an unmapped domain returns an unresolved tenant error.
 - Private tenant data must still use authenticated tenant APIs.

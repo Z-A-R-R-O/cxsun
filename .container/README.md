@@ -74,7 +74,9 @@ First startup will:
 - Start Redis as a separate container on `codexion-network` when using the setup scripts
 - Run `npm ci` or `npm install`
 - Run database migrate and seed
-- Run tenant static and tenant isolation tests
+- Seed only the first live install tenants: CODEXSUN Shared Billing and Aaran Associates
+- Skip install-time tenant tests by default; set `INSTALL_RUN_TESTS=true` to run them during container startup
+- Remove previous build output before building
 - Run `npm run build:active`
 - Start backend and frontend preview
 
@@ -202,6 +204,12 @@ Run a fresh app and Redis reinstall without touching MariaDB:
 .container/setup-cloud.sh --reinstall
 ```
 
+Run install-time safety tests during deploy when needed:
+
+```bash
+INSTALL_RUN_TESTS=true .container/setup-cloud.sh --reinstall
+```
+
 The script will:
 
 - Create `codexion-network` when missing
@@ -210,7 +218,9 @@ The script will:
 - Generate and persist `JWT_SECRET` when missing
 - Run `npm -w apps/server run db:migrate`
 - Run `npm -w apps/server run db:seed`
-- Run tenant safety tests
+- Seed only CODEXSUN and Aaran Associates on first install; create other tenants later from Super Admin
+- Stream container logs while waiting for backend health so dependency install, migrations, seeds, and build progress are visible
+- Run tenant safety tests only when `INSTALL_RUN_TESTS=true`
 - Build the `cxsun:v1` image
 - Start the app through `.container/docker-compose.yml`
 - Wait for `/health` and verify `codexsun.com` resolves as a tenant

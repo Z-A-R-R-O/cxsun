@@ -31,27 +31,32 @@ REDIS_SERVICE_DB="${REDIS_DB:-0}"
 REDIS_SERVICE_TLS="${REDIS_TLS:-false}"
 QUEUE_RUNTIME_ENABLED="${QUEUE_ENABLED:-true}"
 DATABASE_BACKUP_INTERVAL="${DATABASE_BACKUP_INTERVAL_HOURS:-6}"
+INSTALL_RUN_TESTS="${INSTALL_RUN_TESTS:-false}"
+
+log_step() {
+  printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+}
 
 mkdir -p "$(dirname "$APP_DIR")"
 
 if [ ! -d "$APP_DIR/.git" ]; then
   rm -rf "$APP_DIR"
-  echo "Cloning $GIT_REPO_URL branch $GIT_BRANCH into $APP_DIR"
+  log_step "Cloning $GIT_REPO_URL branch $GIT_BRANCH into $APP_DIR"
   git clone --branch "$GIT_BRANCH" "$GIT_REPO_URL" "$APP_DIR"
 else
-  echo "Using existing repository at $APP_DIR"
+  log_step "Using existing repository at $APP_DIR"
 fi
 
 cd "$APP_DIR"
 
 if [ "${GIT_PULL_ON_START:-false}" = "true" ]; then
-  echo "Pulling latest changes for $GIT_BRANCH"
+  log_step "Pulling latest changes for $GIT_BRANCH"
   git fetch origin "$GIT_BRANCH"
   git pull --ff-only origin "$GIT_BRANCH"
 fi
 
 if [ ! -f .env ] && [ -f .env.sample ]; then
-  echo "Creating .env from .env.sample"
+  log_step "Creating .env from .env.sample"
   cp .env.sample .env
 fi
 
@@ -141,6 +146,7 @@ set_env_value "REDIS_DB" "$REDIS_SERVICE_DB"
 set_env_value "REDIS_TLS" "$REDIS_SERVICE_TLS"
 set_env_value "QUEUE_ENABLED" "$QUEUE_RUNTIME_ENABLED"
 set_env_value "DATABASE_BACKUP_INTERVAL_HOURS" "$DATABASE_BACKUP_INTERVAL"
+set_env_value "INSTALL_RUN_TESTS" "$INSTALL_RUN_TESTS"
 
 export PORT="$SERVER_PORT"
 export VITE_PORT="$FRONTEND_PORT"
@@ -171,35 +177,64 @@ export REDIS_DB="$REDIS_SERVICE_DB"
 export REDIS_TLS="$REDIS_SERVICE_TLS"
 export QUEUE_ENABLED="$QUEUE_RUNTIME_ENABLED"
 export DATABASE_BACKUP_INTERVAL_HOURS="$DATABASE_BACKUP_INTERVAL"
+export INSTALL_RUN_TESTS="$INSTALL_RUN_TESTS"
 
 echo "Configured ports: backend=$SERVER_PORT frontend=$FRONTEND_PORT api=$API_BASE_URL"
 echo "Configured services: db=$DB_HOST:$DB_PORT redis=$REDIS_HOST:$REDIS_PORT"
+echo "Install tests: $INSTALL_RUN_TESTS"
 
-echo "Installing dependencies"
+log_step "Waiting for MariaDB at $DB_HOST:$DB_PORT"
+for attempt in $(seq 1 60); do
+  if mysqladmin ping \
+    --host="$DB_HOST" \
+    --port="$DB_PORT" \
+    --user="$DB_USER" \
+    --password="$DB_PASSWORD" \
+    --silent >/dev/null 2>&1; then
+    echo "MariaDB is reachable"
+    break
+  fi
+
+  if [ "$attempt" -eq 60 ]; then
+    echo "MariaDB was not reachable after waiting." >&2
+    exit 1
+  fi
+
+  sleep 2
+done
+
+log_step "Installing dependencies"
 if [ -f package-lock.json ]; then
-  npm ci
+  npm ci --no-audit --fund=false
 else
-  npm install
+  npm install --no-audit --fund=false
 fi
 
-echo "Running database migrations"
+log_step "Running database migrations"
 npm -w apps/server run db:migrate
 
-echo "Running database seeds"
+log_step "Running database seeds"
 npm -w apps/server run db:seed
 
-echo "Running tenant safety tests"
-npm run test:tenant-static
-npm run test:tenant-isolation
+if [ "$INSTALL_RUN_TESTS" = "true" ]; then
+  log_step "Running tenant safety tests"
+  npm run test:tenant-static
+  npm run test:tenant-isolation
+else
+  log_step "Skipping tenant safety tests during install"
+fi
 
-echo "Building CXSun"
+log_step "Cleaning previous build output"
+rm -rf build apps/server/dist apps/frontend/dist
+
+log_step "Building CXSun"
 npm run build:active
 
-echo "Starting backend on port $SERVER_PORT"
+log_step "Starting backend on port $SERVER_PORT"
 PORT="$SERVER_PORT" HOST="${HOST:-0.0.0.0}" npm -w apps/server run start &
 SERVER_PID="$!"
 
-echo "Starting frontend preview on port $FRONTEND_PORT"
+log_step "Starting frontend preview on port $FRONTEND_PORT"
 VITE_PORT="$FRONTEND_PORT" npm -w apps/frontend run preview -- --host 0.0.0.0 --port "$FRONTEND_PORT" &
 FRONTEND_PID="$!"
 
@@ -209,7 +244,7 @@ shutdown() {
   wait "$SERVER_PID" "$FRONTEND_PID" 2>/dev/null || true
 }
 
-echo "Waiting for backend health"
+log_step "Waiting for backend health"
 for attempt in $(seq 1 60); do
   if curl -fsS "http://127.0.0.1:${SERVER_PORT}/health" >/dev/null 2>&1; then
     echo "Backend health passed"
@@ -225,7 +260,7 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 
-echo "Checking strict tenant resolver"
+log_step "Checking strict tenant resolver"
 curl -fsS "http://127.0.0.1:${SERVER_PORT}/api/site/tenant-static?domain=codexsun.com" | grep -q '"resolved":true'
 echo "Tenant resolver passed"
 

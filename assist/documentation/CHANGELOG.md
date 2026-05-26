@@ -2,13 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.36`
-- **Release tag:** `v-1.0.36`
-- **Changelog label:** `v 1.0.36`
+- **Current version:** `1.0.37`
+- **Release tag:** `v-1.0.37`
+- **Changelog label:** `v 1.0.37`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.37
+
+### [v 1.0.37] 2026-05-26 8:56 am - lean first install tenants
+
+- Bumped workspace version to 1.0.37
+- Reduced automatic first-install tenant seeding to only CODEXSUN Shared Billing and Aaran Associates so clean cloud installs provision two tenant databases instead of the full planned client list.
+- Retired previously auto-seeded planned-client slugs during seed so old cloud databases stop resolving those domains until each tenant is created intentionally through Super Admin.
+- Updated tenant static and tenant isolation tests to assert the two-tenant first-install contract and to use `codexsun.local` plus `aaran.local` sample transactions.
+- Kept the full live client list as planning documentation, while documenting that future clients should be manually onboarded from Super Admin.
+- Improved container startup by waiting for MariaDB before migrations, printing timestamped install steps, removing old build output before `build:active`, and skipping install-time tenant tests unless `INSTALL_RUN_TESTS=true`.
+- Updated `.container/setup-cloud.sh` to stream container logs during the backend health wait and to use a configurable `HEALTH_WAIT_SECONDS` limit, reducing silent waits during npm install, migrations, seeds, and build.
+- Added `INSTALL_RUN_TESTS` to Docker compose and `.env.sample` so cloud installs can choose fast default boot or explicit safety-test boot.
 
 ## v-1.0.36
 

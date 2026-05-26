@@ -12,7 +12,12 @@ assert.ok(liveClientScopes.length > 0, 'live client scope must not be empty')
 const allDomains = liveClientScopes.flatMap((client) => client.domains)
 assertUnique(allDomains, 'tenant domain')
 assert.ok(!allDomains.includes('smaupvc.local'), 'typo domain smaupvc.local must not be active')
-assert.ok(allDomains.includes('smsupvc.local'), 'correct SMS UPVC local domain must be active')
+assert.ok(!allDomains.includes('smsupvc.local'), 'SMS UPVC must not be seeded during first install')
+assert.deepEqual(
+  liveClientScopes.map((client) => client.slug).sort(),
+  ['aaran_associates', 'codexsun'],
+  'first install must seed only CODEXSUN and Aaran Associates',
+)
 
 const publicApps = new Set(publicAppKeys())
 

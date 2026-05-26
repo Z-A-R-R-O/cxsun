@@ -2,6 +2,28 @@ import { sql } from 'kysely'
 import { nowIso, type PlatformDatabaseModule, type PlatformDatabase } from '../../../infrastructure/database/database-module.js'
 import { liveClientScopes, type LiveClientScope } from '../live-client-scope.js'
 
+const retiredAutoSeededTenantSlugs = [
+  'demo_app',
+  'aaran',
+  'sathasivam',
+  'sampath',
+  'sathish',
+  'sundar',
+  'sri_ganapathi_printing',
+  'cotton_knits',
+  'sathasivam_garments',
+  'poly_made_india',
+  'amal_tex',
+  'kgs_printing',
+  'thirumurugan_printers',
+  'sms_upvc',
+  'tirupur_direct',
+  'deal_o_deal',
+  'tenkasi_sports',
+  'altexlabs',
+  'aaran_business_connect',
+]
+
 export const tenantDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant',
   async migrate(database) {
@@ -31,7 +53,7 @@ export const tenantDatabaseModule: PlatformDatabaseModule = {
     `).execute(database)
   },
   async seed(database) {
-    for (const slug of ['demo_app', 'aaran', 'sathasivam', 'sampath', 'sathish', 'sundar']) {
+    for (const slug of retiredAutoSeededTenantSlugs) {
       await retireLegacyTenant(database, slug)
     }
 
@@ -124,7 +146,7 @@ async function seedTenantLoginIdentifiers(database: PlatformDatabase) {
     .execute()
 
   for (const tenant of tenants) {
-    const isDefaultTenant = tenant.code === tenants[0]?.code
+    const isDefaultTenant = tenant.slug === 'codexsun'
     const corporateId = tenant.corporate_id?.trim() || (isDefaultTenant ? 'CODEXSUN' : tenant.slug.toUpperCase())
     const mobile = tenant.mobile?.trim() || (isDefaultTenant ? '9655227738' : null)
 

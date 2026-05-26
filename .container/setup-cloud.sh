@@ -54,6 +54,8 @@ export REDIS_TLS="${REDIS_TLS:-false}"
 export REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-redis}"
 export REDIS_IMAGE="${REDIS_IMAGE:-redis:7.4-alpine}"
 export REDIS_HOST_PORT="${REDIS_HOST_PORT:-6380}"
+export INSTALL_RUN_TESTS="${INSTALL_RUN_TESTS:-false}"
+export HEALTH_WAIT_SECONDS="${HEALTH_WAIT_SECONDS:-900}"
 
 echo "Using compose file: $COMPOSE_FILE"
 echo "Repository: $GIT_REPO_URL"
@@ -65,6 +67,8 @@ echo "Frontend port: $VITE_PORT"
 echo "MariaDB: $DB_HOST:$DB_PORT/$DB_NAME"
 echo "Redis: $REDIS_HOST:$REDIS_PORT"
 echo "Fresh reinstall: $FRESH_INSTALL"
+echo "Install tests: $INSTALL_RUN_TESTS"
+echo "Health wait limit: ${HEALTH_WAIT_SECONDS}s"
 
 generate_secret() {
   if command -v openssl >/dev/null 2>&1; then
@@ -175,17 +179,37 @@ else
 fi
 
 echo "Starting CXSun"
-docker compose -f "$COMPOSE_FILE" up -d
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate
 
 echo "Waiting for backend health"
-for attempt in $(seq 1 60); do
+LOG_FOLLOW_PID=""
+cleanup_log_follow() {
+  if [ -n "$LOG_FOLLOW_PID" ]; then
+    kill "$LOG_FOLLOW_PID" >/dev/null 2>&1 || true
+    wait "$LOG_FOLLOW_PID" >/dev/null 2>&1 || true
+  fi
+}
+docker compose -f "$COMPOSE_FILE" logs -f --tail=80 cxsun &
+LOG_FOLLOW_PID="$!"
+trap cleanup_log_follow EXIT
+
+HEALTH_ATTEMPTS=$((HEALTH_WAIT_SECONDS / 5))
+if [ "$HEALTH_ATTEMPTS" -lt 1 ]; then
+  HEALTH_ATTEMPTS=1
+fi
+
+for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
   if docker compose -f "$COMPOSE_FILE" exec -T cxsun bash -lc "curl -fsS http://127.0.0.1:${PORT}/health >/dev/null" >/dev/null 2>&1; then
+    cleanup_log_follow
+    LOG_FOLLOW_PID=""
     echo "Backend health check passed."
     break
   fi
 
-  if [ "$attempt" -eq 60 ]; then
-    echo "Backend health check failed after waiting." >&2
+  if [ "$attempt" -eq "$HEALTH_ATTEMPTS" ]; then
+    cleanup_log_follow
+    LOG_FOLLOW_PID=""
+    echo "Backend health check failed after ${HEALTH_WAIT_SECONDS}s." >&2
     docker compose -f "$COMPOSE_FILE" logs --tail=160 cxsun || true
     exit 1
   fi

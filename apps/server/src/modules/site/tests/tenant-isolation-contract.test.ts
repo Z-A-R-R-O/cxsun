@@ -12,16 +12,16 @@ try {
   const database = getDatabase()
   const site = new SiteService(new DomainResolutionEngine(new TenantDomainRepository()))
 
-  const sukraa = await site.createMessage({
-    domain: 'sukraa.local',
-    name: 'Isolation Test Sukraa',
-    email: 'tenant-isolation+sukraa@example.test',
+  const codexsun = await site.createMessage({
+    domain: 'codexsun.local',
+    name: 'Isolation Test CODEXSUN',
+    email: 'tenant-isolation+codexsun@example.test',
     message: marker,
   })
-  const tirupur = await site.createMessage({
-    domain: 'tirupurdirect.local',
-    name: 'Isolation Test Tirupur',
-    email: 'tenant-isolation+tirupur@example.test',
+  const aaran = await site.createMessage({
+    domain: 'aaran.local',
+    name: 'Isolation Test Aaran',
+    email: 'tenant-isolation+aaran@example.test',
     message: marker,
   })
   const unknown = await site.createMessage({
@@ -31,8 +31,8 @@ try {
     message: marker,
   })
 
-  assert.equal(sukraa.ok, true, 'sukraa.local contact must save')
-  assert.equal(tirupur.ok, true, 'tirupurdirect.local contact must save')
+  assert.equal(codexsun.ok, true, 'codexsun.local contact must save')
+  assert.equal(aaran.ok, true, 'aaran.local contact must save')
   assert.equal(unknown.ok, false, 'unknown.local contact must fail closed')
 
   const rows = await database
@@ -45,13 +45,13 @@ try {
   assert.equal(rows.length, 2, 'only resolved tenant contact messages should be stored')
   assert.deepEqual(
     rows.map((row) => row.tenant_slug).sort(),
-    ['sathasivam_garments', 'tirupur_direct'],
+    ['aaran_associates', 'codexsun'],
     'sample contact transactions must be tenant-bound',
   )
   assert.equal(new Set(rows.map((row) => row.tenant_id)).size, 2, 'sample transactions must use different tenant ids')
   assert.deepEqual(
     rows.map((row) => row.domain).sort(),
-    ['sukraa.local', 'tirupurdirect.local'],
+    ['aaran.local', 'codexsun.local'],
     'sample transactions must preserve resolved domain',
   )
 
