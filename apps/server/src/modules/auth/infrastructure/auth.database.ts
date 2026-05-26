@@ -51,7 +51,6 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       name: 'Manage RBAC',
       description: 'Manage tenant roles and policy assignments.',
     })
-
     const allTenants = await database
       .selectFrom('tenants')
       .selectAll()

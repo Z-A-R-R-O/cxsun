@@ -187,6 +187,18 @@ SOFTWARE_ADMIN_PASSWORD='Admin@123' \
 
 These are also the default live seed values used by `.container/setup-cloud.sh` when the variables are not overridden.
 
+The cloud setup script seeds this tenant-local administrator by default during tenant client setup:
+
+```bash
+TENANT_ADMIN_NAME='ADMIN' \
+TENANT_ADMIN_EMAIL='admin@tenant.com' \
+TENANT_ADMIN_PASSWORD='admin@123' \
+.container/setup-cloud.sh --reinstall
+```
+
+That user is created inside each tenant database during client setup with the normal tenant `admin` role. Override the env values before running setup when a different tenant admin is needed. Role permissions can be changed manually after login.
+
+
 Generate or rotate `JWT_SECRET` in an env file manually:
 
 ```bash

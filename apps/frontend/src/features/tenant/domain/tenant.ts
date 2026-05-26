@@ -107,11 +107,11 @@ export const emptyTenantForm: TenantFormState = {
   name: "",
   status: "active",
   dbType: "mariadb",
-  dbHost: "localhost",
-  dbPort: "3306",
+  dbHost: "",
+  dbPort: "",
   dbName: "",
-  dbUser: "root",
-  dbSecretRef: "DB_PASSWORD",
+  dbUser: "",
+  dbSecretRef: "",
   payloadSettings: "{}",
 }
 

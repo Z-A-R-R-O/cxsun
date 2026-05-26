@@ -5,7 +5,7 @@
 # CXSun
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-**Version:** 1.0.41
+**Version:** 1.0.42
 
 CXSun is a comprehensive, enterprise-grade TypeScript monorepo designed for high-performance ERP, E-commerce, and Multi-tenant SaaS platforms. It provides a robust foundation for building scalable, AI-native applications with a focus on data isolation and modularity.
 

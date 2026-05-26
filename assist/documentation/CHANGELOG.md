@@ -2,21 +2,23 @@
 
 ## Version State
 
-- **Current version:** `1.0.41`
-- **Release tag:** `v-1.0.41`
-- **Changelog label:** `v 1.0.41`
+- **Current version:** `1.0.42`
+- **Release tag:** `v-1.0.42`
+- **Changelog label:** `v 1.0.42`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
-## v-1.0.41
+## v-1.0.42
 
-### [v 1.0.41] 2026-05-26 9:41 am - separate redis setup helper and queue readiness
+### [v 1.0.42] 2026-05-26 10:25 am - separate redis setup helper and queue readiness
 
-- Bumped workspace version to 1.0.41
 - Fixed the app Redis readiness check to explicitly connect before pinging, so BullMQ workers do not fall back to MariaDB-only mode while the ioredis stream is still opening.
 - Added `.container/setup-redis.sh` as a separate manual Redis helper for status, stop, start, restart, and clean reinstall on the same Redis ports without wiring it into cloud setup.
+- Kept tenant admin seeding on `TENANT_ADMIN_NAME`, `TENANT_ADMIN_EMAIL`, and `TENANT_ADMIN_PASSWORD`, creating a normal tenant `admin` that can be adjusted manually after login.
+- Added default cloud tenant admin seed values `ADMIN <admin@tenant.com>` with password `admin@123` for install and reinstall, while keeping env overrides supported.
+- Changed new tenant form database defaults to let the backend use the deployed DB host, preventing cloud tenant setup from saving `localhost:3306`.
 
 ## v-1.0.40
 
