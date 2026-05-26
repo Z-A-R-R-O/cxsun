@@ -2,20 +2,30 @@
 
 ## Version State
 
-- **Current version:** `1.0.38`
-- **Release tag:** `v-1.0.38`
-- **Changelog label:** `v 1.0.38`
+- **Current version:** `1.0.39`
+- **Release tag:** `v-1.0.39`
+- **Changelog label:** `v 1.0.39`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.39
+
+### [v 1.0.39] 2026-05-26 9:24 am - cloud reinstall health and tenant setup fix
+
+- Bumped workspace version to 1.0.39
 ## v-1.0.38
 
 ### [v 1.0.38] 2026-05-26 9:09 am - cloud reinstall health and tenant setup fix
 
 - Bumped workspace version to 1.0.38
 - Fixed container reinstall restart loops by adding `curl` to the runtime image used by entrypoint and setup health checks.
+- Fixed external Redis startup by reconnecting an already-running Redis container to `codexion-network` and waiting for `redis-cli ping` to return `PONG` before starting CXSun.
+- Added entrypoint and local setup Redis waits so direct container and local setup starts do not race queue startup before Redis is reachable.
+- Passed `HEALTH_WAIT_SECONDS` through Docker compose and `.env.sample`, and made entrypoint health waits use that configured limit.
+- Updated the container deploy guide to document ordered `db:setup` and Redis readiness behavior.
+- Added `.container/reset-databases.sh` for intentional, separately confirmed master and tenant/client MariaDB resets outside the normal reinstall path.
 - Changed cloud entrypoint database bootstrap to run ordered `db:setup` instead of separate migrate and seed steps, so preserved MariaDB installs retire planned-client tenants before tenant provisioning runs.
 - Restricted server startup tenant provisioning to active MariaDB tenants with `deleted_at IS NULL`, preventing suspended planned clients from being prepared during normal boot.
 - Verified the fix with shell syntax checks, server typecheck, server build, and changelog whitespace checks.

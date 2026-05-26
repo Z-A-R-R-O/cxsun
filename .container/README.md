@@ -72,8 +72,9 @@ First startup will:
 - Generate `JWT_SECRET` when it is not already present
 - Write optional admin seed variables from the deploy environment when provided
 - Start Redis as a separate container on `codexion-network` when using the setup scripts
+- Wait for Redis to answer `PONG` before starting the app
 - Run `npm ci` or `npm install`
-- Run database migrate and seed
+- Run ordered database setup with master migrate, master seed, and active tenant provisioning
 - Seed only the first live install tenants: CODEXSUN Shared Billing and Aaran Associates
 - Skip install-time tenant tests by default; set `INSTALL_RUN_TESTS=true` to run them during container startup
 - Remove previous build output before building
@@ -204,6 +205,16 @@ Run a fresh app and Redis reinstall without touching MariaDB:
 .container/setup-cloud.sh --reinstall
 ```
 
+Reset databases intentionally when you need a fully clean MariaDB state:
+
+```bash
+bash .container/reset-databases.sh --clients
+bash .container/reset-databases.sh --master
+bash .container/reset-databases.sh --all
+```
+
+The reset script asks for separate typed confirmations before dropping client databases and before dropping the master database. It never runs as part of normal reinstall.
+
 Run install-time safety tests during deploy when needed:
 
 ```bash
@@ -214,10 +225,11 @@ The script will:
 
 - Create `codexion-network` when missing
 - Start Redis as a separate container on `codexion-network`
+- Reconnect an already-running Redis container to `codexion-network`
+- Wait for Redis to answer `PONG` before starting CXSun
 - Use the existing MariaDB service at `mariadb:3306`
 - Generate and persist `JWT_SECRET` when missing
-- Run `npm -w apps/server run db:migrate`
-- Run `npm -w apps/server run db:seed`
+- Run `npm -w apps/server run db:setup`
 - Seed only CODEXSUN and Aaran Associates on first install; create other tenants later from Super Admin
 - Stream container logs while waiting for backend health so dependency install, migrations, seeds, and build progress are visible
 - Run tenant safety tests only when `INSTALL_RUN_TESTS=true`

@@ -118,6 +118,7 @@ reset_external_redis() {
 start_external_redis() {
   if docker ps --format '{{.Names}}' | grep -Fx "$REDIS_CONTAINER_NAME" >/dev/null 2>&1; then
     echo "External Redis container already running: $REDIS_CONTAINER_NAME"
+    docker network connect codexion-network "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
     return
   fi
 
@@ -148,6 +149,32 @@ start_external_redis() {
   fi
 }
 
+wait_external_redis() {
+  echo "Waiting for Redis at $REDIS_CONTAINER_NAME:6379"
+
+  for attempt in $(seq 1 60); do
+    if [ -n "$REDIS_PASSWORD" ]; then
+      if docker exec "$REDIS_CONTAINER_NAME" redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
+        echo "Redis is reachable"
+        return
+      fi
+    else
+      if docker exec "$REDIS_CONTAINER_NAME" redis-cli ping 2>/dev/null | grep -q PONG; then
+        echo "Redis is reachable"
+        return
+      fi
+    fi
+
+    if [ "$attempt" -eq 60 ]; then
+      echo "Redis was not reachable after waiting." >&2
+      docker logs --tail=80 "$REDIS_CONTAINER_NAME" || true
+      exit 1
+    fi
+
+    sleep 1
+  done
+}
+
 if [ "$FRESH_INSTALL" = "true" ]; then
   reset_external_redis
 fi
@@ -156,6 +183,7 @@ export REDIS_HOST="$REDIS_CONTAINER_NAME"
 export REDIS_PORT="6379"
 echo "Using Redis container at $REDIS_HOST:$REDIS_PORT"
 start_external_redis
+wait_external_redis
 
 echo "Stopping existing CXSun container"
 docker compose -f "$COMPOSE_FILE" down --remove-orphans || true

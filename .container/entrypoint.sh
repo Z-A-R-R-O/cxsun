@@ -32,6 +32,7 @@ REDIS_SERVICE_TLS="${REDIS_TLS:-false}"
 QUEUE_RUNTIME_ENABLED="${QUEUE_ENABLED:-true}"
 DATABASE_BACKUP_INTERVAL="${DATABASE_BACKUP_INTERVAL_HOURS:-6}"
 INSTALL_RUN_TESTS="${INSTALL_RUN_TESTS:-false}"
+HEALTH_WAIT_SECONDS="${HEALTH_WAIT_SECONDS:-900}"
 
 log_step() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
@@ -147,6 +148,7 @@ set_env_value "REDIS_TLS" "$REDIS_SERVICE_TLS"
 set_env_value "QUEUE_ENABLED" "$QUEUE_RUNTIME_ENABLED"
 set_env_value "DATABASE_BACKUP_INTERVAL_HOURS" "$DATABASE_BACKUP_INTERVAL"
 set_env_value "INSTALL_RUN_TESTS" "$INSTALL_RUN_TESTS"
+set_env_value "HEALTH_WAIT_SECONDS" "$HEALTH_WAIT_SECONDS"
 
 export PORT="$SERVER_PORT"
 export VITE_PORT="$FRONTEND_PORT"
@@ -178,10 +180,12 @@ export REDIS_TLS="$REDIS_SERVICE_TLS"
 export QUEUE_ENABLED="$QUEUE_RUNTIME_ENABLED"
 export DATABASE_BACKUP_INTERVAL_HOURS="$DATABASE_BACKUP_INTERVAL"
 export INSTALL_RUN_TESTS="$INSTALL_RUN_TESTS"
+export HEALTH_WAIT_SECONDS="$HEALTH_WAIT_SECONDS"
 
 echo "Configured ports: backend=$SERVER_PORT frontend=$FRONTEND_PORT api=$API_BASE_URL"
 echo "Configured services: db=$DB_HOST:$DB_PORT redis=$REDIS_HOST:$REDIS_PORT"
 echo "Install tests: $INSTALL_RUN_TESTS"
+echo "Health wait limit: ${HEALTH_WAIT_SECONDS}s"
 
 log_step "Waiting for MariaDB at $DB_HOST:$DB_PORT"
 for attempt in $(seq 1 60); do
@@ -202,6 +206,23 @@ for attempt in $(seq 1 60); do
 
   sleep 2
 done
+
+if [ "$QUEUE_RUNTIME_ENABLED" != "false" ]; then
+  log_step "Waiting for Redis at $REDIS_HOST:$REDIS_PORT"
+  for attempt in $(seq 1 "$HEALTH_WAIT_SECONDS"); do
+    if timeout 2 bash -c "cat < /dev/null > /dev/tcp/$REDIS_HOST/$REDIS_PORT" >/dev/null 2>&1; then
+      echo "Redis port is reachable"
+      break
+    fi
+
+    if [ "$attempt" -eq "$HEALTH_WAIT_SECONDS" ]; then
+      echo "Redis was not reachable after waiting. Queue workers will fall back to MariaDB only." >&2
+      break
+    fi
+
+    sleep 1
+  done
+fi
 
 log_step "Installing dependencies"
 if [ -f package-lock.json ]; then
@@ -242,14 +263,19 @@ shutdown() {
 }
 
 log_step "Waiting for backend health"
-for attempt in $(seq 1 60); do
+HEALTH_ATTEMPTS=$((HEALTH_WAIT_SECONDS / 2))
+if [ "$HEALTH_ATTEMPTS" -lt 1 ]; then
+  HEALTH_ATTEMPTS=1
+fi
+
+for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
   if curl -fsS "http://127.0.0.1:${SERVER_PORT}/health" >/dev/null 2>&1; then
     echo "Backend health passed"
     break
   fi
 
-  if [ "$attempt" -eq 60 ]; then
-    echo "Backend health failed" >&2
+  if [ "$attempt" -eq "$HEALTH_ATTEMPTS" ]; then
+    echo "Backend health failed after ${HEALTH_WAIT_SECONDS}s" >&2
     shutdown
     exit 1
   fi

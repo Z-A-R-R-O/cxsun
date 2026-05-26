@@ -13,6 +13,7 @@ export REDIS_PORT="${REDIS_PORT:-6379}"
 export REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 export REDIS_DB="${REDIS_DB:-0}"
 export REDIS_TLS="${REDIS_TLS:-false}"
+export HEALTH_WAIT_SECONDS="${HEALTH_WAIT_SECONDS:-900}"
 
 echo "Using compose file: $COMPOSE_FILE"
 echo "Repository: $GIT_REPO_URL"
@@ -20,6 +21,7 @@ echo "Branch: ${GIT_BRANCH:-main}"
 echo "Backend port: ${PORT:-6005}"
 echo "Frontend port: ${VITE_PORT:-6010}"
 echo "Redis: $REDIS_HOST:$REDIS_PORT"
+echo "Health wait limit: ${HEALTH_WAIT_SECONDS}s"
 
 if ! docker network inspect codexion-network >/dev/null 2>&1; then
   echo "Creating Docker network codexion-network"
@@ -39,6 +41,29 @@ docker volume rm cxsun_cxsun-workspace >/dev/null 2>&1 || true
 
 echo "Starting Redis"
 docker compose -f "$REDIS_COMPOSE_FILE" up -d
+
+echo "Waiting for Redis at redis:6379"
+for attempt in $(seq 1 60); do
+  if [ -n "$REDIS_PASSWORD" ]; then
+    if docker exec redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
+      echo "Redis is reachable"
+      break
+    fi
+  else
+    if docker exec redis redis-cli ping 2>/dev/null | grep -q PONG; then
+      echo "Redis is reachable"
+      break
+    fi
+  fi
+
+  if [ "$attempt" -eq 60 ]; then
+    echo "Redis was not reachable after waiting." >&2
+    docker logs --tail=80 redis || true
+    exit 1
+  fi
+
+  sleep 1
+done
 
 echo "Building Docker image cxsun:v1"
 docker compose -f "$COMPOSE_FILE" build
