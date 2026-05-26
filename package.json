@@ -1,7 +1,7 @@
 {
   "name": "cxsun",
   "private": true,
-  "version": "1.0.34",
+  "version": "1.0.36",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -13,6 +13,8 @@
     "dev:frontend": "npm -w apps/frontend run dev",
     "check": "bash assist/scripts/check.sh",
     "typecheck:active": "npm -w apps/server run typecheck && npm -w apps/frontend run typecheck && npm -w apps/web run typecheck && npm -w packages/shared run typecheck && npm -w packages/ui run typecheck && npm -w packages/web run typecheck && npm -w packages/desktop run typecheck && npm -w packages/mobile run typecheck",
+    "test:tenant-static": "npm -w apps/server run test:tenant-static",
+    "test:tenant-isolation": "npm -w apps/server run test:tenant-isolation",
     "build:active": "npm -w apps/server run build && npm -w apps/frontend run build",
     "restart:active": "node apps/cli/restart-active.mjs",
     "build:server": "npm -w apps/server run build",
@@ -22,6 +24,10 @@
     "db:migrate": "npm -w apps/server run db:migrate --",
     "db:seed": "npm -w apps/server run db:seed --",
     "db:setup": "npm -w apps/server run db:setup --",
+    "db:backup": "node apps/cli/database-backup.mjs backup",
+    "db:restore": "node apps/cli/database-backup.mjs restore",
+    "hosts:local": "powershell -ExecutionPolicy Bypass -File apps/cli/setup-local-hosts.ps1",
+    "hosts:check": "powershell -ExecutionPolicy Bypass -File apps/cli/setup-local-hosts.ps1 -CheckOnly",
     "version:bump": "node apps/cli/version-bump.mjs",
     "github:now": "node apps/cli/github-helper.mjs"
   },

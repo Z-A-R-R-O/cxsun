@@ -39,12 +39,21 @@ export const siteDatabaseModule: PlatformDatabaseModule = {
     await sql.raw(`
       CREATE TABLE IF NOT EXISTS site_messages (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NULL,
+        tenant_slug VARCHAR(80) NULL,
+        domain VARCHAR(191) NULL,
         name VARCHAR(191) NOT NULL,
         email VARCHAR(191) NOT NULL,
         message TEXT NOT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `).execute(database)
+
+    await sql.raw(`ALTER TABLE site_messages ADD COLUMN IF NOT EXISTS tenant_id INT NULL`).execute(database)
+    await sql.raw(`ALTER TABLE site_messages ADD COLUMN IF NOT EXISTS tenant_slug VARCHAR(80) NULL`).execute(database)
+    await sql.raw(`ALTER TABLE site_messages ADD COLUMN IF NOT EXISTS domain VARCHAR(191) NULL`).execute(database)
+    await sql.raw(`CREATE INDEX IF NOT EXISTS idx_site_messages_tenant ON site_messages (tenant_id, created_at)`).execute(database)
+    await sql.raw(`CREATE INDEX IF NOT EXISTS idx_site_messages_domain ON site_messages (domain, created_at)`).execute(database)
   },
   async seed(database) {
     const { count } = await database

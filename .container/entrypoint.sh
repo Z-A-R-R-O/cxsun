@@ -14,8 +14,23 @@ DATABASE_PORT="${DB_PORT:-3306}"
 DATABASE_NAME="${DB_NAME:-cxsun_master}"
 DATABASE_USER="${DB_USER:-root}"
 DATABASE_PASSWORD="${DB_PASSWORD:-DbPass1@@}"
+AUTH_JWT_SECRET="${JWT_SECRET:-}"
+AUTH_SUPER_ADMIN_NAME="${SUPER_ADMIN_NAME:-}"
+AUTH_SUPER_ADMIN_EMAIL="${SUPER_ADMIN_EMAIL:-}"
+AUTH_SUPER_ADMIN_PASSWORD="${SUPER_ADMIN_PASSWORD:-}"
+AUTH_SOFTWARE_ADMIN_NAME="${SOFTWARE_ADMIN_NAME:-}"
+AUTH_SOFTWARE_ADMIN_EMAIL="${SOFTWARE_ADMIN_EMAIL:-}"
+AUTH_SOFTWARE_ADMIN_PASSWORD="${SOFTWARE_ADMIN_PASSWORD:-}"
+AUTH_TENANT_ADMIN_NAME="${TENANT_ADMIN_NAME:-}"
+AUTH_TENANT_ADMIN_EMAIL="${TENANT_ADMIN_EMAIL:-}"
+AUTH_TENANT_ADMIN_PASSWORD="${TENANT_ADMIN_PASSWORD:-}"
 REDIS_SERVICE_HOST="${REDIS_HOST:-redis}"
 REDIS_SERVICE_PORT="${REDIS_PORT:-6379}"
+REDIS_SERVICE_PASSWORD="${REDIS_PASSWORD:-}"
+REDIS_SERVICE_DB="${REDIS_DB:-0}"
+REDIS_SERVICE_TLS="${REDIS_TLS:-false}"
+QUEUE_RUNTIME_ENABLED="${QUEUE_ENABLED:-true}"
+DATABASE_BACKUP_INTERVAL="${DATABASE_BACKUP_INTERVAL_HOURS:-6}"
 
 mkdir -p "$(dirname "$APP_DIR")"
 
@@ -48,12 +63,54 @@ set_env_value() {
     touch .env
   fi
 
-  if grep -q "^${key}=" .env; then
-    sed -i "s|^${key}=.*|${key}=${value}|" .env
-  else
-    printf '%s=%s\n' "$key" "$value" >> .env
+  tmp_file="$(mktemp)"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { done = 0 }
+    index($0, key "=") == 1 {
+      print key "=" value
+      done = 1
+      next
+    }
+    { print }
+    END {
+      if (done == 0) print key "=" value
+    }
+  ' .env > "$tmp_file"
+  mv "$tmp_file" .env
+}
+
+get_env_value() {
+  key="$1"
+
+  if [ ! -f .env ]; then
+    return 0
+  fi
+
+  grep "^${key}=" .env | tail -n 1 | cut -d= -f2- || true
+}
+
+set_env_optional() {
+  key="$1"
+  value="$2"
+
+  if [ -n "$value" ]; then
+    set_env_value "$key" "$value"
   fi
 }
+
+generate_secret() {
+  node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+}
+
+EXISTING_JWT_SECRET="$(get_env_value JWT_SECRET)"
+if [ -z "$AUTH_JWT_SECRET" ]; then
+  AUTH_JWT_SECRET="$EXISTING_JWT_SECRET"
+fi
+
+if [ -z "$AUTH_JWT_SECRET" ]; then
+  AUTH_JWT_SECRET="$(generate_secret)"
+  echo "Generated JWT_SECRET in .env"
+fi
 
 set_env_value "PORT" "$SERVER_PORT"
 set_env_value "VITE_PORT" "$FRONTEND_PORT"
@@ -67,8 +124,23 @@ set_env_value "DB_PORT" "$DATABASE_PORT"
 set_env_value "DB_NAME" "$DATABASE_NAME"
 set_env_value "DB_USER" "$DATABASE_USER"
 set_env_value "DB_PASSWORD" "$DATABASE_PASSWORD"
+set_env_value "JWT_SECRET" "$AUTH_JWT_SECRET"
+set_env_optional "SUPER_ADMIN_NAME" "$AUTH_SUPER_ADMIN_NAME"
+set_env_optional "SUPER_ADMIN_EMAIL" "$AUTH_SUPER_ADMIN_EMAIL"
+set_env_optional "SUPER_ADMIN_PASSWORD" "$AUTH_SUPER_ADMIN_PASSWORD"
+set_env_optional "SOFTWARE_ADMIN_NAME" "$AUTH_SOFTWARE_ADMIN_NAME"
+set_env_optional "SOFTWARE_ADMIN_EMAIL" "$AUTH_SOFTWARE_ADMIN_EMAIL"
+set_env_optional "SOFTWARE_ADMIN_PASSWORD" "$AUTH_SOFTWARE_ADMIN_PASSWORD"
+set_env_optional "TENANT_ADMIN_NAME" "$AUTH_TENANT_ADMIN_NAME"
+set_env_optional "TENANT_ADMIN_EMAIL" "$AUTH_TENANT_ADMIN_EMAIL"
+set_env_optional "TENANT_ADMIN_PASSWORD" "$AUTH_TENANT_ADMIN_PASSWORD"
 set_env_value "REDIS_HOST" "$REDIS_SERVICE_HOST"
 set_env_value "REDIS_PORT" "$REDIS_SERVICE_PORT"
+set_env_value "REDIS_PASSWORD" "$REDIS_SERVICE_PASSWORD"
+set_env_value "REDIS_DB" "$REDIS_SERVICE_DB"
+set_env_value "REDIS_TLS" "$REDIS_SERVICE_TLS"
+set_env_value "QUEUE_ENABLED" "$QUEUE_RUNTIME_ENABLED"
+set_env_value "DATABASE_BACKUP_INTERVAL_HOURS" "$DATABASE_BACKUP_INTERVAL"
 
 export PORT="$SERVER_PORT"
 export VITE_PORT="$FRONTEND_PORT"
@@ -82,8 +154,23 @@ export DB_PORT="$DATABASE_PORT"
 export DB_NAME="$DATABASE_NAME"
 export DB_USER="$DATABASE_USER"
 export DB_PASSWORD="$DATABASE_PASSWORD"
+export JWT_SECRET="$AUTH_JWT_SECRET"
+export SUPER_ADMIN_NAME="$AUTH_SUPER_ADMIN_NAME"
+export SUPER_ADMIN_EMAIL="$AUTH_SUPER_ADMIN_EMAIL"
+export SUPER_ADMIN_PASSWORD="$AUTH_SUPER_ADMIN_PASSWORD"
+export SOFTWARE_ADMIN_NAME="$AUTH_SOFTWARE_ADMIN_NAME"
+export SOFTWARE_ADMIN_EMAIL="$AUTH_SOFTWARE_ADMIN_EMAIL"
+export SOFTWARE_ADMIN_PASSWORD="$AUTH_SOFTWARE_ADMIN_PASSWORD"
+export TENANT_ADMIN_NAME="$AUTH_TENANT_ADMIN_NAME"
+export TENANT_ADMIN_EMAIL="$AUTH_TENANT_ADMIN_EMAIL"
+export TENANT_ADMIN_PASSWORD="$AUTH_TENANT_ADMIN_PASSWORD"
 export REDIS_HOST="$REDIS_SERVICE_HOST"
 export REDIS_PORT="$REDIS_SERVICE_PORT"
+export REDIS_PASSWORD="$REDIS_SERVICE_PASSWORD"
+export REDIS_DB="$REDIS_SERVICE_DB"
+export REDIS_TLS="$REDIS_SERVICE_TLS"
+export QUEUE_ENABLED="$QUEUE_RUNTIME_ENABLED"
+export DATABASE_BACKUP_INTERVAL_HOURS="$DATABASE_BACKUP_INTERVAL"
 
 echo "Configured ports: backend=$SERVER_PORT frontend=$FRONTEND_PORT api=$API_BASE_URL"
 echo "Configured services: db=$DB_HOST:$DB_PORT redis=$REDIS_HOST:$REDIS_PORT"
@@ -94,6 +181,16 @@ if [ -f package-lock.json ]; then
 else
   npm install
 fi
+
+echo "Running database migrations"
+npm -w apps/server run db:migrate
+
+echo "Running database seeds"
+npm -w apps/server run db:seed
+
+echo "Running tenant safety tests"
+npm run test:tenant-static
+npm run test:tenant-isolation
 
 echo "Building CXSun"
 npm run build:active
@@ -111,6 +208,26 @@ shutdown() {
   kill "$SERVER_PID" "$FRONTEND_PID" 2>/dev/null || true
   wait "$SERVER_PID" "$FRONTEND_PID" 2>/dev/null || true
 }
+
+echo "Waiting for backend health"
+for attempt in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:${SERVER_PORT}/health" >/dev/null 2>&1; then
+    echo "Backend health passed"
+    break
+  fi
+
+  if [ "$attempt" -eq 60 ]; then
+    echo "Backend health failed" >&2
+    shutdown
+    exit 1
+  fi
+
+  sleep 2
+done
+
+echo "Checking strict tenant resolver"
+curl -fsS "http://127.0.0.1:${SERVER_PORT}/api/site/tenant-static?domain=codexsun.com" | grep -q '"resolved":true'
+echo "Tenant resolver passed"
 
 trap shutdown INT TERM
 

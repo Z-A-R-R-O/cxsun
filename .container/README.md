@@ -16,6 +16,7 @@ Default services:
 - MariaDB access from the app: `mariadb:3306`
 - Redis container access from the app: `redis:6379`
 - Redis host access: `localhost:6380`
+- External Redis is the default cloud mode: Redis runs as a separate container on `codexion-network`.
 - CORS defaults: `https://codexsun.com` and `https://www.codexsun.com`.
 
 Create the shared Docker network once:
@@ -32,10 +33,10 @@ The app compose joins the existing `codexion-network`.
 
 MariaDB is expected to already exist on the same Docker network with service/container host `mariadb`, port `3306`, and root password `DbPass1@@`.
 
-Install/start Redis:
+Redis runs as a separate container on `codexion-network` by default:
 
 ```bash
-docker compose -f .container/database/redis.yml up -d
+.container/setup-cloud.sh
 ```
 
 The app defaults to these container service names:
@@ -68,8 +69,12 @@ First startup will:
 - Clone `https://github.com/CODEXSUN/cxsun.git` into `/workspace/cxsun`
 - Copy `.env.sample` to `.env` if `.env` does not exist
 - Write the configured ports, MariaDB host, and Redis host into `.env`
-- Start Redis with `.container/database/redis.yml` when using the setup scripts
+- Generate `JWT_SECRET` when it is not already present
+- Write optional admin seed variables from the deploy environment when provided
+- Start Redis as a separate container on `codexion-network` when using the setup scripts
 - Run `npm ci` or `npm install`
+- Run database migrate and seed
+- Run tenant static and tenant isolation tests
 - Run `npm run build:active`
 - Start backend and frontend preview
 
@@ -162,24 +167,55 @@ Then use:
 Run the cloud deploy order for `https://codexsun.com`:
 
 ```bash
-bash .container/setup-cloud.sh
+.container/setup-cloud.sh
 ```
 
-Run a fresh app reinstall without touching MariaDB:
+Run with one-time seeded platform users:
 
 ```bash
-bash .container/setup-cloud.sh --fresh
+SUPER_ADMIN_NAME='SUNDAR' \
+SUPER_ADMIN_EMAIL='sundar@sundar.com' \
+SUPER_ADMIN_PASSWORD='Kalarani1@@' \
+SOFTWARE_ADMIN_NAME='Admin' \
+SOFTWARE_ADMIN_EMAIL='admin@admin.com' \
+SOFTWARE_ADMIN_PASSWORD='Admin@123' \
+.container/setup-cloud.sh
+```
+
+These are also the default live seed values used by `.container/setup-cloud.sh` when the variables are not overridden.
+
+Generate or rotate `JWT_SECRET` in an env file manually:
+
+```bash
+bash .container/generate-jwt-secret.sh .env
+```
+
+Run cloud deploy with the default external Redis container:
+
+```bash
+.container/setup-cloud.sh
+```
+
+Run a fresh app and Redis reinstall without touching MariaDB:
+
+```bash
+.container/setup-cloud.sh --reinstall
 ```
 
 The script will:
 
 - Create `codexion-network` when missing
-- Start Redis through `.container/database/redis.yml`
+- Start Redis as a separate container on `codexion-network`
 - Use the existing MariaDB service at `mariadb:3306`
+- Generate and persist `JWT_SECRET` when missing
+- Run `npm -w apps/server run db:migrate`
+- Run `npm -w apps/server run db:seed`
+- Run tenant safety tests
 - Build the `cxsun:v1` image
 - Start the app through `.container/docker-compose.yml`
+- Wait for `/health` and verify `codexsun.com` resolves as a tenant
 - Configure `VITE_API_BASE_URL`, `FRONTEND_URL`, and `CORS_ORIGINS` for `https://codexsun.com`
-- Remove only the CXSun app workspace volume when `--fresh` is passed
+- Remove the CXSun app workspace volume, reset Redis cache/container, and rebuild the app image without cache when `--fresh` or `--reinstall` is passed
 - Never remove or recreate MariaDB
 - Print status and recent logs
 

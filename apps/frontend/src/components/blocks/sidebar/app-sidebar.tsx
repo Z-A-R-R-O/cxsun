@@ -4,9 +4,11 @@ import * as React from "react"
 import {
   Bug,
   BriefcaseBusiness,
+  Database,
   Factory,
   Globe2,
   Headset,
+  ListRestart,
   RefreshCw,
   UserRoundCog,
   Users,
@@ -50,6 +52,8 @@ export type DashboardPage =
   | "industry"
   | "company"
   | "system-update"
+  | "queue-manager"
+  | "database-manager"
   | "user-manager"
   | "helpdesk"
   | "bugs"
@@ -75,6 +79,8 @@ const superAdminNav = [
     icon: RefreshCw,
     items: [
       { title: "System Update", url: "#", icon: RefreshCw },
+      { title: "Queue Manager", url: "#", icon: ListRestart },
+      { title: "Database Manager", url: "#", icon: Database },
     ],
   },
 ] as const
@@ -108,6 +114,8 @@ function pageFromTitle(title: string): DashboardPage | undefined {
     Roles: "tenant-roles",
     Setup: "setup",
     "System Update": "system-update",
+    "Queue Manager": "queue-manager",
+    "Database Manager": "database-manager",
     Tenant: "tenant",
     "Admin User Manager": "user-manager",
   }

@@ -19,6 +19,17 @@ export const settings = {
   cors: {
     origins: envOptionalString('CORS_ORIGINS'),
   },
+  redis: {
+    host: envString('REDIS_HOST', 'localhost'),
+    port: envNumber('REDIS_PORT', 6379),
+    password: envOptionalString('REDIS_PASSWORD'),
+    db: envNumber('REDIS_DB', 0),
+    tls: envString('REDIS_TLS', 'false') === 'true',
+  },
+  queue: {
+    enabled: envString('QUEUE_ENABLED', 'true') !== 'false',
+    backupIntervalHours: envNumber('DATABASE_BACKUP_INTERVAL_HOURS', 6),
+  },
   package: {
     version: envString('npm_package_version', '0.0.0'),
   },

@@ -154,6 +154,27 @@ Current surface ownership:
 - `industry`: platform master data shared across tenants.
 - `company`: tenant-owned data; must use `TenantContextService`.
 
+## Multi-Tenant Public Pages
+
+Public/static tenant pages must use the shared domain-resolution path instead of hand-rolled host checks in the frontend.
+
+```text
+browser host/domain
+  -> GET /api/site/tenant-static
+  -> DomainResolutionEngine
+  -> tenant_domains + tenants
+  -> tenant app settings
+  -> frontend public page scaffold
+```
+
+- Keep domain normalization and tenant app selection in `DomainResolutionEngine`.
+- Public tenant pages must fail closed when no active tenant domain is mapped. Do not fall back to platform content for tenant domain requests.
+- The frontend can render many tenant websites from one codebase, but it must not decide tenant identity by local string matching alone.
+- Tenant-owned private/business data still goes through authenticated tenant APIs and `TenantContextService`; public static pages are only the public entry surface.
+- Add new industry pages as feature-pack scaffolds first, then connect tenant-local APIs only when the authenticated tenant boundary is ready.
+- Treat every client as its own domain-scoped tenant, even when hosted under a shared `*.codexsun.com` wildcard.
+- Tenant capabilities come from tenant app options, industry settings, and optional customization metadata; avoid shared-domain behavior that mixes client scope.
+
 ## Dashboard Boundaries
 
 Frontend dashboard routing must remain split by role:

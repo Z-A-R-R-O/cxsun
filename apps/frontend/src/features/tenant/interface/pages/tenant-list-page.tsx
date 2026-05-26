@@ -312,7 +312,9 @@ function TenantShowPage({
     try {
       const result = await setupMutation.mutateAsync()
       toast.success("Client setup completed", {
-        description: `${result.database} is ready with ${result.company?.name ?? tenant.name} and ${result.admin?.email ?? "admin@admin.com"}.`,
+        description: result.admin?.email
+          ? `${result.database} is ready with ${result.company?.name ?? tenant.name} and ${result.admin.email}.`
+          : `${result.database} is ready with ${result.company?.name ?? tenant.name}.`,
       })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tenants"] }),

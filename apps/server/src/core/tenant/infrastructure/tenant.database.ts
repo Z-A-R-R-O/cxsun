@@ -1,5 +1,6 @@
 import { sql } from 'kysely'
 import { nowIso, type PlatformDatabaseModule, type PlatformDatabase } from '../../../infrastructure/database/database-module.js'
+import { liveClientScopes, type LiveClientScope } from '../live-client-scope.js'
 
 export const tenantDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant',
@@ -34,8 +35,84 @@ export const tenantDatabaseModule: PlatformDatabaseModule = {
       await retireLegacyTenant(database, slug)
     }
 
+    for (const client of liveClientScopes) {
+      await ensureLiveClientTenant(database, client)
+    }
+
     await seedTenantLoginIdentifiers(database)
   },
+}
+
+async function ensureLiveClientTenant(database: PlatformDatabase, client: LiveClientScope) {
+  const now = nowIso()
+  const payloadSettings = JSON.stringify({
+    ui: { density: 'comfortable' },
+    industry: {
+      code: client.industry,
+      name: client.industryName,
+    },
+    apps: {
+      enabled: client.apps,
+      landing: client.landingApp,
+    },
+    liveScope: {
+      companies: client.companies,
+      requirements: client.requirements,
+      notes: client.notes,
+      domains: client.domains,
+    },
+    features: [
+      'company.manage',
+      ...client.requirements.map((requirement) => `scope.${requirement}`),
+    ],
+  })
+
+  const existing = await database
+    .selectFrom('tenants')
+    .select('id')
+    .where((eb) => eb.or([
+      eb('slug', '=', client.slug),
+      eb('code', '=', client.code),
+      eb('corporate_id', '=', client.corporateId),
+    ]))
+    .executeTakeFirst()
+
+  const row = {
+    code: client.code,
+    corporate_id: client.corporateId,
+    mobile: null,
+    slug: client.slug,
+    name: client.name,
+    status: 'active',
+    db_type: 'mariadb',
+    db_host: process.env.TENANT_DB_HOST || process.env.DB_HOST || 'localhost',
+    db_port: Number(process.env.TENANT_DB_PORT || process.env.DB_PORT || 3306),
+    db_name: client.database,
+    db_user: process.env.TENANT_DB_USER || process.env.DB_USER || 'root',
+    db_secret_ref: process.env.TENANT_DB_SECRET_REF || 'DB_PASSWORD',
+    company_count: client.companies.length,
+    active_company_count: client.companies.length,
+    company_concept_count: client.companies.length,
+    payload_settings: payloadSettings,
+    deleted_at: null,
+    updated_at: now,
+  }
+
+  if (existing) {
+    await database
+      .updateTable('tenants')
+      .set(row)
+      .where('id', '=', existing.id)
+      .execute()
+    return
+  }
+
+  await database
+    .insertInto('tenants')
+    .values({
+      ...row,
+    })
+    .execute()
 }
 
 async function seedTenantLoginIdentifiers(database: PlatformDatabase) {

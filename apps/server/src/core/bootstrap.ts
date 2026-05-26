@@ -279,7 +279,9 @@ function isAllowedCorsOrigin(origin: string) {
 
   if (parsed.protocol === 'https:') return true
 
-  if (isLocalhost(parsed.hostname)) return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  if (isLocalDevelopmentHost(parsed.hostname)) {
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  }
 
   return configuredCorsOrigins().has(normalizeOrigin(origin))
 }
@@ -313,6 +315,9 @@ function parseOrigin(value: string) {
   }
 }
 
-function isLocalhost(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+function isLocalDevelopmentHost(hostname: string) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname.endsWith('.local')
 }

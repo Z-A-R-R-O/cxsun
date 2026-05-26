@@ -153,7 +153,7 @@ export function AppSetupPage({ session }: { session: AuthSession }) {
             ) : stepIndex === 2 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <TextField label="Primary domain" value={form.domain} onChange={(value) => update("domain", value)} />
-                <SummaryItem label="Current local default" value="localhost" />
+                <SummaryItem label="Domain rule" value="Required, unique, and mapped to this tenant only" />
               </div>
             ) : (
               <div className="grid gap-3">
@@ -200,11 +200,11 @@ function defaultForm(): AppSetupInput {
     slug: "",
     database: "",
     dbServerMode: "same",
-    dbHost: "localhost",
+    dbHost: "",
     dbPort: "3306",
     dbUser: "root",
     dbSecretRef: "DB_PASSWORD",
-    domain: "localhost",
+    domain: "",
     adminName: "",
     adminEmail: "",
     adminPassword: "",
@@ -246,7 +246,7 @@ function normalizeForm(form: AppSetupInput): AppSetupInput {
     slug,
     database: slugify(form.database || `${slug}_db`),
     dbServerMode: form.dbServerMode === "other" ? "other" : "same",
-    dbHost: form.dbHost.trim() || "localhost",
+    dbHost: form.dbHost.trim(),
     dbPort: form.dbPort.trim() || "3306",
     dbUser: form.dbUser.trim() || "root",
     dbSecretRef: form.dbSecretRef.trim() || "DB_PASSWORD",

@@ -1,5 +1,6 @@
 import { sql } from 'kysely'
 import { nowIso, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
+import { liveClientScopes } from '../../tenant/live-client-scope.js'
 
 export const industryDatabaseModule: PlatformDatabaseModule = {
   name: 'industry',
@@ -20,7 +21,7 @@ export const industryDatabaseModule: PlatformDatabaseModule = {
     `).execute(database)
   },
   async seed(database) {
-    for (const industry of [
+    const baseIndustries = [
       { code: 'software', name: 'Software' },
       { code: 'accountant', name: 'Accountant' },
       { code: 'computer', name: 'Computer' },
@@ -28,7 +29,11 @@ export const industryDatabaseModule: PlatformDatabaseModule = {
       { code: 'marketing', name: 'Marketing' },
       { code: 'offset_printing', name: 'Offset Printing' },
       { code: 'garment', name: 'Garment' },
-    ]) {
+    ]
+    const liveIndustries = liveClientScopes.map((client) => ({ code: client.industry, name: client.industryName }))
+    const industries = Array.from(new Map([...baseIndustries, ...liveIndustries].map((industry) => [industry.code, industry])).values())
+
+    for (const industry of industries) {
       await ensureIndustry(database, {
         code: industry.code,
         name: industry.name,

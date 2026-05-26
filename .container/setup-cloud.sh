@@ -3,22 +3,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-REDIS_COMPOSE_FILE="$SCRIPT_DIR/database/redis.yml"
 FRESH_INSTALL=false
 
 for arg in "$@"; do
   case "$arg" in
-    --fresh)
+    --fresh|--reinstall)
       FRESH_INSTALL=true
       ;;
     -h|--help)
-      echo "Usage: bash .container/setup-cloud.sh [--fresh]"
-      echo "  --fresh  Remove and recreate the CXSun app container/workspace volume. MariaDB is never touched."
+      echo "Usage: .container/setup-cloud.sh [--fresh|--reinstall]"
+      echo "  --fresh, --reinstall  Remove and recreate the CXSun app workspace and Redis container/cache. MariaDB is never touched."
       exit 0
       ;;
     *)
       echo "Unknown option: $arg" >&2
-      echo "Usage: bash .container/setup-cloud.sh [--fresh]" >&2
+      echo "Usage: .container/setup-cloud.sh [--fresh|--reinstall]" >&2
       exit 1
       ;;
   esac
@@ -37,8 +36,24 @@ export DB_PORT="${DB_PORT:-3306}"
 export DB_NAME="${DB_NAME:-cxsun_master}"
 export DB_USER="${DB_USER:-root}"
 export DB_PASSWORD="${DB_PASSWORD:-DbPass1@@}"
+export JWT_SECRET="${JWT_SECRET:-}"
+export SUPER_ADMIN_NAME="${SUPER_ADMIN_NAME:-SUNDAR}"
+export SUPER_ADMIN_EMAIL="${SUPER_ADMIN_EMAIL:-sundar@sundar.com}"
+export SUPER_ADMIN_PASSWORD="${SUPER_ADMIN_PASSWORD:-Kalarani1@@}"
+export SOFTWARE_ADMIN_NAME="${SOFTWARE_ADMIN_NAME:-Admin}"
+export SOFTWARE_ADMIN_EMAIL="${SOFTWARE_ADMIN_EMAIL:-admin@admin.com}"
+export SOFTWARE_ADMIN_PASSWORD="${SOFTWARE_ADMIN_PASSWORD:-Admin@123}"
+export TENANT_ADMIN_NAME="${TENANT_ADMIN_NAME:-}"
+export TENANT_ADMIN_EMAIL="${TENANT_ADMIN_EMAIL:-}"
+export TENANT_ADMIN_PASSWORD="${TENANT_ADMIN_PASSWORD:-}"
 export REDIS_HOST="${REDIS_HOST:-redis}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
+export REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+export REDIS_DB="${REDIS_DB:-0}"
+export REDIS_TLS="${REDIS_TLS:-false}"
+export REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-redis}"
+export REDIS_IMAGE="${REDIS_IMAGE:-redis:7.4-alpine}"
+export REDIS_HOST_PORT="${REDIS_HOST_PORT:-6380}"
 
 echo "Using compose file: $COMPOSE_FILE"
 echo "Repository: $GIT_REPO_URL"
@@ -51,13 +66,92 @@ echo "MariaDB: $DB_HOST:$DB_PORT/$DB_NAME"
 echo "Redis: $REDIS_HOST:$REDIS_PORT"
 echo "Fresh reinstall: $FRESH_INSTALL"
 
+generate_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 48
+    return
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+    return
+  fi
+
+  date +%s%N | sha256sum | awk '{print $1}'
+}
+
+if [ -z "$JWT_SECRET" ]; then
+  export JWT_SECRET="$(generate_secret)"
+  echo "Generated JWT_SECRET for this deployment."
+else
+  echo "Using JWT_SECRET from environment."
+fi
+
+if [ -n "$SUPER_ADMIN_EMAIL" ] && [ -n "$SUPER_ADMIN_PASSWORD" ]; then
+  echo "Super admin seed is configured from environment."
+else
+  echo "Super admin seed is not configured. No hardcoded super admin will be created."
+fi
+
+if [ -n "$SOFTWARE_ADMIN_EMAIL" ] && [ -n "$SOFTWARE_ADMIN_PASSWORD" ]; then
+  echo "Software admin seed is configured from environment."
+else
+  echo "Software admin seed is not configured."
+fi
+
 if ! docker network inspect codexion-network >/dev/null 2>&1; then
   echo "Creating Docker network codexion-network"
   docker network create codexion-network
 fi
 
-echo "Starting Redis"
-docker compose -f "$REDIS_COMPOSE_FILE" up -d
+reset_external_redis() {
+  echo "Resetting external Redis container: $REDIS_CONTAINER_NAME"
+  docker rm -f "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
+  docker volume rm "${REDIS_CONTAINER_NAME}_data" >/dev/null 2>&1 || true
+  docker volume rm redis_data >/dev/null 2>&1 || true
+}
+
+start_external_redis() {
+  if docker ps --format '{{.Names}}' | grep -Fx "$REDIS_CONTAINER_NAME" >/dev/null 2>&1; then
+    echo "External Redis container already running: $REDIS_CONTAINER_NAME"
+    return
+  fi
+
+  if docker ps -a --format '{{.Names}}' | grep -Fx "$REDIS_CONTAINER_NAME" >/dev/null 2>&1; then
+    echo "Starting existing external Redis container: $REDIS_CONTAINER_NAME"
+    docker start "$REDIS_CONTAINER_NAME" >/dev/null
+    docker network connect codexion-network "$REDIS_CONTAINER_NAME" >/dev/null 2>&1 || true
+    return
+  fi
+
+  echo "Creating external Redis container: $REDIS_CONTAINER_NAME"
+  if [ -n "$REDIS_PASSWORD" ]; then
+    docker run -d \
+      --name "$REDIS_CONTAINER_NAME" \
+      --network codexion-network \
+      --restart unless-stopped \
+      -p "${REDIS_HOST_PORT}:6379" \
+      -v "${REDIS_CONTAINER_NAME}_data:/data" \
+      "$REDIS_IMAGE" redis-server --appendonly yes --requirepass "$REDIS_PASSWORD" >/dev/null
+  else
+    docker run -d \
+      --name "$REDIS_CONTAINER_NAME" \
+      --network codexion-network \
+      --restart unless-stopped \
+      -p "${REDIS_HOST_PORT}:6379" \
+      -v "${REDIS_CONTAINER_NAME}_data:/data" \
+      "$REDIS_IMAGE" redis-server --appendonly yes >/dev/null
+  fi
+}
+
+if [ "$FRESH_INSTALL" = "true" ]; then
+  reset_external_redis
+fi
+
+export REDIS_HOST="$REDIS_CONTAINER_NAME"
+export REDIS_PORT="6379"
+echo "Using Redis container at $REDIS_HOST:$REDIS_PORT"
+start_external_redis
 
 echo "Stopping existing CXSun container"
 docker compose -f "$COMPOSE_FILE" down --remove-orphans || true
@@ -67,17 +161,40 @@ echo "Removing existing CXSun container"
 docker rm cxsun >/dev/null 2>&1 || true
 
 if [ "$FRESH_INSTALL" = "true" ]; then
-  echo "Fresh reinstall requested: removing CXSun workspace volumes only"
+  echo "Clean app reinstall requested: removing CXSun workspace volumes only"
   docker volume rm cxsun-volume >/dev/null 2>&1 || true
   docker volume rm cxsun_cxsun-workspace >/dev/null 2>&1 || true
   echo "MariaDB is preserved and not touched by this script"
 fi
 
 echo "Building Docker image cxsun:v1"
-docker compose -f "$COMPOSE_FILE" build
+if [ "$FRESH_INSTALL" = "true" ]; then
+  docker compose -f "$COMPOSE_FILE" build --no-cache
+else
+  docker compose -f "$COMPOSE_FILE" build
+fi
 
 echo "Starting CXSun"
 docker compose -f "$COMPOSE_FILE" up -d
+
+echo "Waiting for backend health"
+for attempt in $(seq 1 60); do
+  if docker compose -f "$COMPOSE_FILE" exec -T cxsun bash -lc "curl -fsS http://127.0.0.1:${PORT}/health >/dev/null" >/dev/null 2>&1; then
+    echo "Backend health check passed."
+    break
+  fi
+
+  if [ "$attempt" -eq 60 ]; then
+    echo "Backend health check failed after waiting." >&2
+    docker compose -f "$COMPOSE_FILE" logs --tail=160 cxsun || true
+    exit 1
+  fi
+
+  sleep 5
+done
+
+echo "Checking tenant static resolver"
+docker compose -f "$COMPOSE_FILE" exec -T cxsun bash -lc "curl -fsS 'http://127.0.0.1:${PORT}/api/site/tenant-static?domain=codexsun.com' | grep -q '\"resolved\":true'"
 
 echo "Current status"
 docker compose -f "$COMPOSE_FILE" ps

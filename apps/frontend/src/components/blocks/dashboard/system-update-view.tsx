@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { AlertCircle, CheckCircle2, GitBranch, RefreshCw, Terminal } from "lucide-react"
+import { AlertCircle, CheckCircle2, GitBranch, RefreshCw, RotateCcw, Terminal } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "src/components/ui/alert"
 import { Badge } from "src/components/ui/badge"
@@ -14,6 +14,7 @@ interface SystemUpdateStep {
   name: string
   command?: string
   ok: boolean
+  required: boolean
   startedAt: string
   finishedAt: string
   output: string
@@ -21,9 +22,18 @@ interface SystemUpdateStep {
 
 interface SystemUpdateResult {
   ok: boolean
+  phase: "idle" | "updating" | "rollback" | "completed" | "failed"
   startedAt: string
   finishedAt: string
   repositoryRoot: string
+  runId: string
+  backupId?: string
+  backupPath?: string
+  previousCommit?: string
+  targetCommit?: string | null
+  lastCommand?: string
+  logPath?: string
+  recoveryAction?: string
   backendHealth: boolean
   frontendHealth: boolean
   steps: SystemUpdateStep[]
@@ -34,6 +44,11 @@ interface SystemUpdateStatus {
   running: boolean
   lastResult: SystemUpdateResult | null
   lastPreflight: SystemUpdatePreflight | null
+}
+
+interface SystemUpdateStartResponse extends SystemUpdateStatus {
+  accepted: boolean
+  message: string
 }
 
 interface SystemUpdatePreflight {
@@ -71,7 +86,7 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
       return
     }
 
-    const payload = (await response.json()) as SystemUpdateStatus
+    const payload = await parseJsonResponse<SystemUpdateStatus>(response, "Unable to load update status.")
     setStatus(payload)
     setRunning(payload.running)
   }
@@ -84,7 +99,10 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
       const response = await fetch(`${apiBaseUrl}/api/system-update/preflight`, {
         headers: authHeaders(session),
       })
-      const payload = (await response.json()) as SystemUpdatePreflight
+      const payload = await parseJsonResponse<SystemUpdatePreflight>(
+        response,
+        "Unable to check cloud version.",
+      )
 
       setStatus((current) => ({
         running: current?.running ?? false,
@@ -104,7 +122,7 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
 
   async function runUpdate() {
     const confirmed = window.confirm(
-      "System update will force rollback tracked local changes, pull from Git, install dependencies, build, restart when configured, and health-check the app. .env, storage, and build are kept untouched. Continue?",
+      "System update will take a database backup, reset code to the release target, install dependencies, run migrations, remove old build output, rebuild, restart, and health-check the app. Continue?",
     )
 
     if (!confirmed) {
@@ -119,16 +137,22 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
         headers: authHeaders(session),
         method: "POST",
       })
-      const payload = (await response.json()) as SystemUpdateResult
+      const payload = await parseJsonResponse<SystemUpdateStartResponse>(
+        response,
+        "Unable to start system update.",
+      )
 
       setStatus((current) => ({
-        running: false,
-        lastResult: payload,
+        running: payload.running,
+        lastResult: payload.lastResult ?? current?.lastResult ?? null,
         lastPreflight: current?.lastPreflight ?? null,
       }))
-      if (!payload.ok) {
-        setError(payload.error ?? "System update finished with failed checks.")
+      if (!payload.accepted) {
+        setError(payload.message || "System update is already running.")
+        return
       }
+
+      await pollUpdateStatus()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to run system update.")
     } finally {
@@ -136,10 +160,124 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
     }
   }
 
+  async function runUpdateScript() {
+    const confirmed = window.confirm(
+      "Run update.sh recovery update? This will fetch Git, hard reset to the remote branch, clean untracked non-ignored files, install dependencies, build, and restart. Continue?",
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setRunning(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/system-update/run-script`, {
+        headers: authHeaders(session),
+        method: "POST",
+      })
+      const payload = await parseJsonResponse<SystemUpdateStartResponse>(
+        response,
+        "Unable to start update.sh.",
+      )
+
+      setStatus((current) => ({
+        running: payload.running,
+        lastResult: payload.lastResult ?? current?.lastResult ?? null,
+        lastPreflight: current?.lastPreflight ?? null,
+      }))
+      if (!payload.accepted) {
+        setError(payload.message || "System update is already running.")
+        return
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to run update.sh.")
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  async function runRollback() {
+    const backupId = status?.lastResult?.backupId
+    const previousCommit = status?.lastResult?.previousCommit
+    const confirmed = window.confirm(
+      `Rollback to previous version? This will restore database backup ${backupId ?? "unknown"} and reset code to ${shortCommit(previousCommit ?? null)} before rebuilding and restarting.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setRunning(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/system-update/rollback`, {
+        headers: authHeaders(session),
+        method: "POST",
+      })
+      const payload = await parseJsonResponse<SystemUpdateStartResponse>(
+        response,
+        "Unable to start rollback.",
+      )
+
+      setStatus((current) => ({
+        running: payload.running,
+        lastResult: payload.lastResult ?? current?.lastResult ?? null,
+        lastPreflight: current?.lastPreflight ?? null,
+      }))
+      if (!payload.accepted) {
+        setError(payload.message || "Rollback could not start.")
+        return
+      }
+
+      await pollUpdateStatus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to run rollback.")
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  async function pollUpdateStatus() {
+    const maxAttempts = 240
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await delay(3_000)
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/system-update/status`, {
+          headers: authHeaders(session),
+        })
+        const payload = await parseJsonResponse<SystemUpdateStatus>(
+          response,
+          "Unable to load update status.",
+        )
+
+        setStatus(payload)
+        setRunning(payload.running)
+
+        if (!payload.running) {
+          if (payload.lastResult && !payload.lastResult.ok) {
+            setError(payload.lastResult.error ?? "System update finished with failed checks.")
+          }
+
+          return
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load update status.")
+      }
+    }
+
+    setError("System update is still running. Check status again in a few minutes.")
+  }
+
   const result = status?.lastResult ?? null
   const preflight = status?.lastPreflight ?? null
   const completedSteps = result?.steps.filter((step) => step.ok).length ?? 0
   const progress = result?.steps.length ? (completedSteps / result.steps.length) * 100 : running ? 15 : 0
+  const canRollback = Boolean(result?.backupId && result.previousCommit)
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
@@ -158,6 +296,14 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
           <Button disabled={running} onClick={runUpdate} type="button">
             <RefreshCw className={cn("size-4", running && "animate-spin")} />
             {running ? "Updating" : "Update and restart"}
+          </Button>
+          <Button disabled={running || !canRollback} onClick={runRollback} type="button" variant="outline">
+            <RotateCcw className="size-4" />
+            Rollback
+          </Button>
+          <Button disabled={running} onClick={runUpdateScript} type="button" variant="destructive">
+            <Terminal className="size-4" />
+            Run update.sh
           </Button>
         </div>
       </div>
@@ -210,6 +356,29 @@ export function SystemUpdateView({ session }: { session: AuthSession }) {
               <HealthCard label="Frontend health" ok={result.frontendHealth} />
               <HealthCard label="Build result" ok={result.ok} />
             </div>
+          ) : null}
+
+          {result ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <InfoTile label="Run phase" value={result.phase} />
+              <InfoTile label="Backup ID" value={result.backupId ?? "not captured"} />
+              <InfoTile label="Previous commit" value={shortCommit(result.previousCommit ?? null)} />
+              <InfoTile label="Target commit" value={shortCommit(result.targetCommit ?? null)} />
+              <InfoTile label="Last command" value={result.lastCommand ?? "not captured"} />
+              <InfoTile label="Log path" value={result.logPath ?? "not captured"} />
+              <InfoTile label="Backup path" value={result.backupPath ?? "not captured"} />
+              <InfoTile label="Finished at" value={formatDate(result.finishedAt)} />
+            </div>
+          ) : null}
+
+          {result?.recoveryAction ? (
+            <Alert variant={result.ok ? "default" : "destructive"}>
+              <RotateCcw />
+              <AlertTitle>Recovery action</AlertTitle>
+              <AlertDescription className="break-words font-mono text-xs">
+                {result.recoveryAction}
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           <div className="grid gap-3">
@@ -289,4 +458,34 @@ function formatDate(value: string) {
   }
 
   return date.toLocaleString()
+}
+
+async function parseJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? ""
+  const body = await response.text()
+
+  if (!contentType.includes("application/json")) {
+    const message = response.ok
+      ? fallbackMessage
+      : `${fallbackMessage} Server returned ${response.status} ${response.statusText || ""}.`
+    throw new Error(message.trim())
+  }
+
+  let payload: T
+  try {
+    payload = JSON.parse(body) as T
+  } catch {
+    throw new Error(fallbackMessage)
+  }
+
+  if (!response.ok) {
+    const error = payload as { error?: string; message?: string }
+    throw new Error(error.error ?? error.message ?? fallbackMessage)
+  }
+
+  return payload
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }

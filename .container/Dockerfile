@@ -7,6 +7,7 @@ RUN apt-get update \
     bash \
     ca-certificates \
     git \
+    mariadb-client \
     nano \
     sudo \
     python3 \

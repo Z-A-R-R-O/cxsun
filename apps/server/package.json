@@ -1,7 +1,7 @@
 {
   "name": "@cxsun/server",
   "private": true,
-  "version": "1.0.34",
+  "version": "1.0.36",
   "type": "module",
   "scripts": {
     "dev": "node ../../apps/cli/preflight.mjs server",
@@ -15,12 +15,16 @@
     "db:setup": "tsx src/core/migration-manager/cli.ts setup",
     "lint": "eslint .",
     "test:master-data": "tsx src/modules/foundation/master-data/tests/master-data-contract.test.ts",
+    "test:tenant-static": "tsx src/modules/site/tests/tenant-static-content.test.ts",
+    "test:tenant-isolation": "tsx src/modules/site/tests/tenant-isolation-contract.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cxsun/shared": "*",
     "@fastify/cors": "^11.2.0",
+    "bullmq": "^5.77.3",
     "fastify": "^5.8.5",
+    "ioredis": "^5.10.1",
     "kysely": "^0.29.0",
     "mysql2": "^3.22.3",
     "reflect-metadata": "^0.2.2"

@@ -1,6 +1,7 @@
 import 'reflect-metadata'
 import { CxApp } from './core/bootstrap.js'
 import { initializeDatabase } from './infrastructure/database/connection.js'
+import { startHybridQueueWorkers } from './infrastructure/queue/hybrid-queue.runtime.js'
 import { TenantDatabaseProvisioner } from './infrastructure/tenant-database/tenant-database.provisioner.js'
 import { AppModule } from './modules/index.js'
 
@@ -18,6 +19,8 @@ for (const result of provisioning) {
     console.warn(`  ! Tenant database failed: ${result.tenant} -> ${result.error}`)
   }
 }
+
+await startHybridQueueWorkers()
 
 try {
   await app.start()

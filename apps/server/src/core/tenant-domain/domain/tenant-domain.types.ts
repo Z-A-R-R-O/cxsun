@@ -24,6 +24,7 @@ export interface TenantDomainResolution {
     label: string
     isPrimary: boolean
     status: TenantDomainStatus
+    settings?: Record<string, unknown>
   }
   tenant?: {
     id: number
@@ -33,7 +34,19 @@ export interface TenantDomainResolution {
     status: string
     database: string
     settings: Record<string, unknown>
+    industryKey?: string | null
+    industryName?: string | null
+    liveScope?: {
+      companies: string[]
+      requirements: string[]
+      notes: string
+      domains: string[]
+    }
     features: string[]
+    apps?: {
+      enabled: string[]
+      landing: string
+    }
   }
 }
 

@@ -2,11 +2,6 @@ import { sql } from 'kysely'
 import { hashPassword, verifyPassword } from '../../../infrastructure/auth/password-hash.js'
 import { nowIso, type PlatformDatabase, type PlatformDatabaseModule } from '../../../infrastructure/database/database-module.js'
 
-const SUPER_ADMIN_EMAIL = 'sundar@sundar.com'
-const SUPER_ADMIN_PASSWORD = 'Kalarani1@@'
-const ADMIN_EMAIL = 'admin@admin.com'
-const ADMIN_PASSWORD = 'Admin1@@'
-
 export const authDatabaseModule: PlatformDatabaseModule = {
   name: 'auth-rbac',
   async migrate(database) {
@@ -70,18 +65,9 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       }
     }
 
-    await ensureAdminUser(database, {
-      name: 'SUNDAR',
-      email: SUPER_ADMIN_EMAIL,
-      password: SUPER_ADMIN_PASSWORD,
-      role: 'super-admin',
-    })
-    await ensureAdminUser(database, {
-      name: 'ADMIN',
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD,
-      role: 'software-admin',
-    })
+    for (const seededAdmin of adminSeedUsers()) {
+      await ensureAdminUser(database, seededAdmin)
+    }
 
   },
 }
@@ -152,4 +138,34 @@ async function ensureAdminUser(database: PlatformDatabase, data: { name: string;
   await database.insertInto('admin_users').values(row).execute()
   const created = await database.selectFrom('admin_users').select('id').where('email', '=', data.email).executeTakeFirstOrThrow()
   return created.id
+}
+
+function adminSeedUsers() {
+  return [
+    optionalAdminSeed({
+      name: process.env.SUPER_ADMIN_NAME || 'Super Admin',
+      email: process.env.SUPER_ADMIN_EMAIL,
+      password: process.env.SUPER_ADMIN_PASSWORD,
+      role: 'super-admin',
+    }),
+    optionalAdminSeed({
+      name: process.env.SOFTWARE_ADMIN_NAME || 'Software Admin',
+      email: process.env.SOFTWARE_ADMIN_EMAIL,
+      password: process.env.SOFTWARE_ADMIN_PASSWORD,
+      role: 'software-admin',
+    }),
+  ].filter((user): user is { name: string; email: string; password: string; role: string } => Boolean(user))
+}
+
+function optionalAdminSeed(input: { name: string; email?: string; password?: string; role: string }) {
+  const email = input.email?.trim().toLowerCase()
+  const password = input.password?.trim()
+  if (!email || !password) return null
+
+  return {
+    name: input.name.trim() || input.role,
+    email,
+    password,
+    role: input.role,
+  }
 }

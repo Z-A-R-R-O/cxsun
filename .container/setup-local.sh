@@ -8,12 +8,18 @@ export GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/CODEXSUN/cxsun.git}"
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:${PORT:-6005}}"
 export FRONTEND_URL="${FRONTEND_URL:-http://localhost:${VITE_PORT:-6010}}"
 export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:${VITE_PORT:-6010},https://localhost:${VITE_PORT:-6010}}"
+export REDIS_HOST="${REDIS_HOST:-redis}"
+export REDIS_PORT="${REDIS_PORT:-6379}"
+export REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+export REDIS_DB="${REDIS_DB:-0}"
+export REDIS_TLS="${REDIS_TLS:-false}"
 
 echo "Using compose file: $COMPOSE_FILE"
 echo "Repository: $GIT_REPO_URL"
 echo "Branch: ${GIT_BRANCH:-main}"
 echo "Backend port: ${PORT:-6005}"
 echo "Frontend port: ${VITE_PORT:-6010}"
+echo "Redis: $REDIS_HOST:$REDIS_PORT"
 
 if ! docker network inspect codexion-network >/dev/null 2>&1; then
   echo "Creating Docker network codexion-network"

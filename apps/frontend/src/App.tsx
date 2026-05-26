@@ -37,7 +37,7 @@ type View =
   | 'forgot-password'
 
 interface SitePage {
-  slug: 'home' | 'about' | 'services' | 'contact' | 'blog'
+  slug: string
   nav_label: string
   title: string
   eyebrow: string
@@ -64,13 +64,41 @@ interface SiteContent {
   posts: SitePost[]
 }
 
+interface TenantStaticSiteContent extends SiteContent {
+  ok: boolean
+  mode: 'tenant'
+  resolved: boolean
+  error?: string
+  tenant: {
+    id: number
+    code: number
+    slug: string
+    name: string
+    status: string
+    industryKey?: string | null
+    industryName?: string | null
+    features: string[]
+  } | null
+  domain: {
+    id: number
+    domain: string
+    label: string
+    isPrimary: boolean
+    status: string
+  } | null
+  apps: {
+    enabled: string[]
+    landing: string
+  } | null
+}
+
 interface HealthStatus {
   status: 'ok'
   version: string
 }
 
 type AppRoute = {
-  page: SitePage['slug']
+  page: string
   view: View
 }
 
@@ -197,7 +225,23 @@ const fallbackContent: SiteContent = {
   ],
 }
 
-const sitePageSlugs = ['home', 'about', 'services', 'contact', 'blog'] as const
+const staticPageSlugs = [
+  'home',
+  'about',
+  'services',
+  'contact',
+  'blog',
+  'billing',
+  'shop',
+  'inventory',
+  'accounts',
+  'auditor',
+  'club',
+  'garment',
+  'offset',
+  'testing-lab',
+  'business-connect',
+] as const
 
 function parseRoute(pathname = window.location.pathname): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, '') || '/'
@@ -231,8 +275,8 @@ function parseRoute(pathname = window.location.pathname): AppRoute {
     return { page: 'home', view: 'forgot-password' }
   }
 
-  if (sitePageSlugs.includes(firstSegment as SitePage['slug']) && firstSegment !== 'home') {
-    return { page: firstSegment as SitePage['slug'], view: 'landing' }
+  if ((staticPageSlugs as readonly string[]).includes(firstSegment) && firstSegment !== 'home') {
+    return { page: firstSegment, view: 'landing' }
   }
 
   return { page: 'home', view: 'landing' }
@@ -262,6 +306,15 @@ async function fetchSiteContent() {
     throw new Error(`Site content failed with status ${response.status}.`)
   }
   return (await response.json()) as SiteContent
+}
+
+async function fetchTenantStaticSite() {
+  const domain = window.location.host
+  const response = await fetch(`${apiBaseUrl}/api/site/tenant-static?domain=${encodeURIComponent(domain)}`)
+  if (!response.ok) {
+    throw new Error(`Tenant static site failed with status ${response.status}.`)
+  }
+  return (await response.json()) as TenantStaticSiteContent
 }
 
 async function fetchHealth() {
@@ -295,7 +348,12 @@ function App() {
   const siteQuery = useQuery({
     queryKey: ['site-content'],
     queryFn: fetchSiteContent,
+    enabled: false,
     placeholderData: fallbackContent,
+  })
+  const tenantSiteQuery = useQuery({
+    queryKey: ['tenant-static-site', window.location.host],
+    queryFn: fetchTenantStaticSite,
   })
   const healthQuery = useQuery({
     queryKey: ['health'],
@@ -327,7 +385,8 @@ function App() {
     setMenuOpen(false)
   }
 
-  const content = siteQuery.data ?? fallbackContent
+  const tenantSite = tenantSiteQuery.data ?? null
+  const content = tenantSite?.resolved ? tenantSite : siteQuery.data ?? fallbackContent
   const health = healthQuery.data ?? null
   const activePage = route.page
   const activeView = route.view
@@ -335,9 +394,78 @@ function App() {
   const pagesBySlug = useMemo(
     () => Object.fromEntries(content.pages.map((page) => [page.slug, page])),
     [content.pages],
-  ) as Record<SitePage['slug'], SitePage>
+  ) as Record<string, SitePage>
+
+  if (tenantSiteQuery.isPending) {
+    return (
+      <TooltipProvider>
+        <div className="grid min-h-screen place-items-center bg-background px-4 py-10 text-foreground">
+          <Card className="w-full max-w-[620px]">
+            <CardHeader>
+              <CardTitle>Resolving tenant domain</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Checking the active tenant mapping for this domain.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <p className="font-mono text-sm">{window.location.host}</p>
+            </CardContent>
+          </Card>
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    )
+  }
+
+  if (tenantSiteQuery.isError) {
+    return (
+      <TooltipProvider>
+        <div className="grid min-h-screen place-items-center bg-background px-4 py-10 text-foreground">
+          <Card className="w-full max-w-[620px]">
+            <CardHeader>
+              <CardTitle>Tenant domain not available</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                This installation requires a successful tenant domain lookup before public content is shown.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <p className="font-mono text-sm">{window.location.host}</p>
+              <p className="text-sm text-muted-foreground">
+                {tenantSiteQuery.error instanceof Error ? tenantSiteQuery.error.message : 'Tenant lookup failed.'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    )
+  }
 
   const page = pagesBySlug[activePage] ?? fallbackContent.pages[0]
+
+  if (tenantSite && !tenantSite.resolved) {
+    return (
+      <TooltipProvider>
+        <div className="grid min-h-screen place-items-center bg-background px-4 py-10 text-foreground">
+          <Card className="w-full max-w-[620px]">
+            <CardHeader>
+              <CardTitle>Tenant domain not configured</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                This installation requires every public domain to map to one active tenant.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <p className="font-mono text-sm">{window.location.host}</p>
+              <p className="text-sm text-muted-foreground">
+                {tenantSite.error ?? 'No active tenant domain mapping was found.'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    )
+  }
 
   async function submitContact(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -348,6 +476,7 @@ function App() {
       name: String(formData.get('name') ?? ''),
       email: String(formData.get('email') ?? ''),
       message: String(formData.get('message') ?? ''),
+      domain: window.location.host,
     }
 
     contactMutation.mutate(payload, {
@@ -461,7 +590,7 @@ function App() {
           >
             <BrandLogo className="size-9" />
             <span>
-              <strong className="block leading-tight">{APP_NAME}</strong>
+              <strong className="block leading-tight">{tenantSite?.tenant?.name ?? APP_NAME}</strong>
               <small className="text-muted-foreground">v{version}</small>
             </span>
           </button>
@@ -494,6 +623,11 @@ function App() {
               />
               API {health?.status ?? 'offline'}
             </div>
+            {tenantSite?.resolved && tenantSite.apps ? (
+              <div className="hidden rounded-lg border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground lg:block">
+                {tenantSite.apps.landing} app
+              </div>
+            ) : null}
             <ThemeToggle />
             <Button
               className="md:hidden"
@@ -534,6 +668,12 @@ function App() {
             <span className="text-sm font-bold uppercase tracking-wide text-primary">
               {page.eyebrow}
             </span>
+            {tenantSite?.resolved ? (
+              <p className="mt-3 text-sm font-semibold text-muted-foreground">
+                {tenantSite.domain?.domain} resolved to tenant {tenantSite.tenant?.slug}
+                {tenantSite.tenant?.industryName ? ` / ${tenantSite.tenant.industryName}` : ''}
+              </p>
+            ) : null}
             <h1 className="mt-4 max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
               {page.title}
             </h1>
@@ -542,8 +682,8 @@ function App() {
             </p>
             <p className="mt-4 max-w-2xl leading-7">{page.body}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button onClick={() => navigate({ page: 'services', view: 'landing' })} type="button">
-                Explore services
+              <Button onClick={() => navigate({ page: appLandingPage(tenantSite?.apps?.landing), view: 'landing' })} type="button">
+                {tenantSite?.resolved && tenantSite.apps ? `Open ${tenantSite.apps.landing}` : 'Explore services'}
                 <ArrowRight size={17} />
               </Button>
               <Button
@@ -674,6 +814,15 @@ function App() {
       <Toaster />
     </TooltipProvider>
   )
+}
+
+function appLandingPage(app?: string) {
+  const pageByApp: Record<string, string> = {
+    ecommerce: 'shop',
+    'sports-club': 'club',
+  }
+
+  return app ? pageByApp[app] ?? app : 'services'
 }
 
 export default function AppRoot() {

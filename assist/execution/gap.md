@@ -1,174 +1,340 @@
-# Gap Analysis — Updated 2026-05-16
+# CXSun Gap Plan
 
-## Phase 1 — Immediate (Auth & Boundary Enforcement)
+Updated: 2026-05-25
 
-### 1. ✅ RESOLVED: platform-admin APIs now have AuthGuard protection
+This document replaces the old gap notes with a fresh staged plan for scaling CXSun as a multi-domain, multi-tenant business platform. The current application can continue as one product, but it must be hardened around tenant isolation, vertical feature packs, background work, database safety, and operational update workflows before many different customer industries run on the same installation.
 
-`AuthGuard` created at `core/guards/auth.guard.ts` and applied via `@UseGuards(AuthGuard)`:
+## 1. Current Position
 
-| Controller | Guard placement | Still public? |
-|---|---|---|
-| `tenants-v1.controller.ts` | Handler-level on all methods except `context` | `GET /context` remains public |
-| `tenant-domains-v1.controller.ts` | Class-level | No |
-| `users-v1.controller.ts` | Class-level | No |
-| `industries-v1.controller.ts` | Class-level | No |
-| `health.controller.ts` | None | Yes (intentional) |
-| `auth-v1.controller.ts` | None | Yes (login must be open) |
+1.1. The application already has a useful base for one platform serving many tenants:
 
-Remaining unprotected: `system-update.controller.ts` (need module registration and guard addition).
+- Master MariaDB stores tenants, tenant domains, platform users, industries, policy metadata, queue jobs, and operational state.
+- Tenant MariaDB databases hold tenant-owned companies, common masters, sales, purchase, stock, settings, and entry data.
+- Frontend surfaces are separated into public, tenant app, admin desk, and super-admin dashboard.
+- Super-admin now has system update, queue manager, and database manager direction.
+- Deployment is moving toward Docker with external Redis and MariaDB preserved across app reinstall.
 
-**Guard registered** in `AppModule` via `guards: [AuthGuard]` so DI resolution works. Bootstrap instantiates it via `container.get(AuthGuard)` and calls `canActivate()`.
+1.2. The product direction is feasible as one platform if each tenant gets:
 
-**Note:** Guard always returns 403 (via bootstrap), never 401. Error code refinement deferred.
+- domain-bound access,
+- tenant database isolation,
+- industry/vertical feature packs,
+- tenant-specific settings,
+- queue-backed heavy jobs,
+- backup and restore safety,
+- strict role and permission enforcement.
 
-### 2. High: tenant discovery/context is anonymously enumerable
+1.3. Splitting into separate apps is not needed immediately. Split later only if one vertical becomes large enough to need its own release cycle, database model, or team ownership.
 
-`GET /api/v1/tenants/context` is public (`tenants-v1.controller.ts`) and returns:
-- tenant id/code/slug/name/status
-- tenant DB host/port/name
-- enabled policies
-- company list for that tenant
+## 2. Main Gaps
 
-See `resolve-tenant-context.use-case.ts`, especially the database block at lines 88-95. In a multi-tenant app this leaks internal topology before auth.
+2.1. Tenant isolation is the highest product risk.
 
-**Fix:** Remove anonymous access to `GET /api/v1/tenants/context`, or strip it down to a minimal public bootstrap payload.
+- Tenant resolution must be bound to host, session, selected tenant, and user access.
+- Tenant-facing routes must not allow arbitrary tenant switching by headers.
+- Super-admin cross-tenant access must be explicit, audited, and separate from tenant user behavior.
+- Isolation tests are still required for login, domain resolution, tenant context, and every tenant-owned API family.
 
-### 3. High: documented tenant boundary is not enforced at runtime
+2.2. Role and permission depth is incomplete.
 
-Documented flow: `host/domain -> tenant_domains -> tenants -> JWT/user_tenants -> tenant database`.
+- Super-admin, admin desk, and tenant user permissions need server-side role checks, not only menu hiding.
+- Tenant-local RBAC needs a complete UI and policy assignment workflow.
+- Industry feature toggles need to control routes, forms, fields, reports, and API actions.
+- Every sensitive system endpoint needs clear permission rules.
 
-**Breaks:**
-- Login on a tenant domain falls back to the user's first tenant if the domain tenant is not in their access list (`auth.service.ts`).
-- Runtime tenant resolution prefers caller-supplied `x-tenant-code` over both host and JWT `tenantCode` (`tenant-context.service.ts:57`).
+2.3. Queue execution is only partly ready.
 
-A multi-tenant user can authenticate on one branded host and operate against another tenant by header override, as long as `user_tenants` contains access. May be acceptable for an internal super-admin tool, but contradicts the stated isolation model for tenant-facing domains.
+- Hybrid MariaDB plus BullMQ queue direction is correct for scale.
+- Current mail, report, system-update, tenant-maintenance, and event lanes need real processors, not placeholder completion.
+- Workers should move into a separate process/container before production load.
+- Queue jobs need idempotency keys, retry policy, dead-letter handling, job locking, and audit trails.
 
-**Fix:** Bind tenant resolution to the authenticated session and host. `x-tenant-code` should not override host for tenant-facing routes unless the caller is a super-admin in an explicit admin surface.
+2.4. Database safety needs production-grade workflow.
 
-### 4. High: missing isolation tests
+- Backup exists in direction, but restore must be rehearsed and tested.
+- Backups need retention policy, checksum verification, compression, encryption, and off-server storage.
+- Restore must support dry-run validation before touching a live database.
+- Tenant-level restore should be possible without restoring the whole platform.
 
-**Fix:** Add tests for cross-host login and cross-tenant header override — these are the current isolation breaks.
+2.5. Update engine needs safer release discipline.
 
----
+- System update must remain asynchronous so the UI never waits behind a long build.
+- Update must always take database backup first.
+- Update must run migrations in controlled order and stop on unsafe migration errors.
+- Rollback strategy is not complete unless both code version and database state can be recovered.
+- A failed update should leave a clear status page with last command, logs, backup ID, and recovery action.
 
-## Phase 2 - Security Hardening
+2.6. Multi-domain and multi-vertical product structure is not formal enough.
 
-### 5. ✅ RESOLVED: JWT secret fallback removed
+- Ecommerce, billing, auditor office, sports club, accounts, offset billing, and garment manufacturing cannot all be built as one flat module list.
+- Each vertical needs an industry pack with enabled modules, terminology, document flows, number series, tax rules, reports, and dashboards.
+- Shared primitives must stay common: contacts, products, accounts, documents, stock, payments, reports, notifications, files, and audit logs.
+- Vertical-specific behavior should be configuration plus extension modules, not hard forks.
 
-`infrastructure/auth/jwt.ts:12` — Fallback `?? 'cxsun-local-dev-secret'` removed. Now uses `createHmac('sha256', getJwtSecret())` which throws `'JWT_SECRET environment variable is required'` at sign/verify time if unset.
+2.7. Accounting and finance layer is the biggest missing foundation.
 
-### 6. ✅ RESOLVED: seed users use explicit development defaults
+- Accounts, ledger, vouchers, journal, tax posting, receivables, payables, bank/cash, and financial reports are needed before serious billing, auditor, and manufacturing customers.
+- Existing sales, purchase, receipt, stock, and document settings need posting rules into accounts.
+- Every tenant needs accounting year controls, period locks, opening balances, and audit-safe corrections.
 
-`modules/auth/infrastructure/auth.database.ts` now seeds one super-admin identity (`sundar@sundar.com`) and the default platform/tenant users requested for development. The old shared `SEED_USER_PASSWORD` fallback was removed.
+2.8. Reporting and document generation need queue-backed infrastructure.
 
-### 7. ✅ RESOLVED: hardcoded DB password fallback removed
+- Reports must not block API requests.
+- Large reports, PDFs, invoices, backups, imports, exports, and email sends should run through queues.
+- Report definitions need tenant and industry awareness.
+- Generated files need storage lifecycle and permission checks.
 
-`tenant-database.connection.ts` — Final `?? 'Computer.1'` removed. Tenant database passwords now resolve from `process.env[secretRef]` and fall back to `DB_PASSWORD`. Neither set → `undefined` → connection fails (fail-fast).
+2.9. Observability is thin for scale.
 
-### 8. Resolved/monitor: `@UseGuards` class metadata is now wired
+- Need structured logs for API, queues, updates, backups, migrations, and tenant resolution.
+- Need health checks for MariaDB, Redis, workers, disk space, backup age, and migration status.
+- Need admin-visible incident logs and failed job drill-down.
 
-`core/decorators/guards.ts` now writes class-level metadata in the shape read by `core/bootstrap.ts`, so class-level `@UseGuards(AuthGuard)` is honored.
+2.10. Testing coverage is not enough for a platform with many tenants.
 
-Remaining work is policy design, not decorator wiring: decide which public endpoints stay public and which platform/admin controllers need explicit guard and role coverage.
+- Need automated tests for tenant isolation, RBAC, migrations, queue retry, backup/restore, and update failure paths.
+- Need smoke tests after deployment and after update.sh.
+- Need seed fixtures for multiple industries and multiple tenant domains.
 
-### 9. Pending: `HttpExceptionFilter` and `@UseFilters` never registered
+## 3. Blockers
 
-`shared/filters/http-exception.filter.ts` defines `HttpExceptionFilter` with `@Injectable()` and `core/decorators/filters.ts` defines `@UseFilters`, but neither is ever imported or registered. The bootstrap error handler in `bootstrap.ts:148-163` handles `HttpException` directly, but non-HttpException errors produce 500 responses with stack traces exposed by Fastify's default handler.
+3.1. Critical blockers before scaling to real multi-domain customer use:
 
-**Fix:** Register the exception filter globally in the bootstrap or in each module.
+1. Tenant isolation must be enforced and tested.
+2. Server-side permissions must protect platform, admin, and tenant APIs.
+3. Backup and restore must be proven on real MariaDB data.
+4. Update workflow must not leave the app half-updated.
+5. Queue workers must process real jobs reliably.
 
-### 10. ✅ RESOLVED: dead config module removed
+3.2. Product blockers before adding many industries:
 
-`infrastructure/config.ts` and `loadConfig()` were dead code — never called from `main.ts` or `bootstrap.ts`. File deleted.
+1. No complete accounts engine.
+2. No formal industry pack system.
+3. No document workflow engine for invoices, bills, receipts, delivery notes, club billing, audit files, and manufacturing documents.
+4. No mature reporting engine.
+5. No import/export engine for customer onboarding.
 
-**Remaining:** Add startup env var validation (e.g., `JWT_SECRET`, `DB_PASSWORD` must be set at boot).
+3.3. Operational blockers before production confidence:
 
----
+1. Worker process is not separated from the API process.
+2. Backup retention, verification, encryption, and off-server copy are missing.
+3. Restore UX is risky without dry-run validation.
+4. Redis and queue health need deployment-level checks.
+5. Logs are not centralized enough for support.
 
-## Phase 3 — Architecture & Completeness
+## 4. Immediate Focus
 
-### 11. ✅ RESOLVED: tenant DB schema types completed
+### Stage 1 - Stabilize Platform Safety
 
-`infrastructure/tenant-database/tenant-database.schema.ts` now defines types for **46 tables** (was 12):
+1.1. Lock tenant resolution.
 
-**Added (34 new interfaces):**
-- 27 `common_*` tables (countries, states, districts, cities, pincodes, contact_groups, contact_types, address_types, bank_names, product_groups, product_categories, product_types, units, hsn_codes, taxes, brands, colours, sizes, currencies, order_types, styles, transports, warehouses, destinations, payment_terms, months, stock_rejection_types)
-- 4 sales entry tables (`sales_entries`, `sales_entry_items`, `sales_entry_comments`, `sales_entry_activities`)
-- 3 master tables (`masters_contacts`, `masters_products`, `masters_orders`)
+- Bind tenant context to domain plus authenticated user access.
+- Allow tenant override only in super-admin/admin surfaces with explicit permission.
+- Add isolation tests for cross-domain login and cross-tenant API access.
 
-All marked with proper `Generated<number>` for auto-increment IDs, `boolean` for TINYINT(1) flags, and `Date` for datetime columns.
+1.2. Finish permission enforcement.
 
-### 12. Resolved by structure: master-data is now a registry, not the common table owner
+- Add role/permission guards to all system, platform, admin, and tenant APIs.
+- Ensure menu visibility and backend access use the same permission source.
+- Add audit events for super-admin actions.
 
-`modules/foundation/master-data` is now a compatibility registry/API for common definitions. Tenant table ownership moved to standalone common modules under `modules/common/<group>/<module>`, and tenant provisioning calls `migrateCommonModuleTables()` plus standalone master/entry migrations.
+1.3. Harden update engine.
 
-**Fix:** Do not call the generic master-data migration for current common/master tables. Keep the registry endpoint API-compatible while standalone modules own migrations.
+- Make system update fully backgrounded with persistent status.
+- Always create database backup before pull/build/restart.
+- Show backup ID, migration result, build result, restart result, and last failure.
+- Keep `update.sh` as terminal fallback for broken frontend/API update situations.
 
-### 13. Medium: master-data module registers TenantRepository/TenantDomainRepository but doesn't use them
+1.4. Prove backup and restore.
 
-`master-data.module.ts` imports both `TenantRepository` and `TenantDomainRepository` as providers, but `MasterDataService` only uses `TenantContextService`. The extra providers are dead weight.
+- Test master plus tenant database backup.
+- Test tenant-only restore in a separate database first.
+- Add checksum and restore dry-run before live restore.
+- Add backup retention settings.
 
-### 14. Medium: queue has no worker/consumer
+1.5. Finish queue manager baseline.
 
-`infrastructure/queue/master-queue.service.ts` provides `enqueue()` and `listPending()` methods, but there is NO background worker or consumer that processes jobs. Jobs are enqueued (e.g., `tenant.database.provision` in `upsert-tenant.use-case.ts:58`) but never dequeued or executed.
+- Replace placeholder queue processors with real mail, report, backup, update, and event processors.
+- Add retry, cancel, requeue, dead-letter, and job detail views.
+- Add queue health status for Redis, BullMQ workers, and MariaDB queue table.
 
-**Fix:** Implement a queue worker that processes pending jobs, or remove the queue pattern if not needed.
+### Stage 2 - Production Operations
 
-### 15. Medium: accounting year seeding is inline in the provisioner
+2.1. Split workers from API runtime.
 
-`tenant-database.connection.ts:496-533` contains `seedAccountingYears()` as a local function rather than in the `accounting-year` common module. This creates a maintenance burden when the accounting year schema changes.
+- Run API, frontend/static server, queue worker, Redis, and MariaDB as separate services.
+- Keep Redis external by default.
+- Add worker restart policy and health checks.
 
-**Fix:** Move `seedAccountingYears()` into the accounting-year common module's seeder.
+2.2. Add observability.
 
-### 16. Low: `MasterRecordEventBus` and `TenantEventBus` are in-memory — events lost on restart
+- Structured API logs.
+- Queue/job logs.
+- Update and migration logs.
+- Backup age and restore verification status.
+- Disk, memory, database, and Redis health cards in super-admin.
 
-`core/tenant/application/tenant-event-bus.ts` and `foundation/master-record/application/services/master-record-event-bus.ts` both store events in plain arrays. On server restart, ALL events are lost.
+2.3. Add release safety.
 
-**Fix:** Persist events to the database if audit trails are needed.
+- Version every release.
+- Track current code version, database schema version, and migration history.
+- Add preflight checks before update: disk space, DB connectivity, Redis connectivity, dirty worktree, backup tool availability, npm availability.
+- Add post-update smoke tests.
 
----
+2.4. Add migration discipline.
 
-## Phase 4 — Code Quality & Reliability
+- Master migrations and tenant migrations should be listed, ordered, idempotent, and reversible where possible.
+- Show pending/applied/failed migrations in Database Manager.
+- Block update if required migrations are unsafe without backup.
 
-### 17. ✅ RESOLVED: UUID generation improved
+## 5. Product Build Phases
 
-All public record UUID creation now goes through the shared 8-character uppercase alphanumeric helper (fits the existing `CHAR(8)` column). Full UUID migration (`crypto.randomUUID()` + `CHAR(36)`) deferred.
+### Phase 1 - Core SaaS Foundation
 
-### 18. Pending: no request body validation
+1. Tenant isolation and permission system.
+2. Tenant-local role and policy UI.
+3. Company context and default company switching.
+4. Document settings and number series by tenant/company/year.
+5. Audit log for sensitive business and system actions.
+6. Import/export base engine.
 
-None of the controllers have validation pipes, class-validator decorators, or any request body validation beyond basic null checks in service methods. Invalid/unexpected input types propagate into database queries, potentially causing confusing errors or SQL warnings.
+### Phase 2 - Accounts Foundation
 
-**Recommended approach:** Add a `@Validate(schema)` decorator and/or a `ValidationPipe` at the bootstrap level using Zod.
+1. Chart of accounts.
+2. Ledger groups and ledgers.
+3. Opening balances.
+4. Journal, contra, payment, receipt, debit note, and credit note vouchers.
+5. Tax ledgers and posting rules.
+6. Trial balance, ledger book, day book, profit and loss, and balance sheet.
+7. Period lock and accounting year close.
 
-### 19. Low: duplicate routes in TenantsV1Controller
+### Phase 3 - Billing and Trading Pack
 
-`@Delete(':id')` and `@Post(':id/destroy')` both call `this.tenantService.softDelete()`. The `@Post(':id/destroy')` route is redundant — and misnamed, since it does a soft delete, not a hard destroy.
+1. Sales invoice and purchase bill.
+2. Sales order, delivery note, purchase order, and goods receipt.
+3. Customer and supplier balances.
+4. GST/tax reports.
+5. PDF templates and email/WhatsApp dispatch through queue.
+6. Recurring billing where needed.
 
-**Fix:** Remove the duplicate `@Post(':id/destroy')` route, or rename it to `:id/soft-delete` if both are intentionally needed.
+### Phase 4 - Ecommerce Pack
 
-### 20. ✅ RESOLVED: 3 dead code files deleted
+1. Public catalog by tenant domain.
+2. Product detail, cart, checkout, customer account, and order tracking.
+3. Payment gateway integration.
+4. Inventory reservation and fulfillment.
+5. Storefront theme/settings.
+6. Channel order import/export.
 
-| File | Action |
-|---|---|
-| `infrastructure/shutdown.ts` | Deleted |
-| `infrastructure/config.ts` | Deleted |
-| `shared/guards/simple.guard.ts` | Deleted |
+### Phase 5 - Auditor Office Pack
 
-Remaining unused infrastructure (HttpExceptionFilter, RequestLoggerMiddleware, middleware decorators/interfaces) not yet cleaned up.
+1. Client file management.
+2. Compliance/task calendar.
+3. Document request and upload workflow.
+4. Staff assignment and review notes.
+5. Billing against client services.
+6. Compliance reports and reminders.
 
-### 21. ✅ RESOLVED: `isEmptyDeletedAt` handles string inputs
+### Phase 6 - Sports Club Pack
 
-Fixed `resolve-tenant-context.use-case.ts:124` — type widened to `Date | string | null | undefined`. String values return `false` (non-empty), `instanceof Date` branches to `getTime()` check as before.
+1. Member master.
+2. Subscription plans and renewal billing.
+3. Attendance/session tracking.
+4. Coach/staff assignment.
+5. Facility booking.
+6. Member communication and dues reports.
 
----
+### Phase 7 - Garment Manufacturing Pack
 
-## Summary
+1. Style, colour, size, fabric, trims, and BOM.
+2. Cutting, stitching, finishing, checking, and packing stages.
+3. Job work and production orders.
+4. WIP stock and process loss.
+5. Size-wise order planning.
+6. Manufacturing cost reports.
 
-The main gap is not database separation. It is boundary enforcement. The app has tenant-specific databases, but the platform/admin surface is mostly unprotected, and tenant selection is caller-steerable instead of being bound to the request host and session.
+### Phase 8 - Offset Printing/Billing Pack
 
-**Priority order for fixes:**
-1. Lock down all platform controllers with explicit auth and role guards (items 1-4; item 8 decorator wiring is fixed)
-2. Remove hardcoded secrets and add env var validation (items 5-7, 10)
-3. Complete tenant DB schema types (item 11)
-4. Complete queue worker design and module event processing (item 14; item 12 is resolved by standalone module ownership)
-5. Code quality improvements (items 17-21)
+1. Paper, plate, ink, lamination, binding, and finishing masters.
+2. Quotation and estimate engine.
+3. Job card.
+4. Production stages and wastage.
+5. Customer proof approval.
+6. Job profitability report.
+
+## 6. Architecture Direction
+
+6.1. Keep one platform for now.
+
+- One codebase is best until the shared foundations are mature.
+- Use feature packs to enable different industries per tenant.
+- Keep tenant data isolated even when modules are shared.
+- Keep super-admin operations separate from tenant business workflow.
+
+6.2. Split later only when a module becomes independently large.
+
+- Ecommerce storefront could become a separate public app later.
+- Queue workers should become separate services earlier than frontend/backend splitting.
+- Mobile/desktop apps can stay reserved until the web workflows are stable.
+
+6.3. Build a feature pack system.
+
+- Each tenant has industry pack assignments.
+- Each pack declares modules, routes, policies, document types, settings, reports, and terminology.
+- Packs can share common modules but own vertical-specific workflows.
+
+6.4. Keep shared primitives clean.
+
+- Contacts, products, stock, accounts, documents, payments, files, comments, tasks, reports, notifications, and audit logs should be reusable.
+- Avoid copying a full module for each industry unless the behavior is truly different.
+
+## 7. Later Focus
+
+7.1. Scale and hosting.
+
+- Per-tenant database backup scheduling.
+- Optional per-tenant database server placement for high-value customers.
+- Read replicas for reporting if needed.
+- Object storage for files and backups.
+- CDN for storefront assets.
+
+7.2. Developer and release workflow.
+
+- CI checks for typecheck, build, lint, migrations, and tests.
+- Release notes generated from versioned changes.
+- Staging environment with production-like MariaDB and Redis.
+- One-click smoke test after deployment.
+
+7.3. Customer onboarding.
+
+- Tenant setup wizard.
+- Industry pack selector.
+- Data import templates.
+- Opening balance import.
+- Domain verification.
+- Default roles, reports, and document templates per industry.
+
+7.4. Support and admin desk.
+
+- Ticketing.
+- Bug reports.
+- Client notes.
+- Update history.
+- Failed job triage.
+- Tenant health timeline.
+
+## 8. Recommended Next Work Order
+
+1. Finish tenant isolation and permission enforcement.
+2. Prove database backup/restore with dry-run and retention.
+3. Complete queue workers for backup, reports, mail, and update.
+4. Move workers into a separate process/container.
+5. Add migration manager visibility and update preflight checks.
+6. Build accounts foundation.
+7. Build industry pack system.
+8. Build billing/trading pack first because it feeds many customer types.
+9. Add ecommerce, auditor office, sports club, garment, and offset packs in that order based on active customer demand.
+
+## 9. Decision
+
+CXSun should remain one multi-tenant platform now. The near-term problem is not that the product has too many business types; the problem is that the shared foundation must become strict, observable, and recoverable. Once tenant isolation, accounts, queues, backups, updates, and feature packs are strong, the same platform can serve ecommerce, billing, auditor office, sports club, garment manufacturing, and offset billing without splitting too early.

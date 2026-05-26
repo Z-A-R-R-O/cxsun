@@ -192,13 +192,16 @@ export async function setupTenantClientDatabase(tenant: Tenant) {
   await provisionTenantDatabase(tenant)
   const database = getTenantDatabase(tenant)
   const company = await ensureTenantDefaultCompany(database, tenant)
-  const admin = await ensureTenantUser(database, {
-    name: 'Administrator',
-    email: 'admin@admin.com',
-    passwordHash: hashPassword('Admin@123'),
-    role: 'admin',
-    status: 'active',
-  })
+  const adminSeed = tenantAdminSeed()
+  const admin = adminSeed
+    ? await ensureTenantUser(database, {
+      name: adminSeed.name,
+      email: adminSeed.email,
+      passwordHash: hashPassword(adminSeed.password),
+      role: 'admin',
+      status: 'active',
+    })
+    : null
   await syncTenantCompanyMetrics(tenant)
 
   return {
@@ -206,13 +209,27 @@ export async function setupTenantClientDatabase(tenant: Tenant) {
     tenantId: tenant.id,
     database: tenant.db_name,
     company,
-    admin: {
-      id: admin,
-      name: 'Administrator',
-      email: 'admin@admin.com',
-      role: 'admin',
-      status: 'active',
-    },
+    admin: adminSeed && admin
+      ? {
+        id: admin,
+        name: adminSeed.name,
+        email: adminSeed.email,
+        role: 'admin',
+        status: 'active',
+      }
+      : null,
+  }
+}
+
+function tenantAdminSeed() {
+  const email = process.env.TENANT_ADMIN_EMAIL?.trim().toLowerCase()
+  const password = process.env.TENANT_ADMIN_PASSWORD?.trim()
+  if (!email || !password) return null
+
+  return {
+    name: process.env.TENANT_ADMIN_NAME?.trim() || 'Tenant Admin',
+    email,
+    password,
   }
 }
 
@@ -261,8 +278,23 @@ function toMetricNumber(value: number | string | bigint | null | undefined) {
   return Number.isFinite(numberValue) ? numberValue : 0
 }
 
+function readTenantCompanies(tenant: Tenant) {
+  try {
+    const settings = JSON.parse(tenant.payload_settings || '{}') as {
+      liveScope?: { companies?: unknown }
+    }
+    const companies = settings.liveScope?.companies
+    return Array.isArray(companies)
+      ? companies.map(String).map((company) => company.trim()).filter(Boolean)
+      : []
+  } catch {
+    return []
+  }
+}
+
 async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
   await seedCommonModuleTables(database)
+  await seedScopedCompanies(database, tenant)
   const years = await seedAccountingYears(database)
   const existingDefault = await database
     .selectFrom('default_companies')
@@ -318,6 +350,70 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
     await ensureRolePolicy(database, roleCode, 'rbac.manage')
   }
 
+}
+
+async function seedScopedCompanies(database: TenantDatabase, tenant: Tenant) {
+  const companies = readTenantCompanies(tenant)
+  if (companies.length === 0) {
+    return
+  }
+
+  for (const [index, companyName] of companies.entries()) {
+    const code = companyName
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 64) || `${tenant.slug.toUpperCase()}_${index + 1}`
+
+    const existing = await database
+      .selectFrom('companies')
+      .select('id')
+      .where((eb) => eb.or([
+        eb('code', '=', code),
+        eb('name', '=', companyName),
+      ]))
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+
+    const row = {
+      tenant_id: tenant.id,
+      industry_id: 0,
+      code,
+      name: companyName,
+      legal_name: companyName,
+      tagline: null,
+      short_about: null,
+      gstin_uin: null,
+      pan: null,
+      date_of_incorporation: null,
+      msme_no: null,
+      msme_category: null,
+      tan: null,
+      tds_available: false,
+      tds_section: null,
+      tds_rate_percent: null,
+      tcs_available: false,
+      tcs_section: null,
+      tcs_rate_percent: null,
+      website: null,
+      description: null,
+      primary_email: null,
+      primary_phone: null,
+      is_primary: index === 0,
+      is_active: true,
+      status: 'active',
+      settings: JSON.stringify({ timezone: 'Asia/Calcutta', currency: 'INR' }),
+      features: JSON.stringify(['company.manage']),
+    }
+
+    if (existing) {
+      await database.updateTable('companies').set(row).where('id', '=', existing.id).execute()
+      continue
+    }
+
+    await database.insertInto('companies').values({ uuid: nextPublicUuid(), ...row }).execute()
+  }
 }
 
 async function ensureTenantDefaultCompany(database: TenantDatabase, tenant: Tenant) {

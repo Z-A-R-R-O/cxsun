@@ -24,6 +24,16 @@ export class SystemUpdateController {
 
   @Post('run')
   async run() {
-    return this.systemUpdateService.runUpdate()
+    return this.systemUpdateService.startUpdate()
+  }
+
+  @Post('run-script')
+  async runScript() {
+    return this.systemUpdateService.startUpdateScript()
+  }
+
+  @Post('rollback')
+  async rollback() {
+    return this.systemUpdateService.startRollback()
   }
 }

@@ -40,6 +40,12 @@ const SupportPage = lazy(() =>
 const SystemUpdateView = lazy(() =>
   import('./system-update-view').then((module) => ({ default: module.SystemUpdateView })),
 )
+const QueueManagerPage = lazy(() =>
+  import('src/features/system/queue-manager-page').then((module) => ({ default: module.default })),
+)
+const DatabaseManagerPage = lazy(() =>
+  import('src/features/system/database-manager-page').then((module) => ({ default: module.default })),
+)
 const TenantListPage = lazy(() =>
   import('src/features/tenant/interface/pages/tenant-list-page').then((module) => ({ default: module.TenantListPage })),
 )
@@ -135,6 +141,8 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
     page === "industry" ||
     page === "company" ||
     page === "system-update" ||
+    page === "queue-manager" ||
+    page === "database-manager" ||
     page === "user-manager" ||
     page === "helpdesk" ||
     page === "bugs" ||
@@ -159,7 +167,7 @@ function defaultPageForApp(appId: DashboardAppId): DashboardPage {
 }
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "user-manager"],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "queue-manager", "database-manager", "user-manager"],
   admin: ["overview", "company", "helpdesk", "bugs", "system-update"],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
@@ -177,6 +185,8 @@ const pageLabels: Partial<Record<DashboardPage, string>> = {
   "industry": "Industries",
   "company": "Companies",
   "system-update": "System Update",
+  "queue-manager": "Queue Manager",
+  "database-manager": "Database Manager",
   "user-manager": "Admin User Manager",
   "helpdesk": "Helpdesk",
   "bugs": "Bugs",
@@ -411,6 +421,10 @@ export function DashboardView({
             />
           ) : visiblePage === "system-update" ? (
             <SystemUpdateView session={session} />
+          ) : visiblePage === "queue-manager" ? (
+            <QueueManagerPage session={session} />
+          ) : visiblePage === "database-manager" ? (
+            <DatabaseManagerPage session={session} />
           ) : visiblePage === "user-manager" ? (
             <UserManagerPage session={session} />
           ) : visiblePage === "helpdesk" ? (
@@ -740,7 +754,7 @@ function enabledAppsForSession(session: AuthSession): Record<DashboardAppId, boo
     : null
 
   if (!enabledIds) {
-    return readStoredEnabledApps()
+    return applicationOnlyApps()
   }
 
   const enabled = Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application" || enabledIds.includes(app.id)])) as Record<DashboardAppId, boolean>
@@ -757,11 +771,14 @@ function parseTenantPayloadSettings(value?: string): { apps?: { enabled?: unknow
 }
 
 function readStoredLandingApp(enabledApps: Record<DashboardAppId, boolean>): DashboardAppId {
-  const value = window.localStorage.getItem("cxsun.landingApp.v1") ?? "billing"
+  const value = window.localStorage.getItem("cxsun.landingApp.v1") ?? ""
   return isDashboardAppId(value) && enabledApps[value] ? value : fallbackLandingApp(enabledApps)
 }
 
 function fallbackLandingApp(enabledApps: Record<DashboardAppId, boolean>): DashboardAppId {
-  if (enabledApps.billing) return "billing"
   return dashboardApps.find((app) => enabledApps[app.id])?.id ?? "application"
+}
+
+function applicationOnlyApps(): Record<DashboardAppId, boolean> {
+  return Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application"])) as Record<DashboardAppId, boolean>
 }

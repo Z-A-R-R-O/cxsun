@@ -1,6 +1,6 @@
 # AI Agent Assist System
 
-**Project version:** 1.0.34
+**Project version:** 1.0.36
 
 This directory is the working guide for AI agents on `cxsun`. It records project rules, current architecture, session plans, task tracking, and release notes.
 
@@ -116,6 +116,7 @@ At the start of each work session:
 
 - `assist/context/workspaces.md` maps each workspace to its role and commands.
 - `assist/context/product-picture.md` describes the product picture and implementation direction.
+- `assist/context/live-client-scope.md` records the first real tenant/client, industry, app, and domain scope.
 - `assist/rules/architecture.md` describes current app placement and module boundaries.
 - `assist/rules/verification.md` describes required checks by change type.
 - `assist/templates/server-module.md` gives the preferred backend module layout.

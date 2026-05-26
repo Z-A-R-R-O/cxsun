@@ -7,7 +7,12 @@ import { resolve } from 'path'
 
 const envDir = resolve(__dirname, '../..')
 const serverStatePath = resolve(envDir, 'build/dev/server.json')
-const defaultAllowedHosts = ['codexsun.com', 'www.codexsun.com']
+const defaultAllowedHosts = [
+  'codexsun.com',
+  'www.codexsun.com',
+  '.codexsun.com',
+  '.local',
+]
 
 function apiProxyTarget(env: Record<string, string>) {
   if (process.env.VITE_API_BASE_URL) return process.env.VITE_API_BASE_URL
@@ -111,6 +116,7 @@ export default defineConfig(({ command, mode }) => {
     server: {
       host: '0.0.0.0',
       port: Number(env.VITE_PORT) || 6010,
+      allowedHosts: allowedHosts(env),
       proxy: {
         '/api': {
           target: apiTarget,

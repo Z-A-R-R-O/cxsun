@@ -38,7 +38,7 @@ export class AppSetupService {
     const dbPort = dbServerMode === 'same' ? dbConfig.tenant.defaults.port : normalizePort(input.dbPort)
     const dbUser = dbServerMode === 'same' ? dbConfig.tenant.defaults.user : input.dbUser?.trim() || ''
     const dbSecretRef = dbServerMode === 'same' ? dbConfig.tenant.defaults.secretRef : normalizeSecretRef(input.dbSecretRef || '')
-    const domain = normalizeDomain(input.domain || 'localhost')
+    const domain = normalizeDomain(input.domain || '')
     const adminName = input.adminName?.trim() || 'Tenant Admin'
     const adminEmail = input.adminEmail?.trim().toLowerCase() || ''
     const adminPassword = input.adminPassword?.trim() || ''
@@ -148,7 +148,7 @@ async function findSetupDuplicate(input: { code?: number; corporateId: string; m
     .where('deleted_at', 'is', null)
     .executeTakeFirst()
 
-  if (domain && input.domain !== 'localhost') return { ok: false, error: 'Domain is already mapped.' }
+  if (domain) return { ok: false, error: 'Domain is already mapped.' }
   return null
 }
 
@@ -227,8 +227,8 @@ async function createTenantDomain(tenantId: number, domain: string, label: strin
     .where('deleted_at', 'is', null)
     .executeTakeFirst()
 
-  if (existing && domain === 'localhost') {
-    return existing
+  if (existing) {
+    throw new Error('Domain is already mapped.')
   }
 
   const now = nowIso()

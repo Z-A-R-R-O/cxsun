@@ -2,13 +2,48 @@
 
 ## Version State
 
-- **Current version:** `1.0.34`
-- **Release tag:** `v-1.0.34`
-- **Changelog label:** `v 1.0.34`
+- **Current version:** `1.0.36`
+- **Release tag:** `v-1.0.36`
+- **Changelog label:** `v 1.0.36`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.36
+
+### [v 1.0.36] 2026-05-26 8:38 am - cloud reinstall deployment hardening
+
+- Bumped workspace version to 1.0.36
+- Hardened `.container/setup-cloud.sh` for live cloud reinstall flow with `--fresh` and `--reinstall` as equivalent clean app reinstall options.
+- Made the cloud reinstall path reset the external Redis container/cache, stop and remove the CXSun app container, remove only the CXSun workspace volume, rebuild the Docker image with `--no-cache`, and explicitly preserve MariaDB.
+- Added live platform admin seed defaults for `SUNDAR <sundar@sundar.com>` and `Admin <admin@admin.com>` through deploy environment variables instead of backend hardcoded fallback credentials.
+- Added JWT secret generation and persistence for first deploys, with `.container/generate-jwt-secret.sh` for manual secret creation or rotation.
+- Updated Docker compose and entrypoint environment wiring for JWT, platform admin seeds, tenant admin seeds, Redis settings, queue enablement, and database backup interval settings.
+- Extended the container entrypoint to run dependency install, database migrations, database seeds, tenant static tests, tenant isolation tests, production build, backend health check, and strict `codexsun.com` tenant resolver verification before considering startup healthy.
+- Documented the cloud deploy and reinstall commands in `.container/README.md`, including the one-command live reinstall path and the guarantee that MariaDB is not recreated by the script.
+- Marked deployment shell scripts executable and added `.gitattributes` rules so shell scripts keep Linux-safe LF line endings after Windows edits.
+- Captured the live-server mismatch where `git pull` still showed the old setup script accepting only `--fresh`, confirming the local deployment hardening must be pushed before `--reinstall` works on the server.
+
+## v-1.0.35
+
+### [v 1.0.35] 2026-05-25 10:40 pm - multi tenant static domain pages
+
+- Bumped workspace version to 1.0.35
+- Added a reusable backend `DomainResolutionEngine` so domain-to-tenant lookup, tenant app access, landing app selection, and domain settings are resolved in one service path.
+- Added public `GET /api/site/tenant-static` for domain-aware static pages without requiring dashboard authentication.
+- Built tenant-aware public page scaffolds for billing, ecommerce, inventory, accounts, auditor office, sports club, garment manufacturing, and offset billing from the same deployed frontend codebase.
+- Updated the landing frontend to switch brand, navigation, page content, and primary action from the resolved tenant/domain and fail closed when no tenant domain is mapped.
+- Updated assist architecture rules to keep future tenant public pages behind the shared domain-resolution engine.
+- Added the first live client scope catalog for Aaran Associates, CODEXSUN shared billing, offset printers, garment manufacturers, fabric trading, UPVC, ecommerce stores, sports club, testing lab, and business connect tenants.
+- Seeded live client tenant rows, industry labels, tenant app scopes, tenant domain mappings, and tenant company names from the shared live scope catalog.
+- Added Windows local host helper scripts through `npm run hosts:local` and `npm run hosts:check` for exact `*.codexsun.com` development domains.
+- Shifted public tenancy to strict domain isolation: unmapped domains fail closed, while `codexsun.com` is treated as its own CODEXSUN tenant domain instead of a shared fallback.
+- Added explicit `.local` development tenant domains for the current client list and allowed `.local` origins during local API testing.
+- Corrected the SMS UPVC local tenant alias to `smsupvc.local`.
+- Reworked tenant public home/content generation to use industry, company, requirements, and enabled-app metadata, with a tenant static content contract test for future domain/app binding changes.
+- Bound public contact submissions to the resolved tenant domain, added sample transaction isolation testing, and disabled the unused platform landing fetch on strict tenant pages.
+- Removed remaining localhost/domain fallback behavior from tenant setup, removed hardcoded seeded admin credentials, and made tenant dashboard app access fail closed to Application-only when tenant app metadata is missing.
 
 ## v-1.0.34
 

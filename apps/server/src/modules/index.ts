@@ -19,6 +19,8 @@ import { DocumentSettingsModule } from './settings/document-settings/index.js'
 import { MediaModule } from './media/index.js'
 import { TaskManagerModule } from './task-manager/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
+import { QueueManagerModule } from '../core/system/queue-manager/queue-manager.module.js'
+import { DatabaseManagerModule } from '../core/system/database-manager/database-manager.module.js'
 import { AppSetupModule } from '../framework/setup/app-setup/index.js'
 import { HealthModule } from '../core/health/health.module.js'
 import { IndustryModule } from '../core/industry/industry.module.js'
@@ -33,6 +35,8 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     HealthModule,
     SiteModule,
     SystemUpdateModule,
+    QueueManagerModule,
+    DatabaseManagerModule,
     AuthModule,
     TenantModule,
     TenantDomainModule,

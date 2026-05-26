@@ -1922,3 +1922,65 @@ app-setup-page.tsx?t=1779641141037:262 Uncaught ReferenceError: ServerModeField 
 ```
 check for previous Domain localhost if found skip to create domain and do next step
 ```
+
+## 2026-05-25 10:40 pm
+
+User prompt:
+
+read assist/readme and create log in change log with version update and then find 
+
+in this any update in assist rules means do now , make not over thinking , make it clear vision
+
+and create proper service and engine for domain resolution and find tenant specfied app and then switch to proper tenant for frontend static pages
+
+now build multi tenant  static pages with single code base with all required infra, make all scafold pages 
+
+## 2026-05-25 11:00 pm
+
+User prompt:
+
+create original live client scope tenant with industry specfic
+
+AARAN ASSOCIATES => auditor office cum back office for this software who maintain and assist to clients
+CODEXSUN => Shared domain Billing app at present , all clients use this domain for billing at present and also planed for sub domain based to client with nginx
+
+like 
+sriganapatthi.codexsun.com
+sukraa.codexsun.com
+cotton.codexsun.com
+
+in this  each are different client
+
+here is full list of my client base with company and industry
+
+1. SUNDAR = > AARAN ASSOCIATE => auditor office
+2. GANAPATHI PRINTING  = > SRI GANAPATHI PRINTING PRESS => offset Printing => needs simple billing software with accounts
+3. COTTON KNITS  = >COTTON KNITS FASHION => offset Printing => needs simple billing software with accounts + einvoice + eway
+
+4. SATHASIVAM has 2 companues
+
+4a . SUKRAA GARMENTS => GARMENTS MANUFACTURER => needs Billing with Accounts + einvoice + eway
+4b . Mathan Knitters=> GARMENTS MANUFACTURER => needs Billing with Accounts + einvoice + eway
+
+5. Poly made india =>  fabric trader => needs Billing with Accounts + einvoice + eway
+
+6. Amal Tex=>  GARMENTS MANUFACTURER => needs Billing with Accounts + einvoice + eway
+
+
+
+7. KGS PRINTING= > offset Printing => needs simple billing software with accounts
+8. THIRUMURUGAN PRINTERS= > offset Printing => needs simple billing software with accounts
+9. SMS UPVC= > UPVC=> needs simple billing software with accounts + eway
+
+10. TIRUPUR DIRECT => ecommerce -> garments sales tirupur based
+11. Deal o Deal => ecommerce -> computer seconds store
+12. TENKASI SPORTS => sports club -> want to manage students and masters
+13. ALTEXLABS => garment testing labs => wanted testing reports 
+14. AARAN BUSSINESS CONNECT => connecting business peoples like india mart
+
+this still expands at first we finish these and work on next
+
+so plan for these and work 
+
+for local dev add host file with localhost domain setup and also create helper to do this in windows 
+for production we can move with sub domain or client owned domains

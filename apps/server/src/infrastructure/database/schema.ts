@@ -28,6 +28,9 @@ export interface SitePostsTable {
 
 export interface SiteMessagesTable {
   id: Generated<number>
+  tenant_id: number | null
+  tenant_slug: string | null
+  domain: string | null
   name: string
   email: string
   message: string
@@ -113,11 +116,17 @@ export interface TenantRbacPoliciesTable {
 
 export interface QueueJobsTable {
   id: Generated<number>
+  queue_name: string
   type: string
   payload: string
   status: string
   attempts: number
+  progress: number
+  result: string | null
+  error: string | null
   run_at: string
+  started_at: string | null
+  finished_at: string | null
   created_at: Generated<string>
   updated_at: Generated<string>
 }
