@@ -2,13 +2,21 @@
 
 ## Version State
 
-- **Current version:** `1.0.40`
-- **Release tag:** `v-1.0.40`
-- **Changelog label:** `v 1.0.40`
+- **Current version:** `1.0.41`
+- **Release tag:** `v-1.0.41`
+- **Changelog label:** `v 1.0.41`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.41
+
+### [v 1.0.41] 2026-05-26 9:41 am - separate redis setup helper and queue readiness
+
+- Bumped workspace version to 1.0.41
+- Fixed the app Redis readiness check to explicitly connect before pinging, so BullMQ workers do not fall back to MariaDB-only mode while the ioredis stream is still opening.
+- Added `.container/setup-redis.sh` as a separate manual Redis helper for status, stop, start, restart, and clean reinstall on the same Redis ports without wiring it into cloud setup.
 
 ## v-1.0.40
 

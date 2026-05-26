@@ -199,6 +199,7 @@ function getRedisConnection() {
     tls: settings.redis.tls ? {} : undefined,
     maxRetriesPerRequest: null,
     enableOfflineQueue: false,
+    lazyConnect: true,
     retryStrategy: () => null,
   })
   redisConnection.on('error', (error) => {
@@ -212,7 +213,11 @@ async function isRedisAvailable() {
   if (redisAvailable === true) return true
 
   try {
-    await getRedisConnection().ping()
+    const connection = getRedisConnection()
+    if (connection.status === 'wait') {
+      await connection.connect()
+    }
+    await connection.ping()
     redisAvailable = true
     return true
   } catch (error) {

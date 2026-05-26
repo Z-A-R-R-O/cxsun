@@ -199,6 +199,17 @@ Run cloud deploy with the default external Redis container:
 .container/setup-cloud.sh
 ```
 
+Manage Redis separately when you want to stop, start, or clean-reinstall only Redis:
+
+```bash
+bash .container/setup-redis.sh status
+bash .container/setup-redis.sh stop
+bash .container/setup-redis.sh start
+bash .container/setup-redis.sh reinstall
+```
+
+The Redis helper keeps the same defaults as cloud setup: container name `redis`, container port `6379`, host port `6380`, and Docker network `codexion-network`.
+
 Run a fresh app and Redis reinstall without touching MariaDB:
 
 ```bash
