@@ -2,13 +2,23 @@
 
 ## Version State
 
-- **Current version:** `1.0.37`
-- **Release tag:** `v-1.0.37`
-- **Changelog label:** `v 1.0.37`
+- **Current version:** `1.0.38`
+- **Release tag:** `v-1.0.38`
+- **Changelog label:** `v 1.0.38`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.38
+
+### [v 1.0.38] 2026-05-26 9:09 am - cloud reinstall health and tenant setup fix
+
+- Bumped workspace version to 1.0.38
+- Fixed container reinstall restart loops by adding `curl` to the runtime image used by entrypoint and setup health checks.
+- Changed cloud entrypoint database bootstrap to run ordered `db:setup` instead of separate migrate and seed steps, so preserved MariaDB installs retire planned-client tenants before tenant provisioning runs.
+- Restricted server startup tenant provisioning to active MariaDB tenants with `deleted_at IS NULL`, preventing suspended planned clients from being prepared during normal boot.
+- Verified the fix with shell syntax checks, server typecheck, server build, and changelog whitespace checks.
 
 ## v-1.0.37
 

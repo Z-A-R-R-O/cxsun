@@ -17,6 +17,9 @@ export class TenantDatabaseProvisioner {
       .selectFrom('tenants')
       .selectAll()
       .where('db_type', '=', 'mariadb')
+      .where('status', '=', 'active')
+      .where('deleted_at', 'is', null)
+      .orderBy('code', 'asc')
       .execute() as Tenant[]
 
     const results: TenantProvisionResult[] = []
@@ -42,4 +45,3 @@ export class TenantDatabaseProvisioner {
     }
   }
 }
-

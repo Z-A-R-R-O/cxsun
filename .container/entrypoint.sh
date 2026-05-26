@@ -210,11 +210,8 @@ else
   npm install --no-audit --fund=false
 fi
 
-log_step "Running database migrations"
-npm -w apps/server run db:migrate
-
-log_step "Running database seeds"
-npm -w apps/server run db:seed
+log_step "Running database setup"
+npm -w apps/server run db:setup
 
 if [ "$INSTALL_RUN_TESTS" = "true" ]; then
   log_step "Running tenant safety tests"
