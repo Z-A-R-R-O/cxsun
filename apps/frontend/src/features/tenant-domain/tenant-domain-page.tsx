@@ -79,14 +79,16 @@ async function upsertDomain(session: AuthSession, input: TenantDomainForm) {
     method: "POST",
   })
 
+  const result = await response
+    .json()
+    .catch(() => null) as { ok?: boolean; domain?: TenantDomainRecord; error?: string; message?: string } | null
+
   if (!response.ok) {
-    throw new Error(`Domain save failed with status ${response.status}.`)
+    throw new Error(result?.error ?? result?.message ?? `Domain save failed with status ${response.status}.`)
   }
 
-  const result = (await response.json()) as { ok: boolean; domain?: TenantDomainRecord; error?: string }
-
-  if (!result.ok || !result.domain) {
-    throw new Error(result.error ?? "Domain save failed.")
+  if (!result?.ok || !result.domain) {
+    throw new Error(result?.error ?? "Domain save failed.")
   }
 
   return result.domain

@@ -44,17 +44,21 @@ export class TenantDomainService {
       return { ok: false, error: 'Domain is already mapped.' }
     }
 
-    return {
-      ok: true,
-      domain: await this.domains.upsert({
-        id,
-        tenant_id: tenantId,
-        domain,
-        label,
-        is_primary: isPrimary ? 1 : 0,
-        status,
-        settings,
-      }),
+    try {
+      return {
+        ok: true,
+        domain: await this.domains.upsert({
+          id,
+          tenant_id: tenantId,
+          domain,
+          label,
+          is_primary: isPrimary ? 1 : 0,
+          status,
+          settings,
+        }),
+      }
+    } catch (error) {
+      return { ok: false, error: domainErrorMessage(error) }
     }
   }
 
@@ -99,4 +103,18 @@ function normalizeSettings(value: TenantDomainUpsertInput['settings']) {
   }
 
   return JSON.stringify(value)
+}
+
+function domainErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+
+  if (/duplicate|unique|uq_|tenant_domains\.domain/i.test(message)) {
+    return 'Domain is already mapped.'
+  }
+
+  if (/foreign key|tenant/i.test(message)) {
+    return 'Tenant domain could not be saved for the selected tenant.'
+  }
+
+  return 'Tenant domain could not be saved.'
 }

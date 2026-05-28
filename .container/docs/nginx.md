@@ -1,6 +1,6 @@
 ```
 server {
-server_name codexsun.com www.codexsun.com;
+server_name cotton.codexsun.com sukraa.codexsun.com;
 
     location /api/ {
         proxy_pass http://127.0.0.1:6005;

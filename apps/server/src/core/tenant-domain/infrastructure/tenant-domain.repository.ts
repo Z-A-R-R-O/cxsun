@@ -68,6 +68,7 @@ export class TenantDomainRepository {
   }
 
   async upsert(input: RequiredTenantDomainInput): Promise<TenantDomain> {
+    const now = mysqlDateTime()
     const row = {
       tenant_id: input.tenant_id,
       domain: input.domain,
@@ -75,8 +76,8 @@ export class TenantDomainRepository {
       is_primary: input.is_primary,
       status: input.status,
       settings: input.settings,
-      deleted_at: input.status === 'suspend' ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
+      deleted_at: input.status === 'suspend' ? now : null,
+      updated_at: now,
     }
 
     if (input.id) {
@@ -148,6 +149,10 @@ export class TenantDomainRepository {
 
 export function normalizeDomain(value: string) {
   return value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '')
+}
+
+function mysqlDateTime() {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
 }
 
 export type RequiredTenantDomainInput = Required<Pick<
