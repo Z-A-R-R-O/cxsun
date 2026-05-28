@@ -452,6 +452,8 @@ export function DashboardView({
             <CompanyPage session={session} />
           ) : visiblePage === "app-application-default-company" ? (
             <DefaultCompanyPage session={session} />
+          ) : visiblePage === "app-application-users" ? (
+            <UserManagerPage session={session} mode="tenant" />
           ) : visiblePage === "app-application-landing-desk" ? (
             <LandingDeskSettingsPage
               activeApp={activeApp}
@@ -467,7 +469,7 @@ export function DashboardView({
           ) : visiblePage === "database-manager" ? (
             <DatabaseManagerPage session={session} />
           ) : visiblePage === "user-manager" ? (
-            <UserManagerPage session={session} />
+            <UserManagerPage session={session} mode="platform" />
           ) : visiblePage === "helpdesk" ? (
             <SupportPage type="helpdesk" />
           ) : visiblePage === "bugs" ? (

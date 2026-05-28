@@ -70,9 +70,9 @@ export class UserManagerService {
   }
 
   async upsert(headers: TenantRequestHeaders, input: PlatformUserUpsertInput) {
-    this.requirePlatformUserManagerAccess(headers)
     const normalized = await this.normalize(input)
     if ('error' in normalized) return normalized
+    await this.requireTenantUserManagerAccess(headers, normalized.tenant_id)
 
     const duplicate = await this.users.findUserByEmailForUpsert(normalized.tenant_id, normalized.email, normalized.user_id)
     if (duplicate) {
@@ -155,6 +155,21 @@ export class UserManagerService {
   private requirePlatformUserManagerAccess(headers: TenantRequestHeaders) {
     if (!this.platformAccess(headers)) {
       throw new ForbiddenException('Platform user-manager access is required.')
+    }
+  }
+
+  private async requireTenantUserManagerAccess(headers: TenantRequestHeaders, tenantId: number) {
+    if (this.platformAccess(headers)) {
+      return
+    }
+
+    const context = await this.tenantContext.resolve(headers)
+    if (context.tenant.id !== tenantId) {
+      throw new ForbiddenException('User management is limited to the authenticated tenant.')
+    }
+
+    if (!['admin', 'manager', 'software-admin'].includes(context.user.role)) {
+      throw new ForbiddenException('Tenant admin or manager access is required.')
     }
   }
 

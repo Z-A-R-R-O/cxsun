@@ -18,12 +18,18 @@ export function BrandLogo({ className, logoDarkUrl: tenantLogoDarkUrl, logoUrl: 
         alt={name}
         className="size-full object-contain dark:hidden"
         draggable={false}
+        onError={(event) => {
+          if (event.currentTarget.src !== logoUrl) event.currentTarget.src = logoUrl
+        }}
         src={tenantLogoUrl || logoUrl}
       />
       <img
         alt={name}
         className="hidden size-full object-contain dark:block"
         draggable={false}
+        onError={(event) => {
+          if (event.currentTarget.src !== logoDarkUrl) event.currentTarget.src = logoDarkUrl
+        }}
         src={tenantLogoDarkUrl || tenantLogoUrl || logoDarkUrl}
       />
     </span>

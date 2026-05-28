@@ -2,13 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.45`
-- **Release tag:** `v-1.0.45`
-- **Changelog label:** `v 1.0.45`
+- **Current version:** `1.0.46`
+- **Release tag:** `v-1.0.46`
+- **Changelog label:** `v 1.0.46`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.46
+
+### [v 1.0.46] 2026-05-28 3:35 pm - tenant user manager and decimal inputs
+
+- Bumped workspace version to 1.0.46
+- Added tenant user management to the Application side menu with tenant-scoped list, show, and upsert screens matching the existing tenant page tone.
+- Added tenant-or-platform authorization for tenant user APIs so tenant admins and managers can manage users inside their own tenant while platform-only user routes stay protected.
+- Added a company logo fallback so missing tenant logo assets do not leave the sidebar brand image broken.
+- Fixed sales and purchase item entry so quantity and price accept decimal values, with price shown as two-decimal input by default.
+- Fixed receipt and payment amount/allocation entry so decimal values can be entered consistently.
+- Fixed sales and purchase round-off entry so signed decimal values are accepted and displayed with two decimal places by default.
 
 ## v-1.0.45
 

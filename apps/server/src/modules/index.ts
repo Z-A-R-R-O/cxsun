@@ -27,6 +27,7 @@ import { IndustryModule } from '../core/industry/industry.module.js'
 import { TenantDomainModule } from '../core/tenant-domain/tenant-domain.module.js'
 import { TenantModule } from '../core/tenant/tenant.module.js'
 import { Module } from '../core/decorators/module.js'
+import { AuthAnyGuard } from '../core/guards/auth-any.guard.js'
 import { AuthGuard } from '../core/guards/auth.guard.js'
 
 @Module({
@@ -60,6 +61,6 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     TaskManagerModule,
     CompanyModule,
   ],
-  guards: [AuthGuard],
+  guards: [AuthGuard, AuthAnyGuard],
 })
 export class AppModule {}

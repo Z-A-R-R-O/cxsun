@@ -840,8 +840,8 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
           <Field compact centeredLabel label="Description" value={itemDraft.description ?? ""} onChange={(value) => setItemDraft((current) => ({ ...current, description: value }))} />
           {isGarmentLayout ? <CommonRecordAutocompleteLookup label="Colour" className="gap-1" labelClassName="text-center" moduleKey="colours" placeholder="Search colour" session={session} value={itemDraft.colour ?? ""} onChange={(value, record) => setItemDraft((current) => ({ ...current, colour: record ? getCommonRecordName(record) : value === null ? "" : String(value) }))} /> : null}
           {isGarmentLayout ? <CommonRecordAutocompleteLookup label="Size" className="gap-1" labelClassName="text-center" moduleKey="sizes" placeholder="Search size" session={session} value={itemDraft.size ?? ""} onChange={(value, record) => setItemDraft((current) => ({ ...current, size: record ? getCommonRecordName(record) : value === null ? "" : String(value) }))} /> : null}
-          <Field compact centeredLabel numeric label="Quantity" type="text" value={String(itemDraft.quantity)} onChange={(value) => setItemDraft((current) => ({ ...current, quantity: Number(value.replace(/[^0-9.]/g, "") || 0) }))} />
-          <Field compact centeredLabel numeric label="Price" type="text" value={String(itemDraft.rate)} onChange={(value) => setItemDraft((current) => ({ ...current, rate: Number(value.replace(/[^0-9.]/g, "") || 0) }))} />
+          <Field compact centeredLabel numeric label="Quantity" type="text" value={String(itemDraft.quantity)} onChange={(value) => setItemDraft((current) => ({ ...current, quantity: parseDecimalInput(value) }))} />
+          <Field compact centeredLabel numeric decimalScale={2} label="Price" type="text" value={String(itemDraft.rate)} onChange={(value) => setItemDraft((current) => ({ ...current, rate: parseDecimalInput(value) }))} />
           <div className="flex h-11 items-center gap-1">
             <Button type="button" className="h-11 w-full rounded-md px-3 xl:w-auto" disabled={!itemDraft.product_name.trim()} onClick={addItemAndFocus}>
               {editingItemIndex === null ? <Plus className="size-4" /> : <Check className="size-4" />}
@@ -1310,7 +1310,7 @@ function TotalsFooter({ setForm, totals }: {
       <div className="grid grid-cols-[1fr_auto_8rem] items-center gap-4">
         <span className="font-medium text-muted-foreground">Round off</span>
         <span>:</span>
-        <Input className="h-9 w-24 justify-self-end rounded-md text-right" inputMode="decimal" type="text" value={String(totals.roundOff)} onChange={(event) => setForm((current) => ({ ...current, round_off: parseMoneyInput(event.target.value) }))} />
+        <SignedDecimalInput className="h-9 w-24 justify-self-end rounded-md text-right" decimalScale={2} value={String(totals.roundOff)} onChange={(value) => setForm((current) => ({ ...current, round_off: parseMoneyInput(value) }))} />
       </div>
       <SummaryRow label="Grand total" value={formatMoney(totals.grandTotal)} strong />
     </div>
@@ -1621,12 +1621,77 @@ function salesCodeFrom(records: MasterDataRecord[], value: unknown) {
   return record ? String(record.code ?? "").trim() : ""
 }
 
-function Field({ centeredLabel = false, compact = false, label, numeric = false, onChange, type = "text", value }: { centeredLabel?: boolean; compact?: boolean; label: string; numeric?: boolean; onChange(value: string): void; type?: string; value: string }) {
+function Field({ centeredLabel = false, compact = false, decimalScale, label, numeric = false, onChange, type = "text", value }: { centeredLabel?: boolean; compact?: boolean; decimalScale?: number; label: string; numeric?: boolean; onChange(value: string): void; type?: string; value: string }) {
+  const [displayValue, setDisplayValue] = useState(formatDecimalDisplay(value, decimalScale))
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) setDisplayValue(formatDecimalDisplay(value, decimalScale))
+  }, [decimalScale, isFocused, value])
+
+  if (numeric) {
+    return (
+      <div className={cn("grid", compact ? "gap-1" : "gap-2")}>
+        <Label className={cn("text-sm font-medium text-muted-foreground", centeredLabel && "text-center")}>{label}</Label>
+        <Input
+          className="h-11 rounded-md text-right"
+          inputMode="decimal"
+          type="text"
+          value={displayValue}
+          onBlur={() => {
+            setIsFocused(false)
+            setDisplayValue(formatDecimalDisplay(String(parseDecimalInput(displayValue)), decimalScale))
+          }}
+          onChange={(event) => {
+            const nextValue = sanitizeDecimalInput(event.target.value)
+            setDisplayValue(nextValue)
+            onChange(nextValue)
+          }}
+          onFocus={() => {
+            setIsFocused(true)
+            setDisplayValue(formatDecimalDisplay(value, decimalScale))
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className={cn("grid", compact ? "gap-1" : "gap-2")}>
       <Label className={cn("text-sm font-medium text-muted-foreground", centeredLabel && "text-center")}>{label}</Label>
       <Input className={cn("h-11 rounded-md", numeric && "text-right")} inputMode={numeric ? "decimal" : undefined} type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
+  )
+}
+
+function SignedDecimalInput({ className, decimalScale, onChange, value }: { className?: string; decimalScale?: number; onChange(value: string): void; value: string }) {
+  const [displayValue, setDisplayValue] = useState(formatDecimalDisplay(value, decimalScale))
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) setDisplayValue(formatDecimalDisplay(value, decimalScale))
+  }, [decimalScale, isFocused, value])
+
+  return (
+    <Input
+      className={className}
+      inputMode="decimal"
+      type="text"
+      value={displayValue}
+      onBlur={() => {
+        setIsFocused(false)
+        setDisplayValue(formatDecimalDisplay(String(parseMoneyInput(displayValue)), decimalScale))
+      }}
+      onChange={(event) => {
+        const nextValue = sanitizeSignedDecimalInput(event.target.value)
+        setDisplayValue(nextValue)
+        onChange(nextValue)
+      }}
+      onFocus={() => {
+        setIsFocused(true)
+        setDisplayValue(formatDecimalDisplay(value, decimalScale))
+      }}
+    />
   )
 }
 
@@ -1950,6 +2015,32 @@ function parseMoneyInput(value: string) {
   const normalized = value.replace(/[^0-9.-]/g, "")
   if (normalized === "" || normalized === "-" || normalized === "." || normalized === "-.") return 0
   return Number(normalized)
+}
+
+function sanitizeDecimalInput(value: string) {
+  const sanitized = value.replace(/[^0-9.]/g, "")
+  const [integerPart = "", ...decimalParts] = sanitized.split(".")
+  return decimalParts.length ? `${integerPart}.${decimalParts.join("")}` : integerPart
+}
+
+function sanitizeSignedDecimalInput(value: string) {
+  const negative = value.trim().startsWith("-")
+  const sanitized = value.replace(/[^0-9.]/g, "")
+  const [integerPart = "", ...decimalParts] = sanitized.split(".")
+  const normalized = decimalParts.length ? `${integerPart}.${decimalParts.join("")}` : integerPart
+  return `${negative ? "-" : ""}${normalized}`
+}
+
+function parseDecimalInput(value: string) {
+  const normalized = sanitizeDecimalInput(value)
+  if (normalized === "" || normalized === ".") return 0
+  return Number(normalized)
+}
+
+function formatDecimalDisplay(value: string, decimalScale?: number) {
+  if (decimalScale === undefined) return value
+  const numberValue = Number(value || 0)
+  return Number.isFinite(numberValue) ? numberValue.toFixed(decimalScale) : (0).toFixed(decimalScale)
 }
 
 function SideNote({ body, meta, title }: { body: string; meta: string; title: string }) {

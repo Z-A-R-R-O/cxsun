@@ -1,6 +1,6 @@
 # AI Agent Assist System
 
-**Project version:** 1.0.45
+**Project version:** 1.0.46
 
 This directory is the working guide for AI agents on `cxsun`. It records project rules, current architecture, session plans, task tracking, and release notes.
 

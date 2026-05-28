@@ -466,7 +466,7 @@ function PaymentDetailsTab({ bankAccounts, contacts, form, onCreateContact, sess
           onCreate={onCreateContact}
           onTextChange={(value) => setForm((current) => ({ ...current, party_id: null, party_name: value }))}
         />
-        <Field label="Amount" numeric value={String(form.amount ?? 0)} onChange={(value) => setForm((current) => ({ ...current, amount: Number(value.replace(/[^0-9.]/g, "") || 0) }))} />
+        <Field label="Amount" numeric value={String(form.amount ?? 0)} onChange={(value) => setForm((current) => ({ ...current, amount: parseDecimalInput(value) }))} />
         <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
       </div>
       <div className="space-y-5">
@@ -504,8 +504,8 @@ function PaymentAllocationsTab({ form, setForm }: { form: PaymentEntryInput; set
         <div key={index} className="grid gap-3 rounded-md border border-border/70 p-3 md:grid-cols-4">
           <Input value={allocation.document_no} placeholder="Purchase no" onChange={(event) => setAllocation(setForm, index, { document_no: event.target.value })} />
           <Input type="date" value={allocation.document_date ?? ""} onChange={(event) => setAllocation(setForm, index, { document_date: event.target.value })} />
-          <Input type="number" value={allocation.previous_balance} placeholder="Balance" onChange={(event) => setAllocation(setForm, index, { previous_balance: Number(event.target.value || 0) })} />
-          <Input type="number" value={allocation.allocated_amount} placeholder="Allocated" onChange={(event) => setAllocation(setForm, index, { allocated_amount: Number(event.target.value || 0) })} />
+          <DecimalInput value={String(allocation.previous_balance ?? 0)} placeholder="Balance" onChange={(value) => setAllocation(setForm, index, { previous_balance: parseDecimalInput(value) })} />
+          <DecimalInput value={String(allocation.allocated_amount ?? 0)} placeholder="Allocated" onChange={(value) => setAllocation(setForm, index, { allocated_amount: parseDecimalInput(value) })} />
         </div>
       ))}
       <Button type="button" variant="outline" className="rounded-xl" onClick={() => setForm((current) => ({ ...current, allocations: [...allocations, { ...emptyPaymentAllocation(), sort_order: allocations.length + 1 }] }))}>Add allocation</Button>
@@ -733,8 +733,85 @@ function BankAutocompleteLookup({ label, onPick, onTextChange, options, placehol
   )
 }
 
+function DecimalInput({ onChange, placeholder, value }: { onChange(value: string): void; placeholder?: string; value: string }) {
+  const [displayValue, setDisplayValue] = useState(value)
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) setDisplayValue(value)
+  }, [isFocused, value])
+
+  return (
+    <Input
+      inputMode="decimal"
+      placeholder={placeholder}
+      type="text"
+      value={displayValue}
+      onBlur={() => {
+        setIsFocused(false)
+        setDisplayValue(String(parseDecimalInput(displayValue)))
+      }}
+      onChange={(event) => {
+        const nextValue = sanitizeDecimalInput(event.target.value)
+        setDisplayValue(nextValue)
+        onChange(nextValue)
+      }}
+      onFocus={() => {
+        setIsFocused(true)
+        setDisplayValue(value)
+      }}
+    />
+  )
+}
+
 function Field({ label, numeric = false, onChange, type = "text", value }: { label: string; numeric?: boolean; onChange(value: string): void; type?: string; value: string }) {
+  const [displayValue, setDisplayValue] = useState(value)
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) setDisplayValue(value)
+  }, [isFocused, value])
+
+  if (numeric) {
+    return (
+      <div className="grid gap-2">
+        <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+        <Input
+          className="h-11 rounded-md text-left text-lg font-semibold"
+          inputMode="decimal"
+          type="text"
+          value={displayValue}
+          onBlur={() => {
+            setIsFocused(false)
+            setDisplayValue(String(parseDecimalInput(displayValue)))
+          }}
+          onChange={(event) => {
+            const nextValue = sanitizeDecimalInput(event.target.value)
+            setDisplayValue(nextValue)
+            onChange(nextValue)
+          }}
+          onFocus={() => {
+            setIsFocused(true)
+            setDisplayValue(value)
+          }}
+        />
+      </div>
+    )
+  }
+
   return <div className="grid gap-2"><Label className="text-sm font-medium text-muted-foreground">{label}</Label><Input className={cn("h-11 rounded-md", numeric && "text-left text-lg font-semibold")} inputMode={numeric ? "decimal" : undefined} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>
+}
+
+function sanitizeDecimalInput(value: string) {
+  const sanitized = value.replace(/[^0-9.]/g, "")
+  const [integerPart = "", ...decimalParts] = sanitized.split(".")
+  return decimalParts.length ? `${integerPart}.${decimalParts.join("")}` : integerPart
+}
+
+function parseDecimalInput(value: string) {
+  const normalized = sanitizeDecimalInput(value)
+  if (normalized === "" || normalized === ".") return 0
+  return Number(normalized)
 }
 
 function TextField({ label, onChange, value }: { label: string; onChange(value: string): void; value: string }) {
