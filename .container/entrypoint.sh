@@ -44,9 +44,17 @@ log_step() {
 mkdir -p "$(dirname "$APP_DIR")"
 
 if [ ! -d "$APP_DIR/.git" ]; then
-  rm -rf "$APP_DIR"
+  if [ -d "$APP_DIR" ]; then
+    log_step "Cleaning $APP_DIR while preserving mounted storage"
+    find "$APP_DIR" -mindepth 1 -maxdepth 1 ! -name storage -exec rm -rf {} +
+  else
+    mkdir -p "$APP_DIR"
+  fi
   log_step "Cloning $GIT_REPO_URL branch $GIT_BRANCH into $APP_DIR"
-  git clone --branch "$GIT_BRANCH" "$GIT_REPO_URL" "$APP_DIR"
+  CLONE_DIR="$(mktemp -d)"
+  git clone --branch "$GIT_BRANCH" "$GIT_REPO_URL" "$CLONE_DIR"
+  cp -a "$CLONE_DIR/." "$APP_DIR/"
+  rm -rf "$CLONE_DIR"
 else
   log_step "Using existing repository at $APP_DIR"
 fi

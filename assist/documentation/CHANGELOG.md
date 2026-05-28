@@ -2,14 +2,28 @@
 
 ## Version State
 
-- **Current version:** `1.0.51`
-- **Release tag:** `v-1.0.51`
-- **Changelog label:** `v 1.0.51`
+- **Current version:** `1.0.53`
+- **Release tag:** `v-1.0.53`
+- **Changelog label:** `v 1.0.53`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.53
+
+### [v 1.0.53] 2026-05-28 6:50 pm - external cxmedia compose volumes
+
+- Bumped workspace version to 1.0.53
+- Marked `cxmedia-storage` and `cxmedia-db` as external compose volumes because setup creates and preserves them outside normal app lifecycle.
+- Removed the Compose warning about media volumes already existing during repeated reinstall/start runs.
+## v-1.0.52
+
+### [v 1.0.52] 2026-05-28 6:48 pm - preserve mounted storage during clone
+
+- Bumped workspace version to 1.0.52
+- Fixed fresh container startup with the mounted `storage` volume by cleaning only app files and preserving `/workspace/cxsun/storage`.
+- Changed initial clone to use a temporary clone directory before copying the repository into `/workspace/cxsun`, avoiding Docker mount removal errors.
 ## v-1.0.51
 
 ### [v 1.0.51] 2026-05-28 6:42 pm - skip mariadb preflight during install

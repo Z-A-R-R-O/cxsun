@@ -73,8 +73,10 @@ volumes:
     name: cxsun-volume
   cxmedia-storage:
     name: ${CXMEDIA_STORAGE_VOLUME:-cxmedia-storage}
+    external: true
   cxmedia-db:
     name: ${CXMEDIA_DB_VOLUME:-cxmedia-db}
+    external: true
 
 networks:
   codexion-network:

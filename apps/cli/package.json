@@ -1,7 +1,7 @@
 {
   "name": "@cxsun/cli",
   "private": true,
-  "version": "1.0.51",
+  "version": "1.0.53",
   "type": "module",
   "scripts": {
     "github:now": "node github-helper.mjs",
