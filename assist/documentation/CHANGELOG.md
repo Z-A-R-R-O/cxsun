@@ -2,13 +2,24 @@
 
 ## Version State
 
-- **Current version:** `1.0.46`
-- **Release tag:** `v-1.0.46`
-- **Changelog label:** `v 1.0.46`
+- **Current version:** `1.0.47`
+- **Release tag:** `v-1.0.47`
+- **Changelog label:** `v 1.0.47`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.47
+
+### [v 1.0.47] 2026-05-28 4:31 pm - sales purchase totals and tenant setup safety
+
+- Bumped workspace version to 1.0.47
+- Fixed sales and purchase row totals so taxable, GST, line total, round off, and grand total use the same two-decimal calculation path while editing and before save.
+- Recalculated sales and purchase totals on the backend before persistence, so saved vouchers use database-owned totals instead of trusting screen values.
+- Updated sales and purchase print documents to load taxable, GST, and grand total from the saved database record while still showing row-level tax consistently.
+- Added non-destructive tenant migration repair SQL to recalculate existing sales and purchase entry/item totals in place during normal setup.
+- Removed the old tenant seed cleanup that suspended legacy tenant slugs and cleared `corporate_id`/mobile during setup or reinstall.
 
 ## v-1.0.46
 

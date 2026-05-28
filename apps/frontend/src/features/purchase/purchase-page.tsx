@@ -548,7 +548,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
 }) {
   const [draft, setDraft] = useState<PurchaseEntryInput>(() => entry ? { ...entry, items: entry.items.map((item) => ({ ...item })) } : emptyPurchaseEntry())
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
-  const totals = useMemo(() => calculateDraftTotals(draft.items, draft.round_off), [draft.items, draft.round_off])
+  const totals = useMemo(() => calculateDraftTotals(draft.items, draft.round_off, draft.place_of_supply), [draft.items, draft.place_of_supply, draft.round_off])
   const contactsQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "contacts"], queryFn: () => listPurchaseContactLookups(session) })
   const contactTypesQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "contactTypes"], queryFn: () => listMasterDataRecords(session, "contactTypes") })
   const hsnCodesQuery = useQuery({ queryKey: ["Purchase-lookups", session.selectedTenant.slug, "hsnCodes"], queryFn: () => listPurchaseCommonLookups(session, "hsnCodes") })
@@ -577,7 +577,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
     >
       <MasterListUpsertLayout>
         <MasterListUpsertCard className="overflow-hidden p-0 [&>div]:p-0">
-          <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void onSubmit(draft) }}>
+          <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void onSubmit(buildPurchaseSaveInput(draft)) }}>
             <div className="px-0 pb-4 pt-3 md:pb-5">
               <PurchaseVoucherTabs
                 contacts={supplierContacts}
@@ -596,7 +596,7 @@ function PurchaseUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
             </div>
             <div className="flex flex-wrap items-center gap-3 border-t border-border/70 bg-muted/20 px-4 py-4 md:px-6">
               <Button type="submit" disabled={isSaving} className="rounded-md"><Save className={cn("size-4", isSaving && "animate-spin")} />Save</Button>
-              <Button type="button" disabled={isSaving} variant="secondary" onClick={() => void onSubmit({ ...draft, status: "posted" }, true)} className="rounded-md"><Printer className="size-4" />Save & Print</Button>
+              <Button type="button" disabled={isSaving} variant="secondary" onClick={() => void onSubmit(buildPurchaseSaveInput({ ...draft, status: "posted" }), true)} className="rounded-md"><Printer className="size-4" />Save & Print</Button>
               <Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>
             </div>
           </form>
@@ -647,7 +647,7 @@ function PurchaseVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCr
   function addItem() {
     if (!itemDraft.product_name.trim()) return
     setForm((current) => {
-      const normalizedItem = normalizePurchaseItem(itemDraft, editingItemIndex ?? current.items.length)
+      const normalizedItem = normalizePurchaseItem(itemDraft, editingItemIndex ?? current.items.length, current.place_of_supply)
       if (editingItemIndex === null) return { ...current, items: [...current.items, normalizedItem] }
       return {
         ...current,
@@ -1952,9 +1952,27 @@ interface DraftTotals {
   grandTotal: number
 }
 
-function normalizePurchaseItem(item: PurchaseEntryItem, index: number): PurchaseEntryItem {
-  const taxable = Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0))
-  const taxAmount = taxable * Number(item.tax_rate || 0) / 100
+function buildPurchaseSaveInput(input: PurchaseEntryInput): PurchaseEntryInput {
+  const items = input.items.map((item, index) => normalizePurchaseItem(item, index, input.place_of_supply))
+  const totals = calculateDraftTotals(items, input.round_off, input.place_of_supply)
+  const subtotal = roundMoney(items.reduce((total, item) => total + roundMoney(Number(item.quantity || 0) * Number(item.rate || 0)), 0))
+  const discountTotal = roundMoney(items.reduce((total, item) => total + Number(item.discount_amount || 0), 0))
+
+  return {
+    ...input,
+    balance_amount: roundMoney(totals.grandTotal - Number(input.paid_amount || 0)),
+    discount_total: discountTotal,
+    grand_total: totals.grandTotal,
+    items,
+    round_off: totals.roundOff,
+    subtotal,
+    tax_total: totals.gstTotal,
+    taxable_total: totals.taxableAmount,
+  }
+}
+
+function normalizePurchaseItem(item: PurchaseEntryItem, index: number, placeOfSupply: unknown): PurchaseEntryItem {
+  const amounts = purchaseItemAmounts(item, (placeOfSupply ?? "cgst-sgst") !== "igst")
   return {
     ...item,
     colour: item.colour ?? "",
@@ -1962,42 +1980,36 @@ function normalizePurchaseItem(item: PurchaseEntryItem, index: number): Purchase
     dc_no: item.dc_no ?? "",
     discount_amount: Number(item.discount_amount || 0),
     hsn_code: item.hsn_code ?? "",
-    line_total: taxable + taxAmount,
+    line_total: amounts.total,
     po_no: item.po_no ?? "",
     product_name: item.product_name.trim(),
     quantity: Number(item.quantity || 0),
     rate: Number(item.rate || 0),
     size: item.size ?? "",
     sort_order: item.sort_order ?? index,
-    tax_amount: taxAmount,
+    tax_amount: amounts.taxAmount,
     tax_rate: Number(item.tax_rate || 0),
     unit: item.unit ?? "",
   }
 }
 
 function PurchaseItemTaxBreakup(item: PurchaseEntryItem, isCgstSgst: boolean) {
-  const taxable = Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0))
-  const taxAmount = taxable * Number(item.tax_rate || 0) / 100
-  const halfTax = taxAmount / 2
+  const amounts = purchaseItemAmounts(item, isCgstSgst)
+  const halfTax = isCgstSgst ? roundMoney(amounts.taxAmount / 2) : 0
   return {
     cgstAmount: isCgstSgst ? halfTax : 0,
-    igstAmount: isCgstSgst ? 0 : taxAmount,
+    igstAmount: isCgstSgst ? 0 : amounts.taxAmount,
     sgstAmount: isCgstSgst ? halfTax : 0,
-    taxable,
-    taxAmount,
-    total: taxable + taxAmount,
+    taxable: amounts.taxable,
+    taxAmount: amounts.taxAmount,
+    total: amounts.total,
   }
 }
 
-function calculateDraftTotals(items: PurchaseEntryItem[], roundOffValue: unknown): DraftTotals {
-  const taxableAmount = items.reduce(
-    (total, item) => total + Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0)),
-    0,
-  )
-  const gstTotal = items.reduce((total, item) => {
-    const taxable = Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0))
-    return total + taxable * Number(item.tax_rate || 0) / 100
-  }, 0)
+function calculateDraftTotals(items: PurchaseEntryItem[], roundOffValue: unknown, placeOfSupply: unknown): DraftTotals {
+  const isCgstSgst = (placeOfSupply ?? "cgst-sgst") !== "igst"
+  const taxableAmount = roundMoney(items.reduce((total, item) => total + purchaseItemAmounts(item, isCgstSgst).taxable, 0))
+  const gstTotal = roundMoney(items.reduce((total, item) => total + purchaseItemAmounts(item, isCgstSgst).taxAmount, 0))
   const beforeRoundOff = taxableAmount + gstTotal
   const roundOff = roundOffValue === null || roundOffValue === undefined || roundOffValue === "" ? roundMoney(Math.round(beforeRoundOff) - beforeRoundOff) : roundMoney(Number(roundOffValue || 0))
   const grandTotal = roundMoney(beforeRoundOff + roundOff)
@@ -2007,6 +2019,13 @@ function calculateDraftTotals(items: PurchaseEntryItem[], roundOffValue: unknown
     roundOff,
     grandTotal,
   }
+}
+
+function purchaseItemAmounts(item: PurchaseEntryItem, isCgstSgst: boolean) {
+  const taxable = roundMoney(Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0)))
+  const rawTax = taxable * Number(item.tax_rate || 0) / 100
+  const taxAmount = isCgstSgst ? roundMoney(roundMoney(rawTax / 2) * 2) : roundMoney(rawTax)
+  return { taxable, taxAmount, total: roundMoney(taxable + taxAmount) }
 }
 
 function roundMoney(value: number) {

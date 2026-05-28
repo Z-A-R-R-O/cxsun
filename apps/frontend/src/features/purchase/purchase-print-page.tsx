@@ -66,8 +66,8 @@ export function PurchaseEntryDocument({
   readonly showSize?: boolean
 }) {
   void showQrAccountDetails
-  const totals = useMemo(() => calculatePrintTotals(record.items, Number(record.round_off ?? 0)), [record])
   const isCgstSgst = (record.place_of_supply ?? "cgst-sgst") !== "igst"
+  const totals = useMemo(() => calculatePrintTotals(record), [record])
   const itemColumns = printItemColumns(isCgstSgst, { showColour, showDc, showPo, showSize })
   const preQtyColumnCount = itemColumns.findIndex((column) => column.key === "quantity")
   const itemLinePlan = getPurchasePrintLinePlan(record.items)
@@ -160,7 +160,7 @@ export function PurchaseEntryDocument({
             ))}
           </tr>
           {itemLinePlan.rows.map((row) => row.kind === "item"
-            ? <PurchasePrintItemRow key={`item-${row.index}`} columns={itemColumns} index={row.index} item={row.item} />
+            ? <PurchasePrintItemRow key={`item-${row.index}`} columns={itemColumns} index={row.index} isCgstSgst={isCgstSgst} item={row.item} />
             : <BlankPurchasePrintItemRow key={`blank-${row.index}`} columns={itemColumns} />)}
           <tr>
             {itemColumns.map((column, index) => (
@@ -181,8 +181,8 @@ export function PurchaseEntryDocument({
             <td className={totalItemCell}>&nbsp;</td>
             {isCgstSgst ? (
               <>
-                <td className={`${totalItemCell} text-right`}>{money(totals.gstTotal / 2)}</td>
-                <td className={`${totalItemCell} text-right`}>{money(totals.gstTotal / 2)}</td>
+                <td className={`${totalItemCell} text-right`}>{money(splitTax(totals.gstTotal).first)}</td>
+                <td className={`${totalItemCell} text-right`}>{money(splitTax(totals.gstTotal).second)}</td>
               </>
             ) : <td className={`${totalItemCell} text-right`}>{money(totals.gstTotal)}</td>}
             <td className={`${totalItemCell} border-r-0 text-right`}>{money(totals.grandTotal)}</td>
@@ -244,12 +244,13 @@ function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; 
   ] satisfies Array<{ key: PrintItemColumnKey; label: string; widthClass: string }>
 }
 
-function PurchasePrintItemRow({ columns, index, item }: { columns: ReturnType<typeof printItemColumns>; index: number; item: PurchaseEntryItem }) {
+function PurchasePrintItemRow({ columns, index, isCgstSgst, item }: { columns: ReturnType<typeof printItemColumns>; index: number; isCgstSgst: boolean; item: PurchaseEntryItem }) {
   const taxable = itemTaxable(item)
   const gst = itemTax(item)
-  const total = taxable + gst
+  const split = splitTax(gst)
+  const total = item.line_total ?? roundMoney(taxable + gst)
   const cells: Record<PrintItemColumnKey, ReactNode> = {
-    cgst: money(gst / 2),
+    cgst: money(split.first),
     colour: item.colour ?? "",
     gstPercent: `${Number(item.tax_rate || 0)}%`,
     hsn: item.hsn_code ?? "",
@@ -263,7 +264,7 @@ function PurchasePrintItemRow({ columns, index, item }: { columns: ReturnType<ty
     ),
     quantity: item.quantity,
     serial: index + 1,
-    sgst: money(gst / 2),
+    sgst: money(isCgstSgst ? split.second : 0),
     size: item.size ?? "",
     taxable: money(taxable),
     total: money(total),
@@ -386,11 +387,12 @@ function PrintTotalTable({
   roundOff: number
   totals: ReturnType<typeof calculatePrintTotals>
 }) {
+  const taxSplit = splitTax(totals.gstTotal)
   const rows = isCgstSgst
     ? [
         ["Taxable Value", money(totals.taxableAmount)],
-        ["Total CGST", money(totals.gstTotal / 2)],
-        ["Total SGST", money(totals.gstTotal / 2)],
+        ["Total CGST", money(taxSplit.first)],
+        ["Total SGST", money(taxSplit.second)],
         ["Total GST", money(totals.gstTotal)],
         ["Round Off", money(roundOff)],
         ["GRAND TOTAL", money(totals.grandTotal)],
@@ -429,10 +431,12 @@ function AccountDetailsBlock({ bank, showAccountNumber }: { bank: CompanyRecord[
   )
 }
 
-function calculatePrintTotals(items: readonly PurchaseEntryItem[], roundOff: number) {
-  const taxableAmount = items.reduce((sum, item) => sum + itemTaxable(item), 0)
-  const gstTotal = items.reduce((sum, item) => sum + itemTax(item), 0)
-  return { taxableAmount, gstTotal, grandTotal: taxableAmount + gstTotal + Number(roundOff || 0) }
+function calculatePrintTotals(record: PurchaseEntry) {
+  return {
+    taxableAmount: roundMoney(record.taxable_total),
+    gstTotal: roundMoney(record.tax_total),
+    grandTotal: roundMoney(record.grand_total),
+  }
 }
 
 function createQrSvg(value: string) {
@@ -475,11 +479,20 @@ function buildPurchaseEinvoiceQrPayload(record: PurchaseEntry, company: CompanyR
 }
 
 function itemTaxable(item: PurchaseEntryItem) {
-  return Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0))
+  return roundMoney(Math.max(0, Number(item.quantity || 0) * Number(item.rate || 0) - Number(item.discount_amount || 0)))
 }
 
 function itemTax(item: PurchaseEntryItem) {
-  return itemTaxable(item) * Number(item.tax_rate || 0) / 100
+  return roundMoney(item.tax_amount ?? itemTaxable(item) * Number(item.tax_rate || 0) / 100)
+}
+
+function splitTax(value: number) {
+  const first = roundMoney(Number(value || 0) / 2)
+  return { first, second: roundMoney(Number(value || 0) - first) }
+}
+
+function roundMoney(value: number) {
+  return Math.round(Number(value || 0) * 100) / 100
 }
 
 function sumQty(items: readonly PurchaseEntryItem[]) {

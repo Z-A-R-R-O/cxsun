@@ -110,4 +110,43 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
       INDEX idx_sales_entry_activities_parent (sales_entry_id, id)
     )
   `).execute(database)
+
+  await sql.raw(`
+    UPDATE sales_entry_items item
+    JOIN sales_entries entry ON entry.id = item.sales_entry_id
+    SET
+      item.tax_amount = CASE
+        WHEN COALESCE(entry.place_of_supply, 'cgst-sgst') = 'igst'
+          THEN ROUND(GREATEST(0, item.quantity * item.rate - item.discount_amount) * item.tax_rate / 100, 2)
+        ELSE ROUND(ROUND((GREATEST(0, item.quantity * item.rate - item.discount_amount) * item.tax_rate / 100) / 2, 2) * 2, 2)
+      END,
+      item.line_total = CASE
+        WHEN COALESCE(entry.place_of_supply, 'cgst-sgst') = 'igst'
+          THEN ROUND(GREATEST(0, item.quantity * item.rate - item.discount_amount) + ROUND(GREATEST(0, item.quantity * item.rate - item.discount_amount) * item.tax_rate / 100, 2), 2)
+        ELSE ROUND(GREATEST(0, item.quantity * item.rate - item.discount_amount) + ROUND(ROUND((GREATEST(0, item.quantity * item.rate - item.discount_amount) * item.tax_rate / 100) / 2, 2) * 2, 2), 2)
+      END,
+      item.updated_at = CURRENT_TIMESTAMP
+  `).execute(database)
+
+  await sql.raw(`
+    UPDATE sales_entries entry
+    JOIN (
+      SELECT
+        sales_entry_id,
+        ROUND(SUM(ROUND(quantity * rate, 2)), 2) AS subtotal,
+        ROUND(SUM(discount_amount), 2) AS discount_total,
+        ROUND(SUM(GREATEST(0, quantity * rate - discount_amount)), 2) AS taxable_total,
+        ROUND(SUM(tax_amount), 2) AS tax_total
+      FROM sales_entry_items
+      GROUP BY sales_entry_id
+    ) totals ON totals.sales_entry_id = entry.id
+    SET
+      entry.subtotal = totals.subtotal,
+      entry.discount_total = totals.discount_total,
+      entry.taxable_total = totals.taxable_total,
+      entry.tax_total = totals.tax_total,
+      entry.grand_total = ROUND(totals.taxable_total + totals.tax_total + entry.round_off, 2),
+      entry.balance_amount = ROUND(totals.taxable_total + totals.tax_total + entry.round_off - entry.paid_amount, 2),
+      entry.updated_at = CURRENT_TIMESTAMP
+  `).execute(database)
 }

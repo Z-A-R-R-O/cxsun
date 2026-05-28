@@ -179,10 +179,11 @@ export class SalesEntryRepository {
   private async normalize(context: TenantRuntimeContext, input: SalesEntryInput) {
     const companyId = input.company_id ?? await this.defaultCompanyId(context)
     const accountingYearId = input.accounting_year_id ?? await this.defaultAccountingYearId(context)
-    const items = (input.items?.length ? input.items : [defaultItem()]).map(normalizeItem)
-    const subtotal = sum(items.map((item) => item.quantity * item.rate))
+    const isCgstSgst = (input.place_of_supply ?? 'cgst-sgst') !== 'igst'
+    const items = (input.items?.length ? input.items : [defaultItem()]).map((item) => normalizeItem(item, isCgstSgst))
+    const subtotal = sum(items.map((item) => roundMoney(item.quantity * item.rate)))
     const discountTotal = sum(items.map((item) => item.discount_amount))
-    const taxableTotal = subtotal - discountTotal
+    const taxableTotal = roundMoney(subtotal - discountTotal)
     const taxTotal = sum(items.map((item) => item.tax_amount))
     const roundOff = input.round_off === null || input.round_off === undefined
       ? roundMoney(Math.round(taxableTotal + taxTotal) - (taxableTotal + taxTotal))
@@ -412,13 +413,13 @@ export class SalesEntryRepository {
 
 type NormalizedSalesItem = Omit<SalesEntryItem, 'id' | 'uuid' | 'sales_entry_id' | 'sort_order'>
 
-function normalizeItem(input: SalesEntryItemInput): NormalizedSalesItem {
+function normalizeItem(input: SalesEntryItemInput, isCgstSgst: boolean): NormalizedSalesItem {
   const quantity = numberValue(input.quantity || 1)
   const rate = numberValue(input.rate)
   const discountAmount = numberValue(input.discount_amount)
   const taxRate = numberValue(input.tax_rate)
-  const taxable = Math.max(0, quantity * rate - discountAmount)
-  const taxAmount = roundMoney(taxable * taxRate / 100)
+  const taxable = roundMoney(Math.max(0, quantity * rate - discountAmount))
+  const taxAmount = lineTaxAmount(taxable, taxRate, isCgstSgst)
   return {
     product_id: emptyAsNull(input.product_id),
     product_name: input.product_name?.trim() || 'Item',
@@ -481,6 +482,12 @@ function numberValue(value: unknown) {
 
 function sum(values: number[]) {
   return roundMoney(values.reduce((total, value) => total + value, 0))
+}
+
+function lineTaxAmount(taxable: number, taxRate: number, isCgstSgst: boolean) {
+  if (!isCgstSgst) return roundMoney(taxable * taxRate / 100)
+  const halfTax = roundMoney((taxable * taxRate / 100) / 2)
+  return roundMoney(halfTax + halfTax)
 }
 
 function roundMoney(value: number) {

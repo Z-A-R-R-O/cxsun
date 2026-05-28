@@ -2,28 +2,6 @@ import { sql } from 'kysely'
 import { nowIso, type PlatformDatabaseModule, type PlatformDatabase } from '../../../infrastructure/database/database-module.js'
 import { liveClientScopes, type LiveClientScope } from '../live-client-scope.js'
 
-const retiredAutoSeededTenantSlugs = [
-  'demo_app',
-  'aaran',
-  'sathasivam',
-  'sampath',
-  'sathish',
-  'sundar',
-  'sri_ganapathi_printing',
-  'cotton_knits',
-  'sathasivam_garments',
-  'poly_made_india',
-  'amal_tex',
-  'kgs_printing',
-  'thirumurugan_printers',
-  'sms_upvc',
-  'tirupur_direct',
-  'deal_o_deal',
-  'tenkasi_sports',
-  'altexlabs',
-  'aaran_business_connect',
-]
-
 export const tenantDatabaseModule: PlatformDatabaseModule = {
   name: 'tenant',
   async migrate(database) {
@@ -50,13 +28,9 @@ export const tenantDatabaseModule: PlatformDatabaseModule = {
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         deleted_at DATETIME NULL
       )
-    `).execute(database)
+  `).execute(database)
   },
   async seed(database) {
-    for (const slug of retiredAutoSeededTenantSlugs) {
-      await retireLegacyTenant(database, slug)
-    }
-
     for (const client of liveClientScopes) {
       await ensureLiveClientTenant(database, client)
     }
@@ -160,22 +134,4 @@ async function seedTenantLoginIdentifiers(database: PlatformDatabase) {
       .where('id', '=', tenant.id)
       .execute()
   }
-}
-
-async function retireLegacyTenant(database: PlatformDatabase, slug: string) {
-  const existing = await database
-    .selectFrom('tenants')
-    .select('id')
-    .where('slug', '=', slug)
-    .executeTakeFirst()
-
-  if (!existing) {
-    return
-  }
-
-  await database
-    .updateTable('tenants')
-    .set({ status: 'suspend', corporate_id: null, mobile: null, deleted_at: nowIso(), updated_at: nowIso() })
-    .where('id', '=', existing.id)
-    .execute()
 }
