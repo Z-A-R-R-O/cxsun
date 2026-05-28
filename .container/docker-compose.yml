@@ -19,6 +19,7 @@ services:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://codexsun.com}
       VITE_STORAGE_BASE_URL: ${VITE_STORAGE_BASE_URL:-https://codexsun.com}
       VITE_MEDIA_MANAGER_URL: ${VITE_MEDIA_MANAGER_URL:-http://localhost:6050}
+      CXMEDIA_ADMIN_PASSWORD: ${CXMEDIA_ADMIN_PASSWORD:-Admin@12345}
       FRONTEND_URL: ${FRONTEND_URL:-https://codexsun.com}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://codexsun.com,https://www.codexsun.com}
       DB_HOST: ${DB_HOST:-mariadb}
@@ -59,7 +60,7 @@ services:
     image: filebrowser/filebrowser:v2.63.5
     container_name: cxmedia
     restart: unless-stopped
-    command: ["--address", "0.0.0.0", "--port", "80", "--root", "/srv", "--database", "/database/filebrowser.db"]
+    command: ["--address", "0.0.0.0", "--port", "80", "--root", "/srv", "--database", "/database/filebrowser.db", "--username", "admin", "--password", "${CXMEDIA_ADMIN_PASSWORD:-Admin@12345}"]
     ports:
       - "${CXMEDIA_PORT:-6050}:80"
     volumes:

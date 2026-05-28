@@ -2,14 +2,30 @@
 
 ## Version State
 
-- **Current version:** `1.0.53`
-- **Release tag:** `v-1.0.53`
-- **Changelog label:** `v 1.0.53`
+- **Current version:** `1.0.55`
+- **Release tag:** `v-1.0.55`
+- **Changelog label:** `v 1.0.55`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.55
+
+### [v 1.0.55] 2026-05-28 7:37 pm - cxmedia default admin password
+
+- Bumped workspace version to 1.0.55
+- Set the CXMedia File Browser default admin login to `admin` / `Admin@12345` for new installs.
+- Added `CXMEDIA_ADMIN_PASSWORD` deploy/env support so the default password can be overridden.
+- Updated setup to refresh the existing CXMedia `admin` password when the container already exists.
+- Documented CXMedia compatibility as the mounted file manager for the shared `cxmedia-storage` media volume.
+## v-1.0.54
+
+### [v 1.0.54] 2026-05-28 7:01 pm - seed workspace volume from local repo
+
+- Bumped workspace version to 1.0.54
+- Seeded the app workspace Docker volume from the already-pulled local repository during setup, so container startup no longer waits on an internal GitHub clone.
+- Excluded generated build, dependency, and storage directories while seeding the workspace volume.
 ## v-1.0.53
 
 ### [v 1.0.53] 2026-05-28 6:50 pm - external cxmedia compose volumes

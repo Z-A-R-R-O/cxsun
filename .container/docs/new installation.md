@@ -26,3 +26,7 @@ TENANT_ADMIN_EMAIL=admin@tenant.com
 TENANT_ADMIN_PASSWORD=admin@123
 
 GIT_PULL_ON_START=true bash .container/setup-cloud.sh --reinstall
+
+
+Username: admin
+Password: Admin@12345

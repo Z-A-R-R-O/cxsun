@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
+REPOSITORY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FRESH_INSTALL=false
 
 for arg in "$@"; do
@@ -58,6 +59,7 @@ export REDIS_HOST_PORT="${REDIS_HOST_PORT:-6380}"
 export CXMEDIA_STORAGE_VOLUME="${CXMEDIA_STORAGE_VOLUME:-cxmedia-storage}"
 export CXMEDIA_DB_VOLUME="${CXMEDIA_DB_VOLUME:-cxmedia-db}"
 export CXMEDIA_PORT="${CXMEDIA_PORT:-6050}"
+export CXMEDIA_ADMIN_PASSWORD="${CXMEDIA_ADMIN_PASSWORD:-Admin@12345}"
 export VITE_MEDIA_MANAGER_URL="${VITE_MEDIA_MANAGER_URL:-http://localhost:${CXMEDIA_PORT}}"
 export INSTALL_RUN_TESTS="${INSTALL_RUN_TESTS:-false}"
 export SKIP_MARIADB_WAIT="${SKIP_MARIADB_WAIT:-true}"
@@ -73,6 +75,7 @@ echo "Media manager URL: $VITE_MEDIA_MANAGER_URL"
 echo "Backend port: $PORT"
 echo "Frontend port: $VITE_PORT"
 echo "CXMedia port: $CXMEDIA_PORT"
+echo "CXMedia user: admin"
 echo "MariaDB: $DB_HOST:$DB_PORT/$DB_NAME"
 echo "Redis: $REDIS_HOST:$REDIS_PORT"
 echo "Media storage volume: $CXMEDIA_STORAGE_VOLUME"
@@ -196,6 +199,15 @@ cleanup_legacy_media_containers() {
   docker rm -f cxsun-storage-browser >/dev/null 2>&1 || true
 }
 
+reset_cxmedia_admin_password() {
+  if ! docker ps --format '{{.Names}}' | grep -Fx cxmedia >/dev/null 2>&1; then
+    return
+  fi
+
+  echo "Ensuring CXMedia admin password"
+  docker exec cxmedia filebrowser users update admin --password "$CXMEDIA_ADMIN_PASSWORD" --database /database/filebrowser.db >/dev/null 2>&1 || true
+}
+
 ensure_cxmedia() {
   docker volume create "$CXMEDIA_STORAGE_VOLUME" >/dev/null
   docker volume create "$CXMEDIA_DB_VOLUME" >/dev/null
@@ -204,6 +216,7 @@ ensure_cxmedia() {
   if docker ps --format '{{.Names}}' | grep -Fx cxmedia >/dev/null 2>&1; then
     echo "CXMedia already running: cxmedia"
     docker network connect codexion-network cxmedia >/dev/null 2>&1 || true
+    reset_cxmedia_admin_password
     return
   fi
 
@@ -211,11 +224,14 @@ ensure_cxmedia() {
     echo "Starting existing CXMedia container: cxmedia"
     docker start cxmedia >/dev/null
     docker network connect codexion-network cxmedia >/dev/null 2>&1 || true
+    reset_cxmedia_admin_password
     return
   fi
 
   echo "Installing CXMedia container: cxmedia"
   docker compose -f "$COMPOSE_FILE" up -d --no-deps cxmedia
+  reset_cxmedia_admin_password
+  echo "CXMedia default login: admin / $CXMEDIA_ADMIN_PASSWORD"
 }
 
 STORAGE_BACKUP_DIR=""
@@ -275,6 +291,28 @@ cleanup_storage_backup() {
   fi
 }
 
+seed_workspace_volume() {
+  docker volume create cxsun-volume >/dev/null
+
+  echo "Seeding app workspace volume from local repository"
+  docker run --rm \
+    -v cxsun-volume:/target \
+    -v "$REPOSITORY_ROOT:/source:ro" \
+    cxsun:v1 \
+    bash -lc "set -e
+      mkdir -p /target/cxsun
+      find /target/cxsun -mindepth 1 -maxdepth 1 ! -name storage -exec rm -rf {} +
+      tar -C /source \
+        --exclude='./node_modules' \
+        --exclude='./build' \
+        --exclude='./storage' \
+        --exclude='./apps/server/dist' \
+        --exclude='./apps/frontend/dist' \
+        --exclude='./apps/web/dist' \
+        -cf - . | tar -C /target/cxsun -xf -
+    " >/dev/null
+}
+
 if [ "$FRESH_INSTALL" = "true" ]; then
   reset_external_redis
 fi
@@ -309,6 +347,7 @@ else
 fi
 restore_storage_volume
 cleanup_storage_backup
+seed_workspace_volume
 ensure_cxmedia
 
 echo "Starting CXSun"

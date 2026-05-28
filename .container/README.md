@@ -59,8 +59,9 @@ Storage is intentionally separated from the app workspace:
 - Public media URL variable: `VITE_STORAGE_BASE_URL`
 - Media manager URL variable: `VITE_MEDIA_MANAGER_URL`
 - Local media manager: `http://localhost:6050`
+- Default media manager login: `admin` / `Admin@12345`
 
-File Browser uses its own persistent database volume named `cxmedia-db`. On a new install, open the browser URL and change the default File Browser password before exposing it outside the server.
+File Browser uses its own persistent database volume named `cxmedia-db`. Override `CXMEDIA_ADMIN_PASSWORD` before setup when a different default admin password is needed.
 
 ## 3. Build Image
 
@@ -298,11 +299,13 @@ The script will:
 - Stream container logs while waiting for backend health so dependency install, migrations, seeds, and build progress are visible
 - Run tenant safety tests only when `INSTALL_RUN_TESTS=true`
 - Build the `cxsun:v1` image
+- Seed `cxsun-volume` from the already-pulled local repository so the container does not clone from GitHub during startup
 - Start the app through `.container/docker-compose.yml`
 - Wait for `/health` and verify `codexsun.com` resolves as a tenant
 - Configure `VITE_API_BASE_URL`, `FRONTEND_URL`, and `CORS_ORIGINS` for `https://codexsun.com`
 - Configure `VITE_STORAGE_BASE_URL` for uploaded media, logos, and invoice images
 - Configure `VITE_MEDIA_MANAGER_URL` for the in-app CXMedia link
+- Set or refresh the CXMedia `admin` password from `CXMEDIA_ADMIN_PASSWORD`, defaulting to `Admin@12345`
 - Set `SKIP_MARIADB_WAIT=true` by default so a failed `mysqladmin ping` does not stop install before migrations run
 - Remove the CXSun app workspace volume, reset Redis cache/container, and rebuild only the app image without cache when `--fresh` or `--reinstall` is passed
 - Preserve uploaded media in `cxmedia-storage` during app reinstall
