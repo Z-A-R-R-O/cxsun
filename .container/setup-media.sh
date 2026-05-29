@@ -112,7 +112,7 @@ docker run --rm \
   filebrowser/filebrowser:v2.63.5 \
   -lc "mkdir -p /srv && filebrowser users update admin \
     --password \"\$CXMEDIA_ADMIN_PASSWORD\" \
-    --scope /srv \
+    --scope / \
     --perm.admin \
     --perm.create \
     --perm.delete \
@@ -122,7 +122,7 @@ docker run --rm \
     --perm.share \
     --database /database/filebrowser.db >/dev/null 2>&1 \
   || filebrowser users add admin \"\$CXMEDIA_ADMIN_PASSWORD\" \
-      --scope /srv \
+      --scope / \
       --perm.admin \
       --perm.create \
       --perm.delete \
