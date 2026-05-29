@@ -2,14 +2,21 @@
 
 ## Version State
 
-- **Current version:** `1.0.62`
-- **Release tag:** `v-1.0.62`
-- **Changelog label:** `v 1.0.62`
+- **Current version:** `1.0.63`
+- **Release tag:** `v-1.0.63`
+- **Changelog label:** `v 1.0.63`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.63
+
+### [v 1.0.63] 2026-05-29 9:46 am - mount media volume during cxmedia user setup
+
+- Bumped workspace version to 1.0.63
+- Mounted `cxmedia-storage` at `/srv` during File Browser CLI user setup so admin scope creation works after a clean DB reinstall.
+- Fixed CXMedia setup failing with `failed to create user home dir: [/srv]`.
 ## v-1.0.62
 
 ### [v 1.0.62] 2026-05-29 9:20 am - cxmedia permissions and tenant logo fallback

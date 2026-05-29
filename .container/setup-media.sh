@@ -99,10 +99,12 @@ fi
 echo "Ensuring CXMedia admin user"
 docker run --rm \
   -v "$CXMEDIA_DB_VOLUME:/database" \
+  -v "$CXMEDIA_STORAGE_VOLUME:/srv" \
   filebrowser/filebrowser:v2.63.5 \
   config init --database /database/filebrowser.db >/dev/null 2>&1 || true
 docker run --rm \
   -v "$CXMEDIA_DB_VOLUME:/database" \
+  -v "$CXMEDIA_STORAGE_VOLUME:/srv" \
   filebrowser/filebrowser:v2.63.5 \
   users update admin \
     --password "$CXMEDIA_ADMIN_PASSWORD" \
@@ -117,6 +119,7 @@ docker run --rm \
     --database /database/filebrowser.db >/dev/null 2>&1 \
   || docker run --rm \
     -v "$CXMEDIA_DB_VOLUME:/database" \
+    -v "$CXMEDIA_STORAGE_VOLUME:/srv" \
     filebrowser/filebrowser:v2.63.5 \
     users add admin "$CXMEDIA_ADMIN_PASSWORD" \
       --scope /srv \
