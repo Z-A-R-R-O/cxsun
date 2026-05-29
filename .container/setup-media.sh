@@ -106,6 +106,7 @@ docker run --rm \
   -lc "mkdir -p /srv && filebrowser config init --database /database/filebrowser.db >/dev/null 2>&1 || true"
 docker run --rm \
   --entrypoint sh \
+  -e CXMEDIA_ADMIN_PASSWORD="$CXMEDIA_ADMIN_PASSWORD" \
   -v "$CXMEDIA_DB_VOLUME:/database" \
   -v "$CXMEDIA_STORAGE_VOLUME:/srv" \
   filebrowser/filebrowser:v2.63.5 \
