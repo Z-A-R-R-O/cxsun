@@ -93,7 +93,7 @@ elif docker ps -a --format '{{.Names}}' | grep -Fx cxmedia >/dev/null 2>&1; then
   echo "CXMedia container exists and is stopped"
 else
   echo "Creating CXMedia container"
-  docker compose -f "$COMPOSE_FILE" create --no-deps cxmedia >/dev/null
+  docker compose -f "$COMPOSE_FILE" create cxmedia >/dev/null
 fi
 
 echo "Ensuring CXMedia admin user"

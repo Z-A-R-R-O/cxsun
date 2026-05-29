@@ -2,14 +2,20 @@
 
 ## Version State
 
-- **Current version:** `1.0.58`
-- **Release tag:** `v-1.0.58`
-- **Changelog label:** `v 1.0.58`
+- **Current version:** `1.0.59`
+- **Release tag:** `v-1.0.59`
+- **Changelog label:** `v 1.0.59`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.59
+
+### [v 1.0.59] 2026-05-29 8:26 am - fix cxmedia create command
+
+- Bumped workspace version to 1.0.59
+- Removed the unsupported `--no-deps` flag from the `docker compose create cxmedia` command for compatibility with the server Compose version.
 ## v-1.0.58
 
 ### [v 1.0.58] 2026-05-29 8:23 am - clean cxmedia reinstall mode
