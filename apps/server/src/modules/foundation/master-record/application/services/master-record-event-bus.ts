@@ -1,15 +1,11 @@
-import { Inject } from '../../../../../core/decorators/inject.js'
 import { Injectable } from '../../../../../core/decorators/injectable.js'
-import { MasterQueueService } from '../../../../../infrastructure/queue/master-queue.service.js'
+import type { MasterQueueService } from '../../../../../infrastructure/queue/master-queue.service.js'
 import type { MasterRecordDomainEvent } from '../../domain/events/master-record.events.js'
 
 @Injectable()
 export class MasterRecordEventBus {
   private readonly events: MasterRecordDomainEvent[] = []
-
-  constructor(
-    @Inject(MasterQueueService) private readonly queue: MasterQueueService,
-  ) {}
+  private queue?: MasterQueueService
 
   async publish(event: MasterRecordDomainEvent) {
     this.events.unshift(event)
@@ -18,7 +14,8 @@ export class MasterRecordEventBus {
       this.events.length = 100
     }
 
-    await this.queue.enqueue({
+    const queue = await this.getQueue()
+    await queue.enqueue({
       type: event.name,
       payload: { ...event },
     })
@@ -28,5 +25,16 @@ export class MasterRecordEventBus {
 
   recent() {
     return [...this.events]
+  }
+
+  private async getQueue() {
+    if (!this.queue) {
+      const { MasterQueueService } = await import(
+        '../../../../../infrastructure/queue/master-queue.service.js'
+      )
+      this.queue = new MasterQueueService()
+    }
+
+    return this.queue
   }
 }
