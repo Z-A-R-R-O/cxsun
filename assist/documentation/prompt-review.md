@@ -1984,3 +1984,17 @@ so plan for these and work
 
 for local dev add host file with localhost domain setup and also create helper to do this in windows 
 for production we can move with sub domain or client owned domains
+
+## 2026-06-03
+
+User prompt:
+
+```
+ok fine now we work with application, find any mail module assembled or if not prepare clean mail service manager to organise and send mail with attachment with queue management create a mail with common of super-admin features and tenant aware mail support with tenant mail dynamic  and mailing pages inside new mail app like module and wire it on breadcrumb top menu with also prepare mail setting for each tenant in side menu at mail desk
+```
+
+User prompt:
+
+```
+read assist/readme and create log
+```

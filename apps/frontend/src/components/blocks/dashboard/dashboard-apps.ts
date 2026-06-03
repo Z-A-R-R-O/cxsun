@@ -12,6 +12,8 @@ import {
   ContactRound,
   CircleDollarSign,
   CreditCard,
+  Clock3,
+  Edit3,
   FileCog,
   FileText,
   Globe2,
@@ -22,6 +24,7 @@ import {
   ListChecks,
   LayoutDashboard,
   Link2,
+  Mail,
   Map,
   MapPinned,
   MapPin,
@@ -32,10 +35,12 @@ import {
   ReceiptText,
   Ruler,
   Scale,
+  Send,
   Settings,
   Shapes,
   ShoppingBag,
   Tags,
+  Trash2,
   Truck,
   UserRoundCog,
   UsersRound,
@@ -45,7 +50,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "billing" | "media" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites"
+export type DashboardAppId = "application" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -151,6 +156,19 @@ export const dashboardApps: DashboardAppDefinition[] = [
     menuGroups: [
       { title: "Library", icon: Image, items: [item("media", "library", "Media Library", Image)] },
       { title: "Management", icon: Settings, items: [item("media", "links", "Links", Link2), item("media", "sharing", "Sharing", Globe2)] },
+    ],
+  }),
+  withMenu({
+    id: "mail",
+    name: "Mail",
+    shortName: "Mail",
+    description: "Tenant-aware SMTP settings, compose desk, attachments, delivery history, and queued mail operations.",
+    status: "active",
+    accent: "bg-teal-600 text-white",
+    icon: Mail,
+    menuGroups: [
+      { title: "Mail Desk", icon: Mail, items: [item("mail", "compose", "New message", Edit3), item("mail", "inbox", "Inbox", Mail), item("mail", "drafts", "Drafts", FileText), item("mail", "scheduled", "Scheduled", Clock3), item("mail", "sent", "Sent", Send), item("mail", "trash", "Trash", Trash2), item("mail", "contacts", "Contacts", UsersRound)] },
+      { title: "Settings", icon: Settings, items: [item("mail", "settings", "Mail Settings", Settings)] },
     ],
   }),
   withMenu({

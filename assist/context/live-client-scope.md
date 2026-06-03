@@ -33,8 +33,8 @@ npm run hosts:check
 
 | Code | Tenant | Domains | Industry | Apps / Scope |
 |---:|---|---|---|---|
-| 100 | Aaran Associates | `aaran.codexsun.com`, `office.codexsun.com`, `aaran.local` | Auditor office / software back office | Auditor, task manager, CRM, billing |
-| 101 | CODEXSUN Shared Billing | `codexsun.com`, `www.codexsun.com`, `codexsun.local` | Shared billing platform | Billing for shared-domain clients |
+| 100 | Aaran Associates | `aaran.codexsun.com`, `office.codexsun.com`, `aaran.local` | Auditor office / software back office | Auditor, task manager, CRM, billing, mail |
+| 101 | CODEXSUN Shared Billing | `codexsun.com`, `www.codexsun.com`, `codexsun.local` | Shared billing platform | Billing and mail for shared-domain clients |
 | 102 | Sri Ganapathi Printing Press | `sriganapathi.codexsun.com`, `ganapathi.local` | Offset printing | Simple billing + accounts |
 | 103 | Cotton Knits Fashion | `cotton.codexsun.com`, `cottonknits.codexsun.com`, `cotton.local` | Garment manufacturing | Billing + accounts + e-invoice + e-way |
 | 104 | Sathasivam Garment Group | `sukraa.codexsun.com`, `mathan.codexsun.com`, `sukraa.local` | Garment manufacturing | Sukraa Garments + Mathan Knitters |

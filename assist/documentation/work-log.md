@@ -1,5 +1,14 @@
 # Work Log
 
+## 2026-06-03
+
+- Added the tenant-aware Mail app surface with Mail Desk navigation, compose, inbox, drafts, scheduled, sent, trash, contacts, and tenant mail settings.
+- Added backend tenant mail tables, settings/default fallback support from environment variables, queued message storage, attachments, events, and SMTP dispatch through the mail queue lane.
+- Verified live Hostinger SMTP settings and confirmed a queued tenant mail message could be sent through the dispatcher.
+- Reworked Mail Settings controls with proper select sizing and a green active tenant-mail switch.
+- Reworked the Mail Inbox into the existing Sales-style workspace flavour with top `Refresh` and `New` actions, search/filter/column toolbar, table row action dropdown, view dialog, trash action, and pagination.
+- Removed the duplicate inner Mail sidebar so the outer Mail Desk side menu owns the full flow.
+
 ## 2026-05-23
 
 - Added the Media application as a standalone tenant module with library, link, sharing, upload, delete, public/private storage, and queue-backed backend events.

@@ -111,6 +111,9 @@ const GstStatementReportPage = lazy(() =>
 const MediaManagerPage = lazy(() =>
   import('src/features/media/media-page').then((module) => ({ default: module.MediaManagerPage })),
 )
+const MailDeskPage = lazy(() =>
+  import('src/features/mail/mail-page').then((module) => ({ default: module.MailDeskPage })),
+)
 const TaskManagerPage = lazy(() =>
   import('src/features/task-manager/task-manager-page').then((module) => ({ default: module.TaskManagerPage })),
 )
@@ -164,6 +167,7 @@ function dashboardAppFromPage(page: DashboardPage): DashboardAppId | null {
 function defaultPageForApp(appId: DashboardAppId): DashboardPage {
   if (appId === "billing") return "app-billing-sales"
   if (appId === "inventory") return "app-inventory-purchase"
+  if (appId === "mail") return "app-mail-inbox"
   if (appId === "taskmanager") return "app-taskmanager-tasks"
   if (appId === "sites") return "app-sites-sliders"
   return "overview"
@@ -231,6 +235,11 @@ function prefetchAppModules(appId: DashboardAppId) {
 
     if (appId === "media") {
       void import('src/features/media/media-page')
+      return
+    }
+
+    if (appId === "mail") {
+      void import('src/features/mail/mail-page')
       return
     }
 
@@ -507,6 +516,22 @@ export function DashboardView({
             <GstStatementReportPage session={session} />
           ) : visiblePage === "app-media-library" || visiblePage === "app-media-links" || visiblePage === "app-media-sharing" ? (
             <MediaManagerPage session={session} />
+          ) : visiblePage === "app-mail-inbox" ? (
+            <MailDeskPage session={session} view="inbox" />
+          ) : visiblePage === "app-mail-drafts" ? (
+            <MailDeskPage session={session} view="drafts" />
+          ) : visiblePage === "app-mail-scheduled" ? (
+            <MailDeskPage session={session} view="scheduled" />
+          ) : visiblePage === "app-mail-sent" || visiblePage === "app-mail-outbox" ? (
+            <MailDeskPage session={session} view="sent" />
+          ) : visiblePage === "app-mail-trash" ? (
+            <MailDeskPage session={session} view="trash" />
+          ) : visiblePage === "app-mail-contacts" ? (
+            <MailDeskPage session={session} view="contacts" />
+          ) : visiblePage === "app-mail-compose" ? (
+            <MailDeskPage session={session} view="compose" />
+          ) : visiblePage === "app-mail-settings" ? (
+            <MailDeskPage session={session} view="settings" />
           ) : visiblePage === "app-sites-sliders" ? (
             <SiteSliderPage session={session} />
           ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-tasks" || visiblePage === "app-taskmanager-gst-verification" || visiblePage === "app-taskmanager-auditor-follow-up" ? (
@@ -728,6 +753,7 @@ function appGroupDescription(title: string) {
     "Settings": "App setup, layouts, and controls.",
     "Library": "Upload, browse, and organize media.",
     "Management": "Share, link, and govern media assets.",
+    "Mail Desk": "Compose, queue, and inspect tenant mail.",
     "Storefront": "Store operations and checkout flow.",
     "Catalog": "Products, collections, and variants.",
     "Customers": "Customer records and engagement.",

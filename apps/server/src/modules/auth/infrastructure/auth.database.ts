@@ -51,6 +51,11 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       name: 'Manage RBAC',
       description: 'Manage tenant roles and policy assignments.',
     })
+    await ensurePolicy(database, {
+      code: 'mail.manage',
+      name: 'Manage mail',
+      description: 'Configure tenant mail settings and send tenant mail.',
+    })
     const allTenants = await database
       .selectFrom('tenants')
       .selectAll()
@@ -59,7 +64,7 @@ export const authDatabaseModule: PlatformDatabaseModule = {
       .execute()
 
     for (const tenant of allTenants) {
-      for (const policyCode of ['company.manage', 'rbac.manage']) {
+      for (const policyCode of ['company.manage', 'rbac.manage', 'mail.manage']) {
         await ensureTenantPolicy(database, tenant.id, policyCode)
       }
     }

@@ -17,6 +17,7 @@ import { StockLedgerModule } from './stock/ledger/index.js'
 import { CompanySettingsModule } from './settings/company-settings/index.js'
 import { DocumentSettingsModule } from './settings/document-settings/index.js'
 import { MediaModule } from './media/index.js'
+import { MailModule } from './mail/index.js'
 import { TaskManagerModule } from './task-manager/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
 import { QueueManagerModule } from '../core/system/queue-manager/queue-manager.module.js'
@@ -58,6 +59,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     CompanySettingsModule,
     DocumentSettingsModule,
     MediaModule,
+    MailModule,
     TaskManagerModule,
     CompanyModule,
   ],

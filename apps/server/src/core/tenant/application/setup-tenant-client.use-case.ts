@@ -49,6 +49,11 @@ async function ensureTenantPolicies(tenantId: number) {
       name: 'Manage RBAC',
       description: 'Manage tenant roles and policy assignments.',
     },
+    {
+      code: 'mail.manage',
+      name: 'Manage mail',
+      description: 'Configure tenant mail settings and send tenant mail.',
+    },
   ]) {
     await ensurePolicy(policy)
     await ensureTenantPolicy(tenantId, policy.code)

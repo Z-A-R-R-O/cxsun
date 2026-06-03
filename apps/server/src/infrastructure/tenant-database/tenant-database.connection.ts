@@ -18,6 +18,7 @@ import { migratePaymentEntryTables } from '../../modules/entries/payment/index.j
 import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
 import { migrateDocumentSettingsTables } from '../../modules/settings/document-settings/index.js'
 import { migrateMediaTables } from '../../modules/media/index.js'
+import { migrateMailTables } from '../../modules/mail/index.js'
 import { migrateTaskManagerTables } from '../../modules/task-manager/index.js'
 import { migrateSiteSliderTables, seedDefaultSiteSliders } from '../../modules/site/slider/database/site-slider.migration.js'
 import { migrateContactMasterTable } from '../../modules/master/contact/index.js'
@@ -124,6 +125,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateCompanySettingsTables(database)
   await migrateDocumentSettingsTables(database)
   await migrateMediaTables(database as never)
+  await migrateMailTables(database)
   await migrateTaskManagerTables(database as never)
   await migrateSiteSliderTables(database as never)
   await migrateContactMasterTable(database)
@@ -341,6 +343,11 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
       name: 'Manage RBAC',
       description: 'Allows managing tenant-local roles and policy assignments.',
     },
+    {
+      code: 'mail.manage',
+      name: 'Manage mail',
+      description: 'Allows configuring tenant mail settings and sending tenant mail.',
+    },
   ]) {
     await ensurePolicy(database, policy)
   }
@@ -351,6 +358,10 @@ async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
 
   for (const roleCode of ['admin']) {
     await ensureRolePolicy(database, roleCode, 'rbac.manage')
+  }
+
+  for (const roleCode of ['admin', 'manager', 'staff']) {
+    await ensureRolePolicy(database, roleCode, 'mail.manage')
   }
 
 }

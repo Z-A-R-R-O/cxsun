@@ -12,6 +12,19 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 
 ## v-1.0.69
 
+### [v 1.0.69] 2026-06-03 10:08 am - mail workspace list polish
+
+- Reworked the tenant Mail Inbox to match the existing Sales-style workspace with top `Refresh` and `New` actions, a search/filter/column toolbar, table card, row action dropdown, and pagination.
+- Added a mail view dialog from the table action menu and kept trash actions available from both row and selected-message flows.
+- Removed the duplicate inner Mail sidebar so Mail Desk navigation lives only in the main application side menu.
+- Logged the tenant mail module build and live SMTP verification in the assistant work log.
+
+### [v 1.0.69] 2026-06-03 - tenant mail desk and queue sender
+
+- Added a tenant-aware Mail app with outbox, draft inbox, compose, attachments, and tenant SMTP settings pages.
+- Added tenant mail tables, `mail.manage` policy seeding, mail APIs, and SMTP delivery through the existing `mail` queue lane.
+- Replaced the placeholder mail queue worker with a real dispatcher that updates mail message status and queue results.
+
 ### [v 1.0.69] 2026-05-30 5:55 pm - home story carousel
 
 - Converted the Home story banner into an auto-advancing right-to-left carousel with three Codexsun story slides.

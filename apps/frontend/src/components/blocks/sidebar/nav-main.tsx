@@ -15,6 +15,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "src/components/ui/sidebar"
+import { cn } from "src/lib/utils"
 
 interface NavItem {
   title: string
@@ -83,6 +84,7 @@ export function NavMain({ items }: { items: NavItem[] }) {
 
 function NestedSubItem({ item }: { item: NavItem }) {
   const isParentActive = item.isActive || Boolean(item.items?.some(hasActiveItem))
+  const isPrimaryAction = item.title === "New message"
 
   if (item.items?.length) {
     return (
@@ -113,7 +115,12 @@ function NestedSubItem({ item }: { item: NavItem }) {
       <SidebarMenuSubButton
         asChild
         isActive={item.isActive}
-        className="min-h-9 rounded-xl px-2 py-2 text-xs font-medium leading-tight text-muted-foreground transition-[background,color,box-shadow,transform] duration-300 ease-out hover:translate-x-0.5 hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-sm data-active:bg-sidebar-foreground data-active:text-sidebar data-active:shadow-md [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300 [&>a]:items-start [&>a]:gap-1.5 hover:[&_svg]:text-sidebar data-active:[&>a_svg]:!text-sidebar data-[active=true]:[&>a_svg]:!text-sidebar"
+        className={cn(
+          "min-h-9 rounded-xl px-2 py-2 leading-tight transition-[background,color,box-shadow,transform] duration-300 ease-out [&_svg]:size-4 [&_svg]:text-current [&_svg]:transition-colors [&_svg]:duration-300 [&>a]:items-start [&>a]:gap-1.5",
+          isPrimaryAction
+            ? "mb-3 min-h-10 bg-primary text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground data-active:bg-primary data-active:text-primary-foreground"
+            : "text-xs font-medium text-muted-foreground hover:translate-x-0.5 hover:bg-sidebar-foreground/90 hover:text-sidebar hover:shadow-sm data-active:bg-sidebar-foreground data-active:text-sidebar data-active:shadow-md hover:[&_svg]:text-sidebar data-active:[&>a_svg]:!text-sidebar data-[active=true]:[&>a_svg]:!text-sidebar",
+        )}
       >
         <a href={item.url} onClick={handleSelect(item.onSelect)}>
           {item.icon ? <item.icon /> : null}

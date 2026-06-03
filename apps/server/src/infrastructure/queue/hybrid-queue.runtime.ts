@@ -5,6 +5,7 @@ import { sql } from 'kysely'
 
 import { settings } from '../../framework/config/index.js'
 import { getDatabase } from '../database/connection.js'
+import { dispatchQueuedMail } from '../../modules/mail/mail.dispatcher.js'
 
 export type HybridQueueName = 'events' | 'mail' | 'reports' | 'database-backup' | 'system-update' | 'tenant-maintenance'
 
@@ -88,7 +89,7 @@ export async function startHybridQueueWorkers() {
       return
     }
     startWorker('database-backup', processDatabaseBackupJob)
-    startWorker('mail', processPlaceholderJob)
+    startWorker('mail', processMailJob)
     startWorker('reports', processPlaceholderJob)
     startWorker('system-update', processPlaceholderJob)
     startWorker('tenant-maintenance', processPlaceholderJob)
@@ -160,6 +161,12 @@ async function processPlaceholderJob(job: { data: HybridJobPayload }) {
       finished: true,
     })
   }
+}
+
+async function processMailJob(job: { data: HybridJobPayload }) {
+  if (job.data.dbJobId) await markJob(job.data.dbJobId, { status: 'processing', progress: 20, started: true })
+  const result = await dispatchQueuedMail(job.data.payload)
+  if (job.data.dbJobId) await markJob(job.data.dbJobId, { status: 'completed', progress: 100, result, finished: true })
 }
 
 async function markJob(
