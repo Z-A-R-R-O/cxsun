@@ -1,13 +1,11 @@
 import { Bug, Building2, ChevronRight, Headset, Network, RefreshCw, ShieldCheck } from "lucide-react"
 import { useMemo } from "react"
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts"
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
 import { SectionCards } from "./section-cards"
 import type { DashboardMode, DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 import { cn } from "src/lib/utils"
 import { dashboardApps, type DashboardAppId, type DashboardAppMenuItem } from "src/components/blocks/dashboard/dashboard-apps"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "src/components/ui/chart"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { listPaymentEntries, type PaymentEntry } from "src/features/payment/payment-client"
 import { listPurchaseEntries, type PurchaseEntry } from "src/features/purchase/purchase-client"
@@ -175,17 +173,7 @@ function BillingTransactionDashboard({ session }: { session: AuthSession }) {
             <p className="text-sm text-muted-foreground">Monthly sales, purchase, receipts, and payments for the current accounting year list.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer className="h-[280px] w-full" config={transactionChartConfig}>
-              <LineChart accessibilityLayer data={summary.monthly}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line dataKey="sales" stroke="var(--color-sales)" strokeWidth={2} type="monotone" dot={false} />
-                <Line dataKey="purchase" stroke="var(--color-purchase)" strokeWidth={2} type="monotone" dot={false} />
-                <Line dataKey="receipts" stroke="var(--color-receipts)" strokeWidth={2} type="monotone" dot={false} />
-                <Line dataKey="payments" stroke="var(--color-payments)" strokeWidth={2} type="monotone" dot={false} />
-              </LineChart>
-            </ChartContainer>
+            <TransactionBars rows={summary.monthly} />
           </CardContent>
         </Card>
 
@@ -195,14 +183,7 @@ function BillingTransactionDashboard({ session }: { session: AuthSession }) {
             <p className="text-sm text-muted-foreground">Output, input, and net GST values from billing entries.</p>
           </CardHeader>
           <CardContent>
-            <ChartContainer className="h-[280px] w-full" config={gstChartConfig}>
-              <BarChart accessibilityLayer data={summary.gstChart}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="var(--color-amount)" />
-              </BarChart>
-            </ChartContainer>
+            <GstBars rows={summary.gstChart} />
             <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
               {summary.gstChart.map((item) => (
                 <div key={item.label} className="rounded-md border border-border/70 p-2">
@@ -252,6 +233,74 @@ function DeskShortcutCards({ appId, onChangeApp, onNavigate }: { appId: Dashboar
   )
 }
 
+function TransactionBars({ rows }: { rows: Array<{ month: string; payments: number; purchase: number; receipts: number; sales: number }> }) {
+  const maxValue = Math.max(1, ...rows.flatMap((row) => [row.sales, row.purchase, row.receipts, row.payments]))
+  const series = [
+    { key: "sales", label: "Sales", color: "bg-emerald-600" },
+    { key: "purchase", label: "Purchase", color: "bg-sky-500" },
+    { key: "receipts", label: "Receipts", color: "bg-amber-500" },
+    { key: "payments", label: "Payments", color: "bg-rose-500" },
+  ] as const
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {series.map((item) => (
+          <span key={item.key} className="inline-flex items-center gap-1.5">
+            <span className={cn("size-2 rounded-sm", item.color)} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+      <div className="grid h-[260px] grid-cols-12 items-end gap-2 border-b border-border/70 pb-6">
+        {rows.map((row) => (
+          <div key={row.month} className="relative flex h-full min-w-0 items-end justify-center gap-0.5">
+            {series.map((item) => {
+              const value = row[item.key]
+              return (
+                <span
+                  aria-label={`${item.label} ${row.month}: ${formatCurrency(value)}`}
+                  className={cn("w-full max-w-[8px] rounded-t-sm", item.color)}
+                  key={item.key}
+                  style={{ height: `${Math.max(value > 0 ? 4 : 0, (value / maxValue) * 100)}%` }}
+                  title={`${item.label}: ${formatCurrency(value)}`}
+                />
+              )
+            })}
+            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[11px] text-muted-foreground">{row.month}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function GstBars({ rows }: { rows: Array<{ amount: number; label: string }> }) {
+  const maxValue = Math.max(1, ...rows.map((row) => Math.abs(row.amount)))
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => {
+        const negative = row.amount < 0
+        return (
+          <div key={row.label} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium">{row.label}</span>
+              <span className="text-muted-foreground">{formatCurrency(row.amount)}</span>
+            </div>
+            <div className="h-8 overflow-hidden rounded-md bg-muted">
+              <div
+                className={cn("h-full rounded-md", negative ? "bg-rose-500" : "bg-emerald-600")}
+                style={{ width: `${Math.max(2, (Math.abs(row.amount) / maxValue) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ShortcutButton({ item, onSelect }: { item: DashboardAppMenuItem; onSelect(page: DashboardPage): void }) {
   const ItemIcon = item.icon
   const primaryPage = item.items?.[0]?.page ?? item.page
@@ -293,17 +342,6 @@ function appGroupDescription(title: string) {
   }
   return descriptions[title] ?? "Workspace menu shortcuts."
 }
-
-const transactionChartConfig = {
-  sales: { label: "Sales", color: "hsl(160 84% 39%)" },
-  purchase: { label: "Purchase", color: "hsl(217 91% 60%)" },
-  receipts: { label: "Receipts", color: "hsl(38 92% 50%)" },
-  payments: { label: "Payments", color: "hsl(346 77% 50%)" },
-} satisfies ChartConfig
-
-const gstChartConfig = {
-  amount: { label: "GST", color: "hsl(160 84% 39%)" },
-} satisfies ChartConfig
 
 const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
