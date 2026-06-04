@@ -72,10 +72,12 @@ export class SalesEntryRepository {
   constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
 
   async list(context: TenantRuntimeContext) {
+    const accountingYearId = await this.defaultAccountingYearId(context)
     const rows = await this.database(context)
       .selectFrom('sales_entries')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
+      .where('accounting_year_id', '=', accountingYearId)
       .where('deleted_at', 'is', null)
       .orderBy('invoice_date', 'desc')
       .orderBy('id', 'desc')
@@ -353,6 +355,15 @@ export class SalesEntryRepository {
   }
 
   private async defaultAccountingYearId(context: TenantRuntimeContext) {
+    const defaultYear = await this.database(context)
+      .selectFrom('default_companies')
+      .select('accounting_year_id')
+      .where('is_active', '=', true)
+      .orderBy('id', 'asc')
+      .executeTakeFirst()
+
+    if (defaultYear?.accounting_year_id) return Number(defaultYear.accounting_year_id)
+
     const year = await this.database(context)
       .selectFrom('accounting_years')
       .select('id')

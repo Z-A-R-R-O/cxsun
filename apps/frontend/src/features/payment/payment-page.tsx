@@ -96,7 +96,7 @@ export function PaymentPage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultPaymentColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["payment-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listPaymentEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: PaymentEntryInput) => upsertPaymentEntry(session, input) })

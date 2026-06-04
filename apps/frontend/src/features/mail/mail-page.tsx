@@ -76,7 +76,7 @@ function MailMessagesPage({ session, view }: { session: AuthSession; view: MailV
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultMailColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [viewingMessage, setViewingMessage] = useState<MailMessage | null>(null)
   const status = view === "drafts" ? "draft" : view === "sent" ? "sent" : "all"

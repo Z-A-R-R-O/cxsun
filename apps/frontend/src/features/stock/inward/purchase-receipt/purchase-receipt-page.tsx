@@ -94,7 +94,7 @@ export function PurchaseReceiptPage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [visibleColumns, setVisibleColumns] = useState(defaultPurchaseReceiptColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["purchase-receipt-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listPurchaseReceiptEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: PurchaseReceiptEntryInput) => upsertPurchaseReceiptEntry(session, input) })

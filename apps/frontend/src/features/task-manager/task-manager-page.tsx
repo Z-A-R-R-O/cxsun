@@ -57,7 +57,7 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
   const query = useQuery({ queryKey: ["task-manager", session.selectedTenant.slug], queryFn: () => listTaskManagerTasks(session) })
   const tenantUsersQuery = useQuery({ queryKey: ["task-manager-users", session.selectedTenant.id, session.selectedTenant.slug], queryFn: () => listTenantUsers(session, session.selectedTenant.id) })

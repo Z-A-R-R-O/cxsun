@@ -62,7 +62,7 @@ export function IndustryPage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState<IndustryStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [visibleColumns, setVisibleColumns] = useState(defaultColumns)
   const industriesQuery = useQuery({ queryKey: ["industries", session.selectedTenant.slug], queryFn: () => listIndustries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: IndustryUpsertInput) => upsertIndustry(session, input) })

@@ -36,7 +36,7 @@ export function StockLedgerPage({ session }: { session: AuthSession }) {
   const [view, setView] = useState<{ mode: "list" } | { mode: "upsert"; entry: StockLedgerEntry }>({ mode: "list" })
   const [searchValue, setSearchValue] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const entriesQuery = useQuery({ queryKey: ["stock-ledger-entries", session.selectedTenant.slug], queryFn: () => listStockLedgerEntries(session) })
   const entryMutation = useMutation({ mutationFn: (entry?: StockLedgerEntry) => upsertStockLedgerEntry(session, entry ? { uuid: entry.uuid, entry_date: entry.entry_date, entry_no: entry.entry_no, notes: entry.notes, source_uuid: entry.source_uuid, source_no: entry.source_no, status: entry.status } : {}) })
   const entries = entriesQuery.data ?? []
@@ -562,7 +562,7 @@ function ModeLookup({ mode, onAuto, onChange, override }: { mode: StockSerializa
 
 function PreviousGeneratedCard({ isDropping, onDrop, selectedItem, serializations, showPrintControls = true }: { isDropping: boolean; onDrop(serialization: StockSerialization): void; selectedItem: StockLedgerReceiptIntakeItem | null; serializations: StockSerialization[]; showPrintControls?: boolean }) {
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const rows = serializations.flatMap((serialization) => serialization.items.map((item) => ({ item, serialization })))
   const totalCount = rows.length

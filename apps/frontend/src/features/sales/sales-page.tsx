@@ -118,7 +118,7 @@ export function SalesPage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["sales-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listSalesEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: SalesEntryInput) => upsertSalesEntry(session, input) })
@@ -127,7 +127,7 @@ export function SalesPage({ session }: { session: AuthSession }) {
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: SalesEntry; body: string }) => addSalesComment(session, entry, body) })
   const toolMutation = useMutation({ mutationFn: ({ entry, tool }: { entry: SalesEntry; tool: string }) => runSalesTool(session, entry, tool) })
   const entries = entriesQuery.data ?? []
-  const filteredEntries = useMemo(() => filterSales(searchSales(entries, searchValue), statusFilter).sort((left, right) => String(left.invoice_no).localeCompare(String(right.invoice_no))), [entries, searchValue, statusFilter])
+  const filteredEntries = useMemo(() => filterSales(searchSales(entries, searchValue), statusFilter).sort((left, right) => compareDocumentNo(left.invoice_no, right.invoice_no)), [entries, searchValue, statusFilter])
   const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
@@ -2294,6 +2294,12 @@ function searchSales(entries: SalesEntry[], searchValue: string) {
 function filterSales(entries: SalesEntry[], statusFilter: string) {
   if (statusFilter === "all") return entries
   return entries.filter((entry) => entry.status === statusFilter)
+}
+
+const documentNoCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" })
+
+function compareDocumentNo(left: string | number | null | undefined, right: string | number | null | undefined) {
+  return documentNoCollator.compare(String(left ?? ""), String(right ?? ""))
 }
 
 function isActive(entry: SalesEntry) {

@@ -59,7 +59,7 @@ export function TenantListPage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [visibleColumns, setVisibleColumns] = useState(defaultTenantColumnVisibility)
   const [sortState, setSortState] = useState<{ key: TenantColumnId; direction: TenantSortDirection }>({
     key: "updated",

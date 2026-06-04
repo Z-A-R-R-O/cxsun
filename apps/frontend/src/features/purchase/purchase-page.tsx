@@ -60,7 +60,7 @@ import {
 import { PurchaseEntryDocument, type PurchasePrintCopy, type PurchasePrintPartyDetails } from "./purchase-print-page"
 
 type PurchaseView = { mode: "list" } | { mode: "show"; entry: PurchaseEntry } | { mode: "upsert"; entry: PurchaseEntry | null }
-type PurchaseColumnId = "entry" | "date" | "supplier" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
+type PurchaseColumnId = "entry" | "date" | "supplier" | "supplierBillNo" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
 type PurchaseEntryToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
 type PurchaseAddressLabels = {
   addressTypes(value: unknown): string
@@ -86,6 +86,7 @@ const purchaseStatusFilters = [
 const defaultPurchaseColumnVisibility: Record<PurchaseColumnId, boolean> = {
   balance: false,
   supplier: true,
+  supplierBillNo: true,
   date: true,
   entry: true,
   payment: false,
@@ -100,6 +101,7 @@ const purchaseColumnCatalog: Array<{ id: PurchaseColumnId; label: string }> = [
   { id: "entry", label: "Entry" },
   { id: "date", label: "Date" },
   { id: "supplier", label: "Supplier" },
+  { id: "supplierBillNo", label: "Supplier Bill No" },
   { id: "totalQty", label: "Total Qty" },
   { id: "taxableTotal", label: "Total Taxable" },
   { id: "gstTotal", label: "Total GST" },
@@ -117,7 +119,7 @@ export function PurchasePage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultPurchaseColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["purchase-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listPurchaseEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: PurchaseEntryInput) => upsertPurchaseEntry(session, input) })
@@ -126,7 +128,7 @@ export function PurchasePage({ session }: { session: AuthSession }) {
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: PurchaseEntry; body: string }) => addPurchaseComment(session, entry, body) })
   const toolMutation = useMutation({ mutationFn: ({ entry, tool }: { entry: PurchaseEntry; tool: string }) => runPurchaseTool(session, entry, tool) })
   const entries = entriesQuery.data ?? []
-  const filteredEntries = useMemo(() => filterPurchase(searchPurchase(entries, searchValue), statusFilter).sort((left, right) => String(left.entry_no).localeCompare(String(right.entry_no))), [entries, searchValue, statusFilter])
+  const filteredEntries = useMemo(() => filterPurchase(searchPurchase(entries, searchValue), statusFilter).sort((left, right) => compareDocumentNo(left.entry_no, right.entry_no)), [entries, searchValue, statusFilter])
   const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
@@ -242,6 +244,7 @@ export function PurchasePage({ session }: { session: AuthSession }) {
                 {visibleColumns.entry ? <ListHeader>Entry</ListHeader> : null}
                 {visibleColumns.date ? <ListHeader>Date</ListHeader> : null}
                 {visibleColumns.supplier ? <ListHeader>Supplier</ListHeader> : null}
+                {visibleColumns.supplierBillNo ? <ListHeader>Supplier Bill No</ListHeader> : null}
                 {visibleColumns.totalQty ? <ListHeader className="text-center">Total Qty</ListHeader> : null}
                 {visibleColumns.taxableTotal ? <ListHeader className="text-right">Total Taxable</ListHeader> : null}
                 {visibleColumns.gstTotal ? <ListHeader className="text-right">Total GST</ListHeader> : null}
@@ -262,6 +265,7 @@ export function PurchasePage({ session }: { session: AuthSession }) {
                   </td> : null}
                   {visibleColumns.date ? <td className="px-4 py-2">{formatDate(entry.entry_date)}</td> : null}
                   {visibleColumns.supplier ? <td className="px-4 py-2">{entry.supplier_name}</td> : null}
+                  {visibleColumns.supplierBillNo ? <td className="px-4 py-2 font-mono text-xs">{entry.supplier_bill_no || "-"}</td> : null}
                   {visibleColumns.totalQty ? <td className="px-4 py-2 text-center">{formatQuantity(totalPurchaseQuantity(entry))}</td> : null}
                   {visibleColumns.taxableTotal ? <td className="px-4 py-2 text-right">{formatMoney(entry.taxable_total)}</td> : null}
                   {visibleColumns.gstTotal ? <td className="px-4 py-2 text-right">{formatMoney(entry.tax_total)}</td> : null}
@@ -2123,12 +2127,18 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
 function searchPurchase(entries: PurchaseEntry[], searchValue: string) {
   const term = searchValue.trim().toLowerCase()
   if (!term) return entries
-  return entries.filter((entry) => [entry.entry_no, entry.uuid, entry.supplier_name, entry.entry_date, entry.reference_no, entry.status, entry.payment_status, String(entry.grand_total)].some((value) => String(value ?? "").toLowerCase().includes(term)))
+  return entries.filter((entry) => [entry.entry_no, entry.supplier_bill_no, entry.uuid, entry.supplier_name, entry.entry_date, entry.reference_no, entry.status, entry.payment_status, String(entry.grand_total)].some((value) => String(value ?? "").toLowerCase().includes(term)))
 }
 
 function filterPurchase(entries: PurchaseEntry[], statusFilter: string) {
   if (statusFilter === "all") return entries
   return entries.filter((entry) => entry.status === statusFilter)
+}
+
+const documentNoCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" })
+
+function compareDocumentNo(left: string | number | null | undefined, right: string | number | null | undefined) {
+  return documentNoCollator.compare(String(left ?? ""), String(right ?? ""))
 }
 
 function isActive(entry: PurchaseEntry) {

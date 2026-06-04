@@ -61,7 +61,7 @@ function AccountBookPage({ bookType, description, session, title }: { bookType: 
   const [view, setView] = useState<View>({ mode: "list" })
   const [searchValue, setSearchValue] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const entriesKey = ["account-book", session.selectedTenant.slug, bookType]
   const ledgersKey = ["account-ledgers", session.selectedTenant.slug, bookType]
   const entriesQuery = useQuery({ queryKey: entriesKey, queryFn: () => listAccountBookEntries(session, bookType) })

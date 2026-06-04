@@ -96,7 +96,7 @@ export function ReceiptPage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultReceiptColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["receipt-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listReceiptEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: ReceiptEntryInput) => upsertReceiptEntry(session, input) })

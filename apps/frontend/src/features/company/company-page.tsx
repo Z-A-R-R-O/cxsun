@@ -87,7 +87,7 @@ export function CompanyPage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState<CompanyStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const canManagePlatform = session.selectedTenant.role === "super-admin"
   const [visibleColumns, setVisibleColumns] = useState<Record<CompanyColumnId, boolean>>({
     code: true,

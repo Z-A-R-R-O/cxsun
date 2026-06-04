@@ -169,7 +169,7 @@ function AdminUserListPage({
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState<AdminUserStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [visibleColumns, setVisibleColumns] = useState<Record<AdminUserColumnId, boolean>>({
     user: true,
     email: true,
@@ -557,7 +557,7 @@ function TenantUserListPage({
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState<TenantUserStatusFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const [visibleColumns, setVisibleColumns] = useState<Record<TenantUserColumnId, boolean>>({
     user: true,
     email: true,

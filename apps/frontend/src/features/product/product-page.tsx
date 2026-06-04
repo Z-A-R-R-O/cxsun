@@ -63,7 +63,7 @@ export function ProductPage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultProductColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["master-data-records", session.selectedTenant.slug, "products"]
   const productsQuery = useQuery({ queryKey, queryFn: () => listMasterDataRecords(session, "products") })
   const upsertMutation = useMutation({ mutationFn: (input: MasterDataUpsertInput) => upsertMasterDataRecord(session, "products", input) })

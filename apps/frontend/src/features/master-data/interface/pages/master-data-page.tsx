@@ -35,7 +35,7 @@ export function MasterDataPage({ moduleKey, session }: { moduleKey: string; sess
   const [upsertState, setUpsertState] = useState<UpsertState | null>(null)
   const [searchValue, setSearchValue] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const modulesQuery = useQuery({ queryKey: ["master-data-modules", "master", session.selectedTenant.slug], queryFn: () => listMasterDataModules(session, "master") })
   const recordsQuery = useQuery({ queryKey: ["master-data-records", session.selectedTenant.slug, moduleKey], queryFn: () => listMasterDataRecords(session, moduleKey) })
   const upsertMutation = useMutation({ mutationFn: (input: MasterDataUpsertInput) => upsertMasterDataRecord(session, moduleKey, input) })

@@ -2,19 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.75`
-- **Release tag:** `v-1.0.75`
-- **Changelog label:** `v 1.0.75`
+- **Current version:** `1.0.76`
+- **Release tag:** `v-1.0.76`
+- **Changelog label:** `v 1.0.76`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.76
+
+### [v 1.0.76] 2026-06-04 9:43 pm - Industry datetime cloud save fix
+
+- Bumped workspace version to 1.0.76
 ## v-1.0.75
 
 ### [v 1.0.75] 2026-06-04 9:25 pm - Industry datetime cloud save fix
 
 - Bumped workspace version to 1.0.75
+- Limited billing entries and statement/GST reports to the tenant default accounting year, so switching the default year shows that year's records.
+- Changed list pagination defaults to 100 rows, fixed natural document-number sorting, and added supplier bill number to the purchase list.
 ## v-1.0.74
 
 ### [v 1.0.74] 2026-06-04 8:51 pm - Disable automatic tenant domain seeding

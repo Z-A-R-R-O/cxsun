@@ -94,7 +94,7 @@ export function DeliveryNotePage({ session }: { session: AuthSession }) {
   const [searchValue, setSearchValue] = useState("")
   const [visibleColumns, setVisibleColumns] = useState(defaultDeliveryNoteColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["delivery-note-entries", session.selectedTenant.slug]
   const entriesQuery = useQuery({ queryKey, queryFn: () => listDeliveryNoteEntries(session) })
   const upsertMutation = useMutation({ mutationFn: (input: DeliveryNoteEntryInput) => upsertDeliveryNoteEntry(session, input) })

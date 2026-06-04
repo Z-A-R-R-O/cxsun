@@ -78,7 +78,7 @@ export function ContactPage({ session }: { session: AuthSession }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultContactColumnVisibility)
   const [currentPage, setCurrentPage] = useState(1)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["contacts", session.selectedTenant.slug]
   const contactsQuery = useQuery({ queryKey, queryFn: () => listContacts(session) })
   const upsertMutation = useMutation({ mutationFn: (input: ContactInput) => upsertContact(session, input) })
