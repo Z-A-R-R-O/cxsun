@@ -24,10 +24,10 @@ interface NavItem {
   isActive?: boolean
   defaultOpen?: boolean
   onSelect?: () => void
-  items?: NavItem[]
+  items?: readonly NavItem[]
 }
 
-export function NavMain({ items }: { items: NavItem[] }) {
+export function NavMain({ items }: { items: readonly NavItem[] }) {
   return (
     <SidebarGroup className="p-0">
       <SidebarMenu className="gap-3">

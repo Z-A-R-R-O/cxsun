@@ -179,14 +179,12 @@ function dashboardAppFromPage(page: DashboardPage): DashboardAppId | null {
   return appId && isDashboardAppId(appId) ? appId : null
 }
 
+function dashboardOverviewAppFromPage(page: DashboardPage): DashboardAppId | null {
+  return page.endsWith("-overview") ? dashboardAppFromPage(page) : null
+}
+
 function defaultPageForApp(appId: DashboardAppId): DashboardPage {
-  if (appId === "billing") return "app-billing-sales"
-  if (appId === "accounts") return "app-accounts-cash-book"
-  if (appId === "inventory") return "app-inventory-purchase"
-  if (appId === "mail") return "app-mail-inbox"
-  if (appId === "taskmanager") return "app-taskmanager-tasks"
-  if (appId === "sites") return "app-sites-sliders"
-  return "overview"
+  return `app-${appId}-overview`
 }
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
@@ -198,7 +196,7 @@ const pageAccess: Record<DashboardMode, DashboardPage[]> = {
 const dashboardTitles: Record<DashboardMode, string> = {
   "super-admin": "Super Admin Dashboard",
   admin: "Admin Dashboard",
-  tenant: "Tenant Dashboard",
+  tenant: "Workspace Dashboard",
 }
 
 const pageLabels: Partial<Record<DashboardPage, string>> = {
@@ -383,6 +381,7 @@ export function DashboardView({
     if (activePage === "overview") {
       const nextPage = defaultPageForApp(savedLandingApp)
       setActiveApp(savedLandingApp)
+      window.localStorage.setItem("cxsun.activeApp", savedLandingApp)
       setActivePage(nextPage)
       pushDashboardPage(basePath, nextPage)
     }
@@ -405,9 +404,9 @@ export function DashboardView({
   function authenticate(nextSession: AuthSession) {
     setSession(nextSession)
     const nextEnabledApps = mode === "tenant" ? enabledAppsForSession(nextSession) : enabledApps
-    const nextLandingApp = mode === "tenant" ? readStoredLandingApp(nextEnabledApps) : landingApp
+    const nextLandingApp = readStoredLandingApp(nextEnabledApps)
     const nextActiveApp = mode === "tenant" ? nextLandingApp : "application"
-    const nextPage = defaultPageForApp(nextActiveApp)
+    const nextPage = mode === "tenant" ? "overview" : defaultPageForApp(nextActiveApp)
 
     setEnabledApps(nextEnabledApps)
     setLandingApp(nextLandingApp)
@@ -459,6 +458,7 @@ export function DashboardView({
   const visiblePage = activePageApp && !enabledApps[activePageApp] ? "overview" : accessiblePage
   const breadcrumbLabel = getBreadcrumbLabel({ appId: activeApp, mode, page: visiblePage })
   const moduleKey = pageModuleKey(visiblePage)
+  const overviewApp = dashboardOverviewAppFromPage(visiblePage)
 
   function navigate(page: DashboardPage) {
     if (!pageAccess[mode].includes(page)) {
@@ -535,6 +535,15 @@ export function DashboardView({
             <SupportPage type="helpdesk" />
           ) : visiblePage === "company" ? (
             <CompanyPage session={session} />
+          ) : overviewApp ? (
+            <DashboardHome
+              activeApp={overviewApp}
+              appEnabled={enabledApps}
+              mode={mode}
+              onChangeApp={changeApp}
+              onNavigate={navigate}
+              session={session}
+            />
           ) : visiblePage === "app-application-default-company" ? (
             <DefaultCompanyPage session={session} />
           ) : visiblePage === "app-application-users" ? (
@@ -636,6 +645,8 @@ export function DashboardView({
               appEnabled={enabledApps}
               mode={mode}
               onChangeApp={changeApp}
+              onNavigate={navigate}
+              session={session}
             />
           )}
         </Suspense>
@@ -736,7 +747,7 @@ function LandingDeskSettingsPage({
     <div className="@container/main flex flex-1 flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Landing Desk</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Choose which enabled app opens first for this tenant workspace.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Choose which enabled app opens first for this workspace.</p>
       </div>
 
       <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
@@ -833,7 +844,7 @@ function appGroupDescription(title: string) {
     "Settings": "App setup, layouts, and controls.",
     "Library": "Upload, browse, and organize media.",
     "Management": "Share, link, and govern media assets.",
-    "Mail Desk": "Compose, queue, and inspect tenant mail.",
+    "Mail Desk": "Compose, queue, and inspect workspace mail.",
     "Storefront": "Store operations and checkout flow.",
     "Catalog": "Products, collections, and variants.",
     "Customers": "Customer records and engagement.",

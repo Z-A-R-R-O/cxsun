@@ -45,7 +45,7 @@ export function SiteHeader({
   const notifications = [
     { title: "Billing app is ready", body: "Invoices and payments can be connected next." },
     { title: "Site app is ready", body: "Activate site tools from the application desk when needed." },
-    { title: "Tenant boundary active", body: "Menus are scoped to the selected app and tenant." },
+    { title: "Workspace boundary active", body: "Menus are scoped to the selected app and workspace." },
   ]
 
   return (

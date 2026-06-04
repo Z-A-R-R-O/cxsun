@@ -121,7 +121,7 @@ function MailMessagesPage({ session, view }: { session: AuthSession; view: MailV
           <Button className="h-9 rounded-md" onClick={() => navigateMail("compose")} type="button"><Plus className="size-4" />New</Button>
         </div>
       }
-      description="Review tenant mail, select messages, and manage delivery history."
+      description="Review workspace mail, select messages, and manage delivery history."
       technicalName={`page.mail.${view}`}
       title={mailViewTitle(view)}
     >
@@ -228,7 +228,7 @@ function MailContactsPage({ session }: { session: AuthSession }) {
 
   return (
     <MasterListPageFrame
-      description="Mail contacts gathered from tenant mail senders and recipients."
+      description="Mail contacts gathered from workspace mail senders and recipients."
       technicalName="page.mail.contacts"
       title="Contacts"
     >
@@ -253,7 +253,7 @@ function MailViewDialog({ message, onOpenChange }: { message: MailMessage | null
       <DialogContent className="max-h-[88vh] w-[min(760px,calc(100vw-2rem))] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{message?.subject || "Mail details"}</DialogTitle>
-          <DialogDescription>{message ? `${message.message_no} · ${message.status}` : "Review tenant mail delivery details."}</DialogDescription>
+          <DialogDescription>{message ? `${message.message_no} · ${message.status}` : "Review workspace mail delivery details."}</DialogDescription>
         </DialogHeader>
         {message ? (
           <div className="space-y-4">
@@ -382,7 +382,7 @@ function MailComposePage({ session }: { session: AuthSession }) {
           <Button className="h-9 rounded-md" disabled={sendMutation.isPending || !settingsQuery.data?.enabled} onClick={() => sendMutation.mutate(false)}><Send className="size-4" />Queue send</Button>
         </div>
       }
-      description="Compose tenant mail and enqueue it through the mail queue with optional attachments."
+      description="Compose workspace mail and enqueue it through the mail queue with optional attachments."
       technicalName="page.mail.compose"
       title="Compose Mail"
     >
@@ -447,7 +447,7 @@ function MailSettingsPage({ session }: { session: AuthSession }) {
   return (
     <MasterListPageFrame
       action={<Button className="h-9 rounded-md" disabled={!draft || saveMutation.isPending} onClick={() => saveMutation.mutate()}><Save className="size-4" />Save</Button>}
-      description="Configure this tenant company's dynamic SMTP sender used by queued mail delivery."
+      description="Configure this workspace company's dynamic SMTP sender used by queued mail delivery."
       technicalName="page.mail.settings"
       title="Mail Settings"
     >
@@ -511,7 +511,7 @@ function MailSelectField({ label, onChange, value }: { label: string; onChange(v
 function MailSwitchField({ checked, onChange }: { checked: boolean; onChange(value: boolean): void }) {
   return (
     <label className="grid min-w-0 gap-2 text-sm">
-      <span className="font-medium text-foreground">Enable tenant mail</span>
+      <span className="font-medium text-foreground">Enable workspace mail</span>
       <span
         className={cn(
           "flex h-9 w-full items-center justify-between gap-3 rounded-md border px-3 transition-colors",

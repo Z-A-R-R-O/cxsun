@@ -41,7 +41,7 @@ interface SidebarNavItem {
   defaultOpen?: boolean
   isActive?: boolean
   onSelect?: () => void
-  items?: SidebarNavItem[]
+  items?: readonly SidebarNavItem[]
 }
 
 export type DashboardMode = "super-admin" | "admin" | "tenant"
@@ -177,13 +177,15 @@ export function AppSidebar({
     ),
     [defaultCompanyContext?.companyName, defaultCompanyLogo.logoDarkUrl, defaultCompanyLogo.logoUrl],
   )
-  const tenantAppNav = selectedApp.menuGroups.map((group, index) => ({
+  const tenantTopNav = selectedApp.topMenuItems?.map((item) => mapAppMenuItem(item)) ?? []
+  const tenantGroupNav = selectedApp.menuGroups.map((group, index) => ({
     title: group.title,
     url: "#",
     icon: group.icon,
     defaultOpen: index === 0 || group.items.some((item) => appMenuItemHasPage(item, activePage)),
     items: group.items.map((item) => mapAppMenuItem(item)),
   }))
+  const tenantAppNav = [...tenantTopNav, ...tenantGroupNav]
   const sourceNav =
     dashboardMode === "super-admin"
       ? superAdminNav
@@ -194,7 +196,8 @@ export function AppSidebar({
   const navMain = sourceNav.map((item) => ({
       ...item,
       defaultOpen: "defaultOpen" in item ? item.defaultOpen : true,
-      items: item.items.map((subItem) => mapNavItem(subItem, { activePage, basePath, onNavigate })),
+      items: item.items?.map((subItem) => mapNavItem(subItem, { activePage, basePath, onNavigate })),
+      ...(!item.items?.length ? mapNavItem(item, { activePage, basePath, onNavigate }) : {}),
     }))
 
   return (
@@ -204,10 +207,10 @@ export function AppSidebar({
           companies={tenants.map((tenant) => ({
             name: tenant.name,
             logo: dashboardMode === "tenant" ? TenantLogo : BrandLogo,
-            period: dashboardMode === "tenant" ? "Tenant DB" : tenant.role,
+            period: dashboardMode === "tenant" ? "Workspace DB" : tenant.role,
             value: tenant.slug,
           }))}
-          label={dashboardMode === "tenant" ? "Tenant workspace" : "Companies"}
+          label={dashboardMode === "tenant" ? "Workspace" : "Companies"}
           displayName={dashboardMode === "tenant" ? defaultCompanyContext?.companyName : undefined}
           displayPeriod={dashboardMode === "tenant" ? defaultCompanyContext?.accountingYearName : undefined}
           value={selectedTenant}

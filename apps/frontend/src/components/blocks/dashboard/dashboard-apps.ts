@@ -73,6 +73,7 @@ export interface DashboardAppDefinition {
   status: "core" | "active" | "disabled"
   accent: string
   icon: LucideIcon
+  topMenuItems?: DashboardAppMenuItem[]
   menuGroups: DashboardAppMenuGroup[]
   menu: DashboardAppMenuItem[]
 }
@@ -82,10 +83,17 @@ function item(appId: DashboardAppId, slug: string, title: string, icon: LucideIc
 }
 
 function withMenu(definition: Omit<DashboardAppDefinition, "menu">): DashboardAppDefinition {
+  const overviewItem = item(definition.id, "overview", "Overview", definition.icon)
+  const topMenuItems = [
+    overviewItem,
+    ...(definition.topMenuItems ?? []).filter((menuItem) => menuItem.page !== overviewItem.page),
+  ]
+
   return {
     ...definition,
+    topMenuItems,
     menu: [
-      { title: `${definition.name} Desk`, page: "app-dashboard", icon: LayoutDashboard },
+      ...topMenuItems,
       ...definition.menuGroups.flatMap((group) => group.items.flatMap(flattenMenuItem)),
     ],
   }
@@ -100,7 +108,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     id: "application",
     name: "Application",
     shortName: "Application",
-    description: "Shared workspace, company setup, tenant roles, and cross-app launch desk.",
+    description: "Shared workspace, company setup, roles, and cross-app launch desk.",
     status: "core",
     accent: "bg-slate-950 text-white",
     icon: LayoutDashboard,
@@ -109,7 +117,6 @@ export const dashboardApps: DashboardAppDefinition[] = [
         title: "Application",
         icon: LayoutDashboard,
         items: [
-          { title: "Dashboard", page: "overview", icon: LayoutDashboard },
           { title: "Company", page: "company", icon: Building2 },
           { ...item("application", "default-company", "Default Company", Building2) },
           { ...item("application", "users", "Users", UsersRound) },
@@ -164,27 +171,19 @@ export const dashboardApps: DashboardAppDefinition[] = [
     id: "accounts",
     name: "Accounts",
     shortName: "Accounts",
-    description: "Cash book, bank book, assets, and ledger movement for tenant accounting.",
+    description: "Cash book, bank book, assets, and ledger movement for workspace accounting.",
     status: "active",
     accent: "bg-lime-700 text-white",
     icon: Landmark,
     menuGroups: [
-      {
-        title: "Assets",
-        icon: Landmark,
-        items: [
-          { ...item("accounts", "cash", "Cash", Banknote), items: [item("accounts", "cash-book", "Cash Book", Banknote)] },
-          { ...item("accounts", "bank", "Bank", Landmark), items: [item("accounts", "bank-book", "Bank Book", Landmark)] },
-          { ...item("accounts", "fixed-assets", "Fixed Assets", Building2) },
-        ],
-      },
+      { title: "Accounts", icon: Landmark, items: [item("accounts", "cash-book", "Cash Book", Banknote), item("accounts", "bank-book", "Bank Book", Landmark)] },
     ],
   }),
   withMenu({
     id: "mail",
     name: "Mail",
     shortName: "Mail",
-    description: "Tenant-aware SMTP settings, compose desk, attachments, delivery history, and queued mail operations.",
+    description: "Workspace SMTP settings, compose desk, attachments, delivery history, and queued mail operations.",
     status: "active",
     accent: "bg-teal-600 text-white",
     icon: Mail,

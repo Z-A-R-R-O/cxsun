@@ -34,7 +34,7 @@ export function ForgotPasswordForm({
           <div className="border-b border-border/80 pb-5">
             <h1 className="text-xl font-semibold tracking-tight">Forgot password</h1>
             <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-              Enter your email and the tenant workspace will be resolved from your account.
+              Enter your email and the workspace will be resolved from your account.
             </p>
           </div>
 

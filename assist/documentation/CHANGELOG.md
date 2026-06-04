@@ -2,14 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.76`
-- **Release tag:** `v-1.0.76`
-- **Changelog label:** `v 1.0.76`
+- **Current version:** `1.0.77`
+- **Release tag:** `v-1.0.77`
+- **Changelog label:** `v 1.0.77`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.77
+
+### [v 1.0.77] 2026-06-04 10:34 pm - Billing overview transaction dashboard
+
+- Bumped workspace version to 1.0.77
+- Reworked tenant app overview routing so every enabled desk has a top-level Overview shortcut, with Application, Billing, Accounts, and other app overviews staying inside their own desk.
+- Restored desk-style overview headers with matching app icons and shortcut cards while removing the generic Apps, Companies, Roles, and Clean Boundary cards from tenant overviews.
+- Added a Billing Overview transaction dashboard that loads current accounting-year sales, purchase, receipt, and payment records, then shows this-year and this-month counts and INR totals.
+- Added shadcn/Recharts visualizations for monthly transaction movement and GST output/input/net totals on the Billing Overview.
+- Simplified the Accounts app side menu to direct Cash Book and Bank Book entries, matching the Billing desk accounts menu and preserving the existing accounts routes.
+- Replaced visible tenant-facing shell labels with workspace wording across the dashboard sidebar, notifications, landing-desk helper text, mail copy, and workspace-user helper text.
 ## v-1.0.76
 
 ### [v 1.0.76] 2026-06-04 9:43 pm - Industry datetime cloud save fix

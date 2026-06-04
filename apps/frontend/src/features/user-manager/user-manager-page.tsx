@@ -374,7 +374,7 @@ function AdminUserUpsertPage({
       action={<Button type="button" variant="outline" onClick={onBack} className="rounded-md"><X className="size-4" />Cancel</Button>}
     >
       <MasterListUpsertLayout>
-        <MasterListUpsertCard title="Admin user" description="Admin users live in the master database and are separate from tenant workspace users.">
+        <MasterListUpsertCard title="Admin user" description="Admin users live in the master database and are separate from workspace users.">
           <form className="space-y-5" onSubmit={(event) => { event.preventDefault(); void submit() }}>
             <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
               <TextField label="Name" value={form.name} onChange={(value) => setField(setForm, "name", value)} />
@@ -608,7 +608,7 @@ function TenantUserListPage({
           <div className="grid gap-2">
             <Label className="text-sm font-medium">Tenant</Label>
             <div className="flex h-11 items-center rounded-xl border border-border/70 bg-muted/30 px-3 text-sm font-medium">
-              {selectedTenant ? `${selectedTenant.code} - ${selectedTenant.name}` : "Tenant workspace"}
+              {selectedTenant ? `${selectedTenant.code} - ${selectedTenant.name}` : "Workspace"}
             </div>
           </div>
         )}
@@ -791,7 +791,7 @@ function TenantUserUpsertPage({
                   </select>
                 ) : (
                   <div className="flex h-11 items-center rounded-xl border border-border/70 bg-muted/30 px-3 text-sm font-medium">
-                    {tenants[0] ? `${tenants[0].code} - ${tenants[0].name}` : "Tenant workspace"}
+                    {tenants[0] ? `${tenants[0].code} - ${tenants[0].name}` : "Workspace"}
                   </div>
                 )}
               </FieldShell>
@@ -803,7 +803,7 @@ function TenantUserUpsertPage({
                   {tenantUserRoles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
               </FieldShell>
-              <SwitchRow checked={form.status === "active"} label="Active" description="Active tenant users can sign in to the selected tenant workspace." onChange={(checked) => setTenantUserField(setForm, "status", checked ? "active" : "suspend")} />
+              <SwitchRow checked={form.status === "active"} label="Active" description="Active users can sign in to the selected workspace." onChange={(checked) => setTenantUserField(setForm, "status", checked ? "active" : "suspend")} />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" disabled={isSaving} className="rounded-md"><Save className={cn("size-4", isSaving && "animate-spin")} />Save tenant user</Button>
