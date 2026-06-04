@@ -2,20 +2,26 @@
 
 ## Version State
 
-- **Current version:** `1.0.74`
-- **Release tag:** `v-1.0.74`
-- **Changelog label:** `v 1.0.74`
+- **Current version:** `1.0.75`
+- **Release tag:** `v-1.0.75`
+- **Changelog label:** `v 1.0.75`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.75
+
+### [v 1.0.75] 2026-06-04 9:25 pm - Industry datetime cloud save fix
+
+- Bumped workspace version to 1.0.75
 ## v-1.0.74
 
 ### [v 1.0.74] 2026-06-04 8:51 pm - Disable automatic tenant domain seeding
 
 - Bumped workspace version to 1.0.74
 - Added guarded permanent deletion for tenant domains, with normal delete blocked for active/primary mappings and a typed force-delete confirmation for verified cleanup.
+- Fixed industry upsert timestamps to use MySQL `DATETIME` format, preventing cloud 500 errors when saving industries.
 ## v-1.0.73
 
 ### [v 1.0.73] 2026-06-04 7:04 pm - GST WhiteBooks compliance release

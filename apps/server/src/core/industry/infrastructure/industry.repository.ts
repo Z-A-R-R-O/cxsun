@@ -1,5 +1,6 @@
 import { Injectable } from '../../decorators/injectable.js'
 import { getDatabase } from '../../../infrastructure/database/connection.js'
+import { nowIso } from '../../../infrastructure/database/database-module.js'
 import type { Industry, IndustryUpsertInput } from '../domain/industry.types.js'
 
 @Injectable()
@@ -41,7 +42,7 @@ export class IndustryRepository {
       payload_schema: JSON.stringify(input.payload_schema ?? {}),
       default_features: JSON.stringify(input.default_features ?? []),
       default_ui_settings: JSON.stringify(input.default_ui_settings ?? {}),
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso(),
     }
 
     if (input.id) {
@@ -76,7 +77,7 @@ export class IndustryRepository {
   }
 
   async softDelete(id: number): Promise<boolean> {
-    const deletedAt = new Date().toISOString()
+    const deletedAt = nowIso()
     const result = await getDatabase()
       .updateTable('industries')
       .set({ status: 'suspend', deleted_at: deletedAt, updated_at: deletedAt })
@@ -88,7 +89,7 @@ export class IndustryRepository {
   }
 
   async restore(id: number): Promise<boolean> {
-    const restoredAt = new Date().toISOString()
+    const restoredAt = nowIso()
     const result = await getDatabase()
       .updateTable('industries')
       .set({ status: 'active', deleted_at: null, updated_at: restoredAt })
