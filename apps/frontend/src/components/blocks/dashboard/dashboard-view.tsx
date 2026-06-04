@@ -136,6 +136,12 @@ const DocumentSettingsPage = lazy(() =>
 const InventoryDocumentSettingsPage = lazy(() =>
   import('src/features/settings/settings-page').then((module) => ({ default: module.InventoryDocumentSettingsPage })),
 )
+const GstSandboxPage = lazy(() =>
+  import('src/features/gst/gst-sandbox-page').then((module) => ({ default: module.GstSandboxPage })),
+)
+const GstProviderSettingsPage = lazy(() =>
+  import('src/features/gst/gst-provider-settings-page').then((module) => ({ default: module.GstProviderSettingsPage })),
+)
 
 function dashboardPath(basePath: string, page: DashboardPage) {
   return page === "overview" ? basePath : `${basePath}/${page}`
@@ -153,6 +159,8 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
     page === "industry" ||
     page === "company" ||
     page === "system-update" ||
+    page === "gst-api" ||
+    page === "gst-api-test" ||
     page === "queue-manager" ||
     page === "database-manager" ||
     page === "user-manager" ||
@@ -182,7 +190,7 @@ function defaultPageForApp(appId: DashboardAppId): DashboardPage {
 }
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "queue-manager", "database-manager", "user-manager"],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager"],
   admin: ["overview", "company", "helpdesk", "bugs", "system-update"],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
@@ -200,6 +208,8 @@ const pageLabels: Partial<Record<DashboardPage, string>> = {
   "industry": "Industries",
   "company": "Companies",
   "system-update": "System Update",
+  "gst-api": "GST API",
+  "gst-api-test": "GST API Test",
   "queue-manager": "Queue Manager",
   "database-manager": "Database Manager",
   "user-manager": "Admin User Manager",
@@ -540,6 +550,10 @@ export function DashboardView({
             />
           ) : visiblePage === "system-update" ? (
             <SystemUpdateView session={session} />
+          ) : visiblePage === "gst-api" ? (
+            <GstProviderSettingsPage session={session} />
+          ) : visiblePage === "gst-api-test" ? (
+            <GstSandboxPage allowEnvironmentSelect preferredEnvironment="production" session={session} showTenantSelector />
           ) : visiblePage === "queue-manager" ? (
             <QueueManagerPage session={session} />
           ) : visiblePage === "database-manager" ? (
@@ -602,6 +616,8 @@ export function DashboardView({
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (
             <DocumentSettingsPage session={session} />
+          ) : visiblePage === "app-billing-gst-production" ? (
+            <GstSandboxPage allowEnvironmentSelect preferredEnvironment="production" session={session} />
           ) : visiblePage === "app-inventory-document-settings" ? (
             <InventoryDocumentSettingsPage session={session} />
           ) : moduleKey === "contacts" ? (

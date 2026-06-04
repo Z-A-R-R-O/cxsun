@@ -97,6 +97,7 @@ export async function dropPlatformTables() {
   await sql`SET FOREIGN_KEY_CHECKS = 0`.execute(database)
   for (const table of [
     'queue_jobs',
+    'gst_provider_global_settings',
     'tenant_rbac_policies',
     'rbac_policies',
     'admin_users',

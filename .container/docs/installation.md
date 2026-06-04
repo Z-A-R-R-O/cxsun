@@ -93,3 +93,5 @@ nginx -t && systemctl reload nginx
 ln -sf /etc/nginx/sites-available/erpcotton.codexsun.com /etc/nginx/sites-enabled/erpcotton.codexsun.com
 ln -sf /etc/nginx/sites-available/sukraa.codexsun.com /etc/nginx/sites-enabled/sukraa.codexsun.com
 ln -sf /etc/nginx/sites-available/skprinters.codexsun.com /etc/nginx/sites-enabled/skprinters.codexsun.com
+
+ln -sf /etc/nginx/sites-available/office.aaran.org /etc/nginx/sites-enabled/office.aaran.org

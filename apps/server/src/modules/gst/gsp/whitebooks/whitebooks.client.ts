@@ -1,15 +1,19 @@
 import { BadRequestException } from '../../../../core/exceptions/http.exception.js'
-import type { GstComplianceOperation, GstProviderSettingsSecretRecord } from '../domain/gst-compliance.types.js'
+import type { GstComplianceOperation, GstProviderSettingsSecretRecord } from '../../gst-compliance/domain/gst-compliance.types.js'
 
-export interface MasterGstRequest {
+export const whiteBooksSandboxBaseUrl = 'https://apisandbox.whitebooks.in'
+export const whiteBooksProductionBaseUrl = 'https://api.whitebooks.in'
+
+export interface WhiteBooksRequest {
   endpoint: string
+  headers?: Record<string, unknown>
   method: 'GET' | 'POST'
   payload?: unknown
   query?: Record<string, unknown>
   token?: string
 }
 
-export interface MasterGstResponse {
+export interface WhiteBooksResponse {
   endpoint: string
   httpStatus: number
   method: 'GET' | 'POST'
@@ -17,13 +21,13 @@ export interface MasterGstResponse {
   response: unknown
 }
 
-interface MasterGstOperationDefinition {
+interface WhiteBooksOperationDefinition {
   endpoint: string
   method: 'GET' | 'POST'
   needsAuth: boolean
 }
 
-const masterGstOperations: Record<GstComplianceOperation, MasterGstOperationDefinition> = {
+const whiteBooksOperations: Record<GstComplianceOperation, WhiteBooksOperationDefinition> = {
   authenticate: { endpoint: '/einvoice/authenticate', method: 'GET', needsAuth: false },
   gstnDetails: { endpoint: '/einvoice/type/GSTNDETAILS/version/V1_03', method: 'GET', needsAuth: true },
   syncGstinFromCommonPortal: { endpoint: '/einvoice/type/SYNC_GSTIN_FROMCP/version/V1_03', method: 'GET', needsAuth: true },
@@ -37,16 +41,16 @@ const masterGstOperations: Record<GstComplianceOperation, MasterGstOperationDefi
   getB2cQrCode: { endpoint: '/einvoice/qrcode', method: 'GET', needsAuth: true },
 }
 
-export function masterGstOperationDefinition(operation: GstComplianceOperation) {
-  return masterGstOperations[operation]
+export function whiteBooksOperationDefinition(operation: GstComplianceOperation) {
+  return whiteBooksOperations[operation]
 }
 
-export async function callMasterGst(settings: GstProviderSettingsSecretRecord, request: MasterGstRequest): Promise<MasterGstResponse> {
+export async function callWhiteBooks(settings: GstProviderSettingsSecretRecord, request: WhiteBooksRequest): Promise<WhiteBooksResponse> {
   validateSettings(settings, request.token)
   const url = buildUrl(settings.baseUrl, request.endpoint, { ...(request.query ?? {}), email: settings.email })
   const response = await fetch(url, {
     body: request.method === 'POST' ? JSON.stringify(request.payload ?? {}) : undefined,
-    headers: masterGstHeaders(settings, request.token),
+    headers: { ...whiteBooksHeaders(settings, request.token), ...cleanHeaderValues(request.headers) },
     method: request.method,
   })
   const text = await response.text()
@@ -59,13 +63,12 @@ export async function callMasterGst(settings: GstProviderSettingsSecretRecord, r
   }
 }
 
-export function masterGstHeaders(settings: GstProviderSettingsSecretRecord, token?: string): Record<string, string> {
+export function whiteBooksHeaders(settings: GstProviderSettingsSecretRecord, token?: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
-    email: settings.email,
+    Accept: '*/*',
     username: settings.username,
-    password: settings.password,
+    ...(!token ? { password: settings.password } : {}),
     ip_address: settings.ipAddress || '0.0.0.0',
     client_id: settings.clientId,
     client_secret: settings.clientSecret,
@@ -74,30 +77,33 @@ export function masterGstHeaders(settings: GstProviderSettingsSecretRecord, toke
   }
 }
 
-export function redactedMasterGstHeaders(settings: GstProviderSettingsSecretRecord, token?: string): Record<string, string> {
+export function redactedWhiteBooksHeaders(settings: GstProviderSettingsSecretRecord, token?: string): Record<string, string> {
   return {
-    email: settings.email,
     username: settings.username,
-    password: settings.password ? '***' : '',
+    ...(!token ? { password: settings.password ? '***' : '' } : {}),
     ip_address: settings.ipAddress || '0.0.0.0',
-    client_id: settings.clientId,
+    client_id: settings.clientId ? '***' : '',
     client_secret: settings.clientSecret ? '***' : '',
     gstin: settings.gstin,
     ...(token ? { 'auth-token': '***' } : {}),
   }
 }
 
+export function redactedWhiteBooksRequestHeaders(headers?: Record<string, unknown>): Record<string, string> {
+  return cleanHeaderValues(headers)
+}
+
 function validateSettings(settings: GstProviderSettingsSecretRecord, token?: string) {
   const missing = [
     !settings.email ? 'email' : '',
     !settings.username ? 'username' : '',
-    !settings.password ? 'password' : '',
+    !token && !settings.password ? 'password' : '',
     !settings.clientId ? 'client id' : '',
     !settings.clientSecret ? 'client secret' : '',
     !settings.gstin ? 'GSTIN' : '',
     token === '' ? 'auth token' : '',
   ].filter(Boolean)
-  if (missing.length) throw new BadRequestException(`MasterGST setting is missing ${missing.join(', ')}.`)
+  if (missing.length) throw new BadRequestException(`WhiteBooks setting is missing ${missing.join(', ')}.`)
 }
 
 function buildUrl(baseUrl: string, endpoint: string, query: Record<string, unknown>) {
@@ -109,8 +115,17 @@ function buildUrl(baseUrl: string, endpoint: string, query: Record<string, unkno
   return url.toString()
 }
 
+function cleanHeaderValues(headers?: Record<string, unknown>) {
+  const clean: Record<string, string> = {}
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (value === null || value === undefined || value === '') continue
+    clean[key] = String(value)
+  }
+  return clean
+}
+
 function normalizeBaseUrl(value: string) {
-  const trimmed = value.trim() || 'https://api.mastergst.com'
+  const trimmed = value.trim() || whiteBooksSandboxBaseUrl
   return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
 }
 

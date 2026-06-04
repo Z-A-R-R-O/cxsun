@@ -4,6 +4,7 @@ import type { CompanyRecord } from "src/features/company/company-client"
 import { LetterheadBuilder } from "src/features/company/letterhead-builder"
 import type { LetterheadSettings } from "src/features/settings/software-settings"
 import { MainPrintTemplate } from "./main-print-template"
+import { createCode128BarcodeSvg } from "./sales-barcode"
 import { getSalesPrintLinePlan } from "./sales-print-line-plan"
 import type { SalesEntry, SalesEntryItem } from "./sales-client"
 
@@ -331,6 +332,7 @@ function EInvoiceQrData({ value }: { value: string }) {
 }
 
 function IrnDetailsBlock({ record }: { record: SalesEntry }) {
+  const ewayBillNo = salesDocumentValue(record, "eway_bill_no")
   return (
     <div className="grid gap-1">
       <div className="grid grid-cols-[34px_1fr] gap-1">
@@ -346,11 +348,23 @@ function IrnDetailsBlock({ record }: { record: SalesEntry }) {
         />
         <InlinePrintPairRow
           leftLabel="E-Way Bill No.:"
-          leftValue={salesDocumentValue(record, "eway_bill_no")}
+          leftValue={ewayBillNo}
           rightLabel="Date:"
           rightValue={formatDate(salesDocumentValue(record, "eway_bill_date"))}
         />
       </div>
+      {ewayBillNo ? <EwayBarcode value={ewayBillNo} /> : null}
+    </div>
+  )
+}
+
+function EwayBarcode({ value }: { value: string }) {
+  const svgMarkup = createCode128BarcodeSvg(value)
+  if (!svgMarkup) return null
+  return (
+    <div className="mt-1 w-[210px] max-w-full">
+      <div className="h-[30px] bg-white [&_svg]:block [&_svg]:h-full [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+      <div className="mt-px text-center font-mono text-[7px] font-bold leading-none">{value}</div>
     </div>
   )
 }

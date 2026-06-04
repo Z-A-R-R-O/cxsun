@@ -26,6 +26,7 @@ import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { emptyAddress, emptyContact, upsertContact, type ContactAddress, type ContactInput, type ContactRecord } from "src/features/contact/contact-client"
 import { listCompanies } from "src/features/company/company-client"
+import { runGstComplianceOperation } from "src/features/gst/gst-compliance-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
 import { CityAutocompleteLookup } from "src/features/master-data/interface/components/city-autocomplete-lookup"
 import { CountryAutocompleteLookup } from "src/features/master-data/interface/components/country-autocomplete-lookup"
@@ -740,12 +741,12 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
     ...(isSoftwareSettingEnabled(softwareSettings, "sales-use-eway") ? [{
       value: "eway",
       label: "E-way",
-      content: <SalesDocumentTab form={form} session={session} setForm={setForm} transports={transports} type="eway" />,
+      content: <SalesDocumentTab form={form} session={session} setForm={setForm} softwareSettings={softwareSettings} transports={transports} type="eway" />,
     }] : []),
-    ...(isSoftwareSettingEnabled(softwareSettings, "sales-use-einvoice") ? [{
+    ...(softwareSettings.salesGstApiMode !== "eway_only" && isSoftwareSettingEnabled(softwareSettings, "sales-use-einvoice") ? [{
       value: "einvoice",
       label: "E-invoice",
-      content: <SalesDocumentTab form={form} session={session} setForm={setForm} transports={transports} type="einvoice" />,
+      content: <SalesDocumentTab form={form} session={session} setForm={setForm} softwareSettings={softwareSettings} transports={transports} type="einvoice" />,
     }] : []),
     {
       value: "terms",
@@ -1110,34 +1111,104 @@ function SalesAddressCreateDialog({ addressLabels, contact, initialText, kind, o
   )
 }
 
-function SalesDocumentTab({ form, session, setForm, transports, type }: {
+function SalesDocumentTab({ form, session, setForm, softwareSettings, transports, type }: {
   form: SalesEntryInput
   session: AuthSession
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
+  softwareSettings: SoftwareSettingsState
   transports: MasterDataRecord[]
   type: "eway" | "einvoice"
 }) {
+  const queryClient = useQueryClient()
   const einvoiceStatus = form.irn || form.ack_no || form.signed_qr ? "Generated" : "Not generated"
   const ewayStatus = form.eway_bill_no ? "Generated" : "Not generated"
   const transport = salesTransportDraftFromForm(form)
   const setTransport = (nextTransport: SalesTransportDraft) => setForm((current) => ({ ...current, ...salesTransportDraftToForm(nextTransport) }))
 
-  function generateEinvoice() {
-    const toastId = toast.loading("Sending e-invoice request...")
-    setForm((current) => ({ ...current, status: "posted" }))
-    window.setTimeout(() => {
-      setForm((current) => ({ ...current, ack_date: new Date().toISOString().slice(0, 10), ack_no: String(Math.floor(1000000000000 + Math.random() * 9000000000000)), irn: generatePreviewIrn(), signed_qr: "Signed QR will be populated after live e-invoice integration." }))
-      toast.success("E-invoice generated", { description: "Invoice posted. Live gateway wiring will be added later.", id: toastId })
-    }, 900)
+  async function saveSalesDraft(input: SalesEntryInput) {
+    const saved = await upsertSalesEntry(session, buildSalesSaveInput(input))
+    await queryClient.invalidateQueries({ queryKey: ["sales-entries", session.selectedTenant.slug] })
+    return saved
   }
 
-  function generateEway() {
+  async function generateEinvoice() {
+    if (!form.invoice_no?.trim()) {
+      toast.error("Invoice number is required before generating e-invoice.")
+      return
+    }
+    if (!form.items.some((item) => item.product_name.trim() && Number(item.quantity || 0) > 0)) {
+      toast.error("At least one invoice item is required before generating e-invoice.")
+      return
+    }
+    const toastId = toast.loading("Sending e-invoice request...")
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      const result = await runGstComplianceOperation(session, "generateIrn", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: "einvoice_eway",
+        payload: buildSalesEinvoicePayload(savedEntry),
+        sourceId: savedEntry.id,
+        sourceType: "sales",
+        sourceUuid: savedEntry.uuid,
+      })
+      const nextEntry = await saveSalesDraft({
+        ...savedEntry,
+        ack_date: result.document?.ackDate ?? savedEntry.ack_date ?? "",
+        ack_no: result.document?.ackNo ?? savedEntry.ack_no ?? "",
+        irn: result.document?.irn ?? savedEntry.irn ?? "",
+        signed_qr: result.document?.signedQr ?? savedEntry.signed_qr ?? "",
+        status: "posted",
+      })
+      setForm(() => ({ ...nextEntry, items: nextEntry.items.map((item) => ({ ...item })) }))
+      toast.success("E-invoice generated", { description: result.document?.irn ? "IRN saved to this sales invoice." : "Provider request completed.", id: toastId })
+    } catch (error) {
+      toast.error("E-invoice failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
+  }
+
+  async function generateEway() {
+    if (!form.invoice_no?.trim()) {
+      toast.error("Invoice number is required before generating E-way bill.")
+      return
+    }
+    if (!form.irn?.trim()) {
+      toast.error("IRN is required before generating E-way bill from e-invoice.")
+      return
+    }
     const toastId = toast.loading("Sending E-way bill request...")
-    setForm((current) => ({ ...current, status: "posted" }))
-    window.setTimeout(() => {
-      setForm((current) => ({ ...current, eway_bill_date: new Date().toISOString().slice(0, 10), eway_bill_no: String(Math.floor(100000000000 + Math.random() * 900000000000)), eway_part: salesTransportDraftFromForm(current).name.trim() && salesTransportDraftFromForm(current).name.trim() !== "-" ? "part-a" : "part-b" }))
-      toast.success("E-way bill generated", { description: "Invoice posted. Live gateway wiring will be added later.", id: toastId })
-    }, 900)
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      if (!savedEntry.irn?.trim()) {
+        toast.error("IRN is required before generating E-way bill from e-invoice.", { id: toastId })
+        return
+      }
+      const result = await runGstComplianceOperation(session, "generateEwaybillByIrn", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: activeGstPurpose(softwareSettings),
+        payload: buildSalesEwayPayload(savedEntry),
+        sourceId: savedEntry.id,
+        sourceType: "sales",
+        sourceUuid: savedEntry.uuid,
+      })
+      const savedTransport = salesTransportDraftFromForm(savedEntry)
+      const nextEntry = await saveSalesDraft({
+        ...savedEntry,
+        eway_bill_date: result.document?.ewayBillDate ?? savedEntry.eway_bill_date ?? "",
+        eway_bill_no: result.document?.ewayBillNo ?? savedEntry.eway_bill_no ?? "",
+        eway_part: savedTransport.name.trim() && savedTransport.name.trim() !== "-" ? "part-a" : "part-b",
+        status: "posted",
+      })
+      setForm(() => ({ ...nextEntry, items: nextEntry.items.map((item) => ({ ...item })) }))
+      toast.success("E-way bill generated", { description: result.document?.ewayBillNo ? "E-way bill number saved to this sales invoice." : "Provider request completed.", id: toastId })
+    } catch (error) {
+      toast.error("E-way bill failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
   }
 
   if (type === "einvoice") {
@@ -1148,7 +1219,7 @@ function SalesDocumentTab({ form, session, setForm, transports, type }: {
             <span>E-invoice status</span>
             <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", einvoiceStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{einvoiceStatus}</Badge>
           </div>
-          <Button className="h-9 rounded-md" type="button" onClick={generateEinvoice}><Send className="size-4" />Generate</Button>
+          <Button className="h-9 rounded-md" type="button" onClick={() => void generateEinvoice()}><Send className="size-4" />Generate</Button>
         </div>
         <Field label="IRN" value={form.irn ?? ""} onChange={(irn) => setForm((current) => ({ ...current, irn }))} />
         <div className="grid gap-5 lg:grid-cols-2">
@@ -1167,7 +1238,7 @@ function SalesDocumentTab({ form, session, setForm, transports, type }: {
           <span>E-way status</span>
           <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", ewayStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{ewayStatus}</Badge>
         </div>
-        <Button className="h-9 rounded-md" type="button" onClick={generateEway}><Send className="size-4" />Generate</Button>
+        <Button className="h-9 rounded-md" type="button" onClick={() => void generateEway()}><Send className="size-4" />Generate</Button>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Field label="E-way bill no" value={form.eway_bill_no ?? ""} onChange={(eway_bill_no) => setForm((current) => ({ ...current, eway_bill_no }))} />
@@ -1464,10 +1535,6 @@ function SalesContactCreateDialog({ contacts, initialName, onClose, onCreated, s
 
 function normalizeContactCode(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)
-}
-
-function generatePreviewIrn() {
-  return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")
 }
 
 function transportRecordToLookupOption(record: MasterDataRecord): SalesLookupOption {
@@ -1999,6 +2066,86 @@ function buildSalesSaveInput(input: SalesEntryInput): SalesEntryInput {
   }
 }
 
+function buildSalesEinvoicePayload(input: SalesEntryInput) {
+  const items = input.items.map((item, index) => normalizeSalesItem(item, index, input.place_of_supply))
+  const totals = calculateDraftTotals(items, input.round_off, input.place_of_supply)
+  const isCgstSgst = (input.place_of_supply ?? "cgst-sgst") !== "igst"
+  return {
+    Version: "1.1",
+    TranDtls: {
+      TaxSch: "GST",
+      SupTyp: cleanGstin(input.customer_gstin) ? "B2B" : "B2C",
+      RegRev: "N",
+      IgstOnIntra: isCgstSgst ? "N" : "Y",
+    },
+    DocDtls: {
+      Typ: "INV",
+      No: input.invoice_no ?? "",
+      Dt: formatGstPortalDate(input.invoice_date),
+    },
+    BuyerDtls: {
+      Gstin: cleanGstin(input.customer_gstin) || "URP",
+      LglNm: input.customer_name || "Customer",
+      TrdNm: input.customer_name || "Customer",
+      Pos: normalizedStateCode(input.customer_state_code),
+      Addr1: firstAddressLine(input.billing_address),
+      Loc: input.customer_state_name || "Tamil Nadu",
+      Pin: 999999,
+      Stcd: normalizedStateCode(input.customer_state_code),
+    },
+    ItemList: items.map((item, index) => {
+      const tax = salesItemTaxBreakup(item, isCgstSgst)
+      return {
+        SlNo: String(index + 1),
+        PrdDesc: item.product_name,
+        IsServc: "N",
+        HsnCd: item.hsn_code || "0000",
+        Qty: Number(item.quantity || 0),
+        Unit: item.unit || "NOS",
+        UnitPrice: Number(item.rate || 0),
+        TotAmt: roundMoney(Number(item.quantity || 0) * Number(item.rate || 0)),
+        Discount: Number(item.discount_amount || 0),
+        AssAmt: tax.taxable,
+        GstRt: Number(item.tax_rate || 0),
+        IgstAmt: tax.igstAmount,
+        CgstAmt: tax.cgstAmount,
+        SgstAmt: tax.sgstAmount,
+        TotItemVal: tax.total,
+      }
+    }),
+    ValDtls: {
+      AssVal: totals.taxableAmount,
+      CgstVal: isCgstSgst ? roundMoney(totals.gstTotal / 2) : 0,
+      SgstVal: isCgstSgst ? roundMoney(totals.gstTotal / 2) : 0,
+      IgstVal: isCgstSgst ? 0 : totals.gstTotal,
+      Discount: roundMoney(items.reduce((total, item) => total + Number(item.discount_amount || 0), 0)),
+      OthChrg: totals.roundOff,
+      TotInvVal: totals.grandTotal,
+    },
+  }
+}
+
+function buildSalesEwayPayload(input: SalesEntryInput) {
+  return {
+    Irn: input.irn ?? "",
+    Distance: 0,
+    TransMode: input.vehicle_no ? "1" : "",
+    TransId: cleanGstin(input.transport_gst),
+    TransName: input.transport_name ?? "",
+    VehNo: (input.vehicle_no ?? "").toUpperCase(),
+    VehType: input.vehicle_no ? "R" : "",
+  }
+}
+
+function activeGstEnvironment(session: AuthSession): "production" | "sandbox" {
+  const stored = localStorage.getItem(`gst-api-environment:${session.selectedTenant.slug}`)
+  return stored === "sandbox" ? "sandbox" : "production"
+}
+
+function activeGstPurpose(softwareSettings: SoftwareSettingsState) {
+  return softwareSettings.salesGstApiMode === "eway_only" ? "eway_only" : "einvoice_eway"
+}
+
 function normalizeSalesItem(item: SalesEntryItem, index: number, placeOfSupply: unknown): SalesEntryItem {
   const amounts = salesItemAmounts(item, (placeOfSupply ?? "cgst-sgst") !== "igst")
   return {
@@ -2058,6 +2205,26 @@ function salesItemAmounts(item: SalesEntryItem, isCgstSgst: boolean) {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100
+}
+
+function cleanGstin(value: unknown) {
+  return typeof value === "string" ? value.trim().toUpperCase() : ""
+}
+
+function firstAddressLine(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : ""
+  return text.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "-"
+}
+
+function formatGstPortalDate(value: unknown) {
+  const text = typeof value === "string" ? value : ""
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(text)
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : text
+}
+
+function normalizedStateCode(value: unknown) {
+  const text = typeof value === "string" ? value.replace(/\D/g, "") : ""
+  return text.padStart(2, "0").slice(-2) || "33"
 }
 
 function parseMoneyInput(value: string) {

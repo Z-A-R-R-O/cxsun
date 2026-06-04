@@ -1,5 +1,6 @@
-export type GstProvider = 'mastergst'
+export type GstProvider = 'whitebooks'
 export type GstProviderEnvironment = 'sandbox' | 'production'
+export type GstProviderPurpose = 'einvoice_eway' | 'eway_only'
 
 export const gstComplianceOperations = [
   'authenticate',
@@ -32,18 +33,49 @@ export interface GstProviderSettingsInput {
   isEnabled?: boolean | number | null
 }
 
+export interface GstProviderGlobalSettingsInput {
+  provider?: GstProvider | null
+  environment?: GstProviderEnvironment | null
+  purpose?: GstProviderPurpose | null
+  baseUrl?: string | null
+  email?: string | null
+  clientId?: string | null
+  clientSecret?: string | null
+  ipAddress?: string | null
+  isEnabled?: boolean | number | null
+}
+
+export interface GstProviderGlobalSettingsRecord {
+  id: string
+  uuid: string
+  provider: GstProvider
+  environment: GstProviderEnvironment
+  purpose: GstProviderPurpose
+  baseUrl: string
+  email: string
+  clientId: string
+  clientSecret: string
+  ipAddress: string
+  isEnabled: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface GstProviderSettingsRecord {
   id: string
   uuid: string
   companyId: string
   provider: GstProvider
   environment: GstProviderEnvironment
+  purpose: GstProviderPurpose
   baseUrl: string
   email: string
   username: string
   hasPassword: boolean
+  password?: string
   clientId: string
   hasClientSecret: boolean
+  clientSecret?: string
   gstin: string
   ipAddress: string
   isEnabled: boolean
@@ -65,6 +97,8 @@ export interface GstComplianceOperationInput {
   documentDate?: string | null
   payload?: unknown
   query?: Record<string, unknown>
+  environment?: GstProviderEnvironment | null
+  purpose?: GstProviderPurpose | null
   forceRefreshToken?: boolean | number | null
 }
 

@@ -10,6 +10,7 @@ import {
   Headset,
   ListRestart,
   RefreshCw,
+  Send,
   UserRoundCog,
   Users,
   type LucideIcon,
@@ -53,6 +54,8 @@ export type DashboardPage =
   | "industry"
   | "company"
   | "system-update"
+  | "gst-api"
+  | "gst-api-test"
   | "queue-manager"
   | "database-manager"
   | "user-manager"
@@ -72,6 +75,14 @@ const superAdminNav = [
       { title: "Domain", url: "#", icon: Globe2 },
       { title: "Industry", url: "#", icon: Factory },
       { title: "Admin User Manager", url: "#", icon: UserRoundCog },
+    ],
+  },
+  {
+    title: "Compliance",
+    url: "#",
+    icon: Send,
+    items: [
+      { title: "GST API", url: "#", icon: Send },
     ],
   },
   {
@@ -114,7 +125,9 @@ function pageFromTitle(title: string): DashboardPage | undefined {
     Overview: "overview",
     Roles: "tenant-roles",
     Setup: "setup",
+    "GST API": "gst-api",
     "System Update": "system-update",
+    "GST API Test": "gst-api-test",
     "Queue Manager": "queue-manager",
     "Database Manager": "database-manager",
     Tenant: "tenant",

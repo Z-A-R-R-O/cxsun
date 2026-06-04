@@ -2023,3 +2023,69 @@ Ledger :
 <particulars>
 and <Narration>
 ```
+
+User prompt:
+
+```
+make this in separate module for future scale if this gsp provider is not ok we can switch to another with small changes not to refactor our whole app so create as module 
+
+as ../gst/gsp/mastergst for their related and core of gst in seperate /gst/gst-compliance/** like so and connect all of this with sales already have options for eway and einvoice
+```
+
+User prompt:
+
+```
+mastergst has changed to whitebooks so change it as per and resources to connect with whitebooks
+
+Client ID, Client Secret ID, User Name, Password for sandbox and production; GSTIN provided in prompt.
+```
+
+User prompt:
+
+```
+move all credential to .env and connect from there write in .env and .env.sample
+```
+
+User prompt:
+
+```
+in env split sandbox and production separately
+```
+
+User prompt:
+
+```
+ok fine create frontend to check with sandbox for all api
+```
+
+User prompt:
+
+```
+add to sidemenu
+```
+
+User prompt:
+
+```
+check from first when send request in this format
+
+curl -X GET "https://apisandbox.whitebooks.in/einvoice/authenticate?email=aaranoffice%40gmail.com" ...
+
+get AuthToken and TokenExpiry and save for session and then ...
+```
+change WHITEBOOKS_SANDBOX_ to GSP_SANDBOX_ and WHITEBOOKS_PRODUCTION_ to GSP_ and refactor all and test remove variables from .env it in not in use and make GSP_SANBOX AND GSP SETTING get from database through super-admin and get user name and password from tenant side GST_API
+
+and in tenant make switch for production and sandbox on settings and switch accordingly
+in this super admin desk make tab for all as 
+
+sandbox and production
+
+in sandbox two sections
+
+one for einvoice and another for eway as two card same for production in this it is only collecting credential and serve credential to tenant eway and einvoice in tenant there is separate gst user and pass for api
+
+when tenant send for einvoice it collect credential from master and merge user and pass from loged in tenant and send 
+
+in tenant only have switch to generate sandbox and production
+
+this is i asked

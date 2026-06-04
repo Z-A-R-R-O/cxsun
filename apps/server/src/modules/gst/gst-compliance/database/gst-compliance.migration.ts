@@ -1,5 +1,6 @@
 import { sql, type Kysely } from 'kysely'
 import type { TenantDatabaseSchema } from '../../../../infrastructure/tenant-database/tenant-database.schema.js'
+import { whiteBooksProductionBaseUrl, whiteBooksSandboxBaseUrl } from '../../gsp/whitebooks/index.js'
 
 type TenantDatabase = Kysely<TenantDatabaseSchema>
 
@@ -10,9 +11,9 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       uuid CHAR(8) NOT NULL UNIQUE,
       tenant_id INT NOT NULL,
       company_id INT NOT NULL,
-      provider VARCHAR(40) NOT NULL DEFAULT 'mastergst',
+      provider VARCHAR(40) NOT NULL DEFAULT 'whitebooks',
       environment VARCHAR(24) NOT NULL DEFAULT 'sandbox',
-      base_url VARCHAR(240) NOT NULL DEFAULT 'https://api.mastergst.com',
+      base_url VARCHAR(240) NOT NULL DEFAULT '${whiteBooksSandboxBaseUrl}',
       email VARCHAR(191) NOT NULL,
       username VARCHAR(120) NOT NULL,
       password_secret TEXT NULL,
@@ -34,8 +35,9 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       uuid CHAR(8) NOT NULL UNIQUE,
       tenant_id INT NOT NULL,
       setting_id INT NOT NULL,
-      provider VARCHAR(40) NOT NULL DEFAULT 'mastergst',
+      provider VARCHAR(40) NOT NULL DEFAULT 'whitebooks',
       environment VARCHAR(24) NOT NULL DEFAULT 'sandbox',
+      purpose VARCHAR(32) NOT NULL DEFAULT 'einvoice_eway',
       gstin VARCHAR(32) NOT NULL,
       auth_token TEXT NOT NULL,
       sek TEXT NULL,
@@ -48,13 +50,17 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
     )
   `).execute(database)
 
+  await sql.raw(`ALTER TABLE gst_provider_tokens ADD COLUMN IF NOT EXISTS purpose VARCHAR(32) NOT NULL DEFAULT 'einvoice_eway' AFTER environment`).execute(database)
+  await sql.raw(`ALTER TABLE gst_provider_tokens DROP INDEX IF EXISTS uq_gst_provider_token_setting`).execute(database)
+  await sql.raw(`ALTER TABLE gst_provider_tokens ADD UNIQUE KEY IF NOT EXISTS uq_gst_provider_token_setting_purpose (tenant_id, setting_id, purpose)`).execute(database)
+
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS gst_compliance_documents (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       uuid CHAR(8) NOT NULL UNIQUE,
       tenant_id INT NOT NULL,
       company_id INT NOT NULL,
-      provider VARCHAR(40) NOT NULL DEFAULT 'mastergst',
+      provider VARCHAR(40) NOT NULL DEFAULT 'whitebooks',
       environment VARCHAR(24) NOT NULL DEFAULT 'sandbox',
       source_type VARCHAR(64) NOT NULL,
       source_id INT NULL,
@@ -90,7 +96,7 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       tenant_id INT NOT NULL,
       company_id INT NOT NULL,
       setting_id INT NULL,
-      provider VARCHAR(40) NOT NULL DEFAULT 'mastergst',
+      provider VARCHAR(40) NOT NULL DEFAULT 'whitebooks',
       environment VARCHAR(24) NOT NULL DEFAULT 'sandbox',
       operation VARCHAR(80) NOT NULL,
       source_type VARCHAR(64) NULL,
@@ -112,4 +118,20 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       INDEX idx_gst_operations_success (tenant_id, success, id)
     )
   `).execute(database)
+
+  await sql.raw(`
+    UPDATE gst_provider_settings
+    SET provider = 'whitebooks',
+        base_url = CASE
+          WHEN environment = 'production' THEN '${whiteBooksProductionBaseUrl}'
+          ELSE '${whiteBooksSandboxBaseUrl}'
+        END,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE provider = 'mastergst'
+       OR base_url = 'https://api.mastergst.com'
+  `).execute(database)
+
+  await sql.raw(`UPDATE gst_provider_tokens SET provider = 'whitebooks' WHERE provider = 'mastergst'`).execute(database)
+  await sql.raw(`UPDATE gst_compliance_documents SET provider = 'whitebooks' WHERE provider = 'mastergst'`).execute(database)
+  await sql.raw(`UPDATE gst_compliance_operations SET provider = 'whitebooks' WHERE provider = 'mastergst'`).execute(database)
 }

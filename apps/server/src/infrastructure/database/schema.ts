@@ -131,6 +131,22 @@ export interface QueueJobsTable {
   updated_at: Generated<string>
 }
 
+export interface GstProviderGlobalSettingsTable {
+  id: Generated<number>
+  uuid: string
+  provider: string
+  environment: string
+  purpose: string
+  base_url: string
+  email: string
+  client_id: string
+  client_secret: string
+  ip_address: string
+  is_enabled: number
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
 export interface DatabaseSchema {
   site_pages: SitePagesTable
   site_services: SiteServicesTable
@@ -143,4 +159,5 @@ export interface DatabaseSchema {
   rbac_policies: RbacPoliciesTable
   tenant_rbac_policies: TenantRbacPoliciesTable
   queue_jobs: QueueJobsTable
+  gst_provider_global_settings: GstProviderGlobalSettingsTable
 }

@@ -77,6 +77,7 @@ function mergeSoftwareSettings(defaults: SoftwareSettingsState, storedState: Par
 
   return {
     favoriteDashboardApp: normalizeFavoriteDashboardApp(storedState.favoriteDashboardApp),
+    salesGstApiMode: normalizeSalesGstApiMode(storedState.salesGstApiMode),
     dutiesTaxSettings: { ...defaults.dutiesTaxSettings, ...(storedState.dutiesTaxSettings ?? {}) },
     letterheadSettings: { ...defaults.letterheadSettings, ...(storedState.letterheadSettings ?? {}) },
     salesPrintingOptions: { ...defaults.salesPrintingOptions, ...(storedState.salesPrintingOptions ?? {}) },
@@ -96,4 +97,8 @@ function companySoftwareSettingsStorageKey(companyId: string | number) {
 
 function normalizeFavoriteDashboardApp(value: unknown): FavoriteDashboardApp {
   return value === "billing" ? "billing" : "application"
+}
+
+function normalizeSalesGstApiMode(value: unknown) {
+  return value === "eway_only" ? "eway_only" : "einvoice_eway"
 }

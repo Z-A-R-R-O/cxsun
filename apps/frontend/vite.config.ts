@@ -11,6 +11,7 @@ const defaultAllowedHosts = [
   'codexsun.com',
   'www.codexsun.com',
   '.codexsun.com',
+  'office.aaran.org',
   '.local',
 ]
 

@@ -18,7 +18,7 @@ import { migratePaymentEntryTables } from '../../modules/entries/payment/index.j
 import { migrateAccountsTables } from '../../modules/accounts/index.js'
 import { migrateCompanySettingsTables } from '../../modules/settings/company-settings/index.js'
 import { migrateDocumentSettingsTables } from '../../modules/settings/document-settings/index.js'
-import { migrateGstComplianceTables } from '../../modules/compliance/gst-compliance/index.js'
+import { migrateGstComplianceTables } from '../../modules/gst/gst-compliance/index.js'
 import { migrateMediaTables } from '../../modules/media/index.js'
 import { migrateMailTables } from '../../modules/mail/index.js'
 import { migrateTaskManagerTables } from '../../modules/task-manager/index.js'

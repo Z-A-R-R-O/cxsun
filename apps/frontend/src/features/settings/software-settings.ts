@@ -21,6 +21,7 @@ export interface SoftwareSettingsState {
   features: readonly SoftwareToggleSetting[]
   favoriteDashboardApp: FavoriteDashboardApp
   letterheadSettings: LetterheadSettings
+  salesGstApiMode: SalesGstApiMode
   salesBillingLayout: readonly SoftwareToggleSetting[]
   salesPrintingOptions: SalesPrintingOptions
   salesPrintingSettings: readonly SoftwareToggleSetting[]
@@ -55,9 +56,11 @@ export interface LetterheadSettings {
 }
 
 export type FavoriteDashboardApp = "application" | "billing"
+export type SalesGstApiMode = "einvoice_eway" | "eway_only"
 
 export const defaultSoftwareSettingsState: SoftwareSettingsState = {
   favoriteDashboardApp: "application",
+  salesGstApiMode: "einvoice_eway",
   letterheadSettings: {
     addressColor: "#111111",
     addressFontFamily: "Times New Roman",

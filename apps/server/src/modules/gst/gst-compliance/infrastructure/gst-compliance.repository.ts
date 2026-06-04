@@ -1,8 +1,11 @@
 import { type Kysely } from 'kysely'
 import { BadRequestException, NotFoundException } from '../../../../core/exceptions/http.exception.js'
 import { Injectable } from '../../../../core/decorators/injectable.js'
+import { getDatabase } from '../../../../infrastructure/database/connection.js'
 import type { TenantRuntimeContext } from '../../../../core/tenant/tenant-context.service.js'
+import { gspConfig } from '../../../../framework/config/index.js'
 import { dispatchPublicUuid } from '../../../../shared/helpers/public-uuid.js'
+import { whiteBooksProductionBaseUrl, whiteBooksSandboxBaseUrl } from '../../gsp/whitebooks/index.js'
 import type {
   GstComplianceDocumentRecord,
   GstComplianceOperation,
@@ -10,6 +13,9 @@ import type {
   GstComplianceOperationRecord,
   GstProvider,
   GstProviderEnvironment,
+  GstProviderPurpose,
+  GstProviderGlobalSettingsInput,
+  GstProviderGlobalSettingsRecord,
   GstProviderSettingsInput,
   GstProviderSettingsRecord,
   GstProviderSettingsSecretRecord,
@@ -41,17 +47,59 @@ interface NormalizedOperationSource {
 
 @Injectable()
 export class GstComplianceRepository {
-  async getSettings(context: TenantRuntimeContext, companyIdInput: unknown) {
+  async getGlobalSettings(environmentInput?: unknown, purposeInput?: unknown) {
+    const environment = environmentValue(environmentInput ?? gspConfig.environment)
+    const purpose = purposeValue(purposeInput)
+    const row = await getDatabase()
+      .selectFrom('gst_provider_global_settings')
+      .selectAll()
+      .where('provider', '=', 'whitebooks')
+      .where('environment', '=', environment)
+      .where('purpose', '=', purpose)
+      .executeTakeFirst()
+    return row ? toGlobalSettingsRecord(row) : envGlobalSettingsRecord(environment, purpose)
+  }
+
+  async saveGlobalSettings(input: GstProviderGlobalSettingsInput) {
+    const environment = environmentValue(input.environment ?? gspConfig.environment)
+    const purpose = purposeValue(input.purpose)
+    const existing = await getDatabase()
+      .selectFrom('gst_provider_global_settings')
+      .selectAll()
+      .where('provider', '=', providerValue(input.provider))
+      .where('environment', '=', environment)
+      .where('purpose', '=', purpose)
+      .executeTakeFirst()
+    const values = globalSettingsValues(input, existing)
+    if (existing) {
+      await getDatabase()
+        .updateTable('gst_provider_global_settings')
+        .set({ ...values, updated_at: nowSqlString() })
+        .where('id', '=', Number(existing.id))
+        .execute()
+      return this.getGlobalSettings(environment, purpose)
+    }
+    await getDatabase()
+      .insertInto('gst_provider_global_settings')
+      .values({ ...values, uuid: dispatchPublicUuid() })
+      .execute()
+    return this.getGlobalSettings(environment, purpose)
+  }
+
+  async getSettings(context: TenantRuntimeContext, companyIdInput: unknown, environmentInput?: unknown, purposeInput?: unknown) {
     const companyId = await resolveCompanyId(context, companyIdInput)
+    const environment = environmentValue(environmentInput ?? gspConfig.environment)
     const row = await this.database(context)
       .selectFrom('gst_provider_settings')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
       .where('company_id', '=', companyId)
-      .where('provider', '=', 'mastergst')
+      .where('provider', '=', 'whitebooks')
+      .where('environment', '=', environment)
       .orderBy('id', 'desc')
       .executeTakeFirst()
-    return row ? toSettingsRecord(row) : emptySettingsRecord(companyId)
+    const global = await this.getGlobalSettings(environment, purposeInput)
+    return row ? mergeSettingsRecord(toSettingsRecord(row), global) : mergeSettingsRecord(emptySettingsRecord(companyId, environment), global)
   }
 
   async saveSettings(context: TenantRuntimeContext, input: GstProviderSettingsInput) {
@@ -66,7 +114,8 @@ export class GstComplianceRepository {
       .where('gstin', '=', cleanGstin(input.gstin))
       .executeTakeFirst()
 
-    const values = settingsValues(input, existing)
+    const global = await this.getGlobalSettings(input.environment)
+    const values = settingsValues(input, existing, global)
     if (existing) {
       await this.database(context)
         .updateTable('gst_provider_settings')
@@ -74,37 +123,41 @@ export class GstComplianceRepository {
         .where('id', '=', Number(existing.id))
         .where('tenant_id', '=', context.tenant.id)
         .execute()
-      return this.getSettings(context, companyId)
+      return this.getSettings(context, companyId, values.environment)
     }
 
     await this.database(context)
       .insertInto('gst_provider_settings')
       .values({ ...values, uuid: dispatchPublicUuid(), tenant_id: context.tenant.id, company_id: companyId })
       .execute()
-    return this.getSettings(context, companyId)
+    return this.getSettings(context, companyId, values.environment)
   }
 
-  async getEnabledSettings(context: TenantRuntimeContext, companyIdInput: unknown) {
+  async getEnabledSettings(context: TenantRuntimeContext, companyIdInput: unknown, environmentInput?: unknown, purposeInput?: unknown) {
     const companyId = await resolveCompanyId(context, companyIdInput)
+    const environment = environmentValue(environmentInput ?? gspConfig.environment)
     const row = await this.database(context)
       .selectFrom('gst_provider_settings')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
       .where('company_id', '=', companyId)
-      .where('provider', '=', 'mastergst')
-      .where('is_enabled', '=', true)
+      .where('provider', '=', 'whitebooks')
+      .where('environment', '=', environment)
       .orderBy('id', 'desc')
       .executeTakeFirst()
-    if (!row) throw new BadRequestException('MasterGST compliance settings are not enabled for this company.')
-    return toSettingsSecretRecord(row)
+    const global = await this.getGlobalSettings(environment, purposeInput)
+    if (!global.isEnabled) throw new BadRequestException('GSP provider settings are not enabled for this environment.')
+    if (!row || !booleanValue(row.is_enabled)) throw new BadRequestException('Tenant GST API settings are not enabled for this company and environment.')
+    return mergeSettingsSecretRecord(toSettingsSecretRecord(row), global)
   }
 
-  async getCachedToken(context: TenantRuntimeContext, settingId: string) {
+  async getCachedToken(context: TenantRuntimeContext, settingId: string, purpose: GstProviderPurpose) {
     const row = await this.database(context)
       .selectFrom('gst_provider_tokens')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
       .where('setting_id', '=', Number(settingId))
+      .where('purpose', '=', purpose)
       .executeTakeFirst()
     if (!row?.auth_token) return null
     const expiry = toDateOrNull(row.token_expiry)
@@ -112,9 +165,33 @@ export class GstComplianceRepository {
     return { authToken: String(row.auth_token), tokenExpiry: expiry, rawResponse: parseJson(row.raw_response_json) }
   }
 
+  async getTokenStatus(context: TenantRuntimeContext, settingId: string, purpose: GstProviderPurpose) {
+    const row = await this.database(context)
+      .selectFrom('gst_provider_tokens')
+      .select(['auth_token', 'environment', 'gstin', 'provider', 'purpose', 'token_expiry', 'updated_at'])
+      .where('tenant_id', '=', context.tenant.id)
+      .where('setting_id', '=', Number(settingId))
+      .where('purpose', '=', purpose)
+      .executeTakeFirst()
+    const tokenExpiry = toDateOrNull(row?.token_expiry)
+    const expiresInSeconds = tokenExpiry ? Math.max(0, Math.floor((tokenExpiry.getTime() - Date.now()) / 1000)) : null
+    return {
+      environment: row ? environmentValue(row.environment) : null,
+      expiresInSeconds,
+      gstin: stringOrNull(row?.gstin),
+      hasToken: Boolean(row),
+      isExpired: tokenExpiry ? tokenExpiry.getTime() <= Date.now() + 60_000 : false,
+      provider: row ? providerValue(row.provider) : null,
+      purpose: row ? purposeValue(row.purpose) : null,
+      tokenPreview: tokenPreview(row?.auth_token),
+      tokenExpiry,
+      updatedAt: row ? toDate(row.updated_at) : null,
+    }
+  }
+
   async saveToken(context: TenantRuntimeContext, settings: GstProviderSettingsSecretRecord, response: unknown) {
     const authToken = findString(response, ['AuthToken', 'authtoken', 'auth_token', 'token'])
-    if (!authToken) throw new BadRequestException('MasterGST authentication response did not include an auth token.')
+    if (!authToken) throw new BadRequestException('WhiteBooks authentication response did not include an auth token.')
     const tokenExpiry = parseTokenExpiry(findString(response, ['TokenExpiry', 'tokenExpiry', 'expiry', 'expires']))
     const sek = findString(response, ['Sek', 'sek'])
     const existing = await this.database(context)
@@ -122,13 +199,15 @@ export class GstComplianceRepository {
       .select('id')
       .where('tenant_id', '=', context.tenant.id)
       .where('setting_id', '=', Number(settings.id))
+      .where('purpose', '=', settings.purpose)
       .executeTakeFirst()
     const values = {
       auth_token: authToken,
       environment: settings.environment,
       gstin: settings.gstin,
       provider: settings.provider,
-      raw_response_json: JSON.stringify(response ?? null),
+      purpose: settings.purpose,
+      raw_response_json: JSON.stringify(redactStoredSecretResponse(response)),
       sek,
       token_expiry: tokenExpiry,
       updated_at: new Date(),
@@ -143,6 +222,7 @@ export class GstComplianceRepository {
 
   async listOperations(context: TenantRuntimeContext, query: Record<string, unknown>) {
     const companyId = await resolveCompanyId(context, query.companyId)
+    const environment = stringOrNull(query.environment)
     const sourceType = stringOrNull(query.sourceType)
     const sourceUuid = stringOrNull(query.sourceUuid)
     let request = this.database(context)
@@ -152,6 +232,7 @@ export class GstComplianceRepository {
       .where('company_id', '=', companyId)
       .orderBy('id', 'desc')
       .limit(100)
+    if (environment) request = request.where('environment', '=', environmentValue(environment))
     if (sourceType) request = request.where('source_type', '=', sourceType)
     if (sourceUuid) request = request.where('source_uuid', '=', sourceUuid)
     const rows = await request.execute()
@@ -160,6 +241,7 @@ export class GstComplianceRepository {
 
   async listDocuments(context: TenantRuntimeContext, query: Record<string, unknown>) {
     const companyId = await resolveCompanyId(context, query.companyId)
+    const environment = stringOrNull(query.environment)
     const sourceType = stringOrNull(query.sourceType)
     let request = this.database(context)
       .selectFrom('gst_compliance_documents')
@@ -168,6 +250,7 @@ export class GstComplianceRepository {
       .where('company_id', '=', companyId)
       .orderBy('id', 'desc')
       .limit(100)
+    if (environment) request = request.where('environment', '=', environmentValue(environment))
     if (sourceType) request = request.where('source_type', '=', sourceType)
     const rows = await request.execute()
     return rows.map(toDocumentRecord)
@@ -206,13 +289,16 @@ export class GstComplianceRepository {
 
   async upsertDocumentFromOperation(context: TenantRuntimeContext, settings: GstProviderSettingsSecretRecord, source: NormalizedOperationSource, operation: GstComplianceOperationRecord, response: unknown) {
     if (!source.sourceType || (!source.sourceUuid && !source.documentNo)) return null
-    const existing = await this.database(context)
+    let existingRequest = this.database(context)
       .selectFrom('gst_compliance_documents')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', Number(settings.companyId))
       .where('source_type', '=', source.sourceType)
-      .where('source_uuid', '=', source.sourceUuid ?? '')
-      .executeTakeFirst()
+    existingRequest = source.sourceUuid
+      ? existingRequest.where('source_uuid', '=', source.sourceUuid)
+      : existingRequest.where('document_no', '=', source.documentNo ?? '')
+    const existing = await existingRequest.executeTakeFirst()
     const patch = documentPatch(operation.operation, response)
     const values = {
       ...patch,
@@ -281,19 +367,95 @@ async function resolveCompanyId(context: TenantRuntimeContext, value: unknown) {
   return Number(row?.id ?? 0)
 }
 
-function settingsValues(input: GstProviderSettingsInput, existing: Record<string, unknown> | undefined) {
+function globalSettingsValues(input: GstProviderGlobalSettingsInput, existing: Record<string, unknown> | undefined) {
+  const environment = environmentValue(input.environment ?? existing?.environment)
   return {
     provider: providerValue(input.provider),
-    environment: environmentValue(input.environment),
-    base_url: cleanUrl(input.baseUrl) || stringValue(existing?.base_url) || 'https://api.mastergst.com',
+    environment,
+    purpose: purposeValue(input.purpose ?? existing?.purpose),
+    base_url: cleanUrl(input.baseUrl) || stringValue(existing?.base_url) || defaultBaseUrl(environment),
     email: stringValue(input.email) || stringValue(existing?.email),
-    username: stringValue(input.username) || stringValue(existing?.username),
-    password_secret: secretValue(input, 'password', existing?.password_secret),
     client_id: stringValue(input.clientId) || stringValue(existing?.client_id),
     client_secret: secretValue(input, 'clientSecret', existing?.client_secret),
-    gstin: cleanGstin(input.gstin) || stringValue(existing?.gstin),
     ip_address: stringValue(input.ipAddress) || stringValue(existing?.ip_address) || '0.0.0.0',
-    is_enabled: booleanValue(input.isEnabled ?? existing?.is_enabled),
+    is_enabled: booleanValue(input.isEnabled ?? existing?.is_enabled) ? 1 : 0,
+  }
+}
+
+function settingsValues(input: GstProviderSettingsInput, existing: Record<string, unknown> | undefined, global: GstProviderGlobalSettingsRecord) {
+  const environment = environmentValue(input.environment ?? existing?.environment)
+  const existingEnvironment = environmentValue(existing?.environment)
+  return {
+    provider: providerValue(input.provider),
+    environment,
+    base_url: global.baseUrl || cleanUrl(input.baseUrl) || (existing && environment === existingEnvironment ? stringValue(existing.base_url) : '') || defaultBaseUrl(environment),
+    email: global.email || stringValue(input.email) || stringValue(existing?.email),
+    username: stringValue(input.username) || stringValue(existing?.username),
+    password_secret: secretValue(input, 'password', existing?.password_secret),
+    client_id: global.clientId || stringValue(input.clientId) || stringValue(existing?.client_id),
+    client_secret: global.clientSecret || secretValue(input, 'clientSecret', existing?.client_secret),
+    gstin: cleanGstin(input.gstin) || stringValue(existing?.gstin),
+    ip_address: global.ipAddress || stringValue(input.ipAddress) || stringValue(existing?.ip_address) || '0.0.0.0',
+    is_enabled: 1,
+  }
+}
+
+function toGlobalSettingsRecord(row: Record<string, unknown>): GstProviderGlobalSettingsRecord {
+  const environment = environmentValue(row.environment)
+  return {
+    id: String(row.id),
+    uuid: String(row.uuid),
+    provider: providerValue(row.provider),
+    environment,
+    purpose: purposeValue(row.purpose),
+    baseUrl: stringValue(row.base_url) || defaultBaseUrl(environment),
+    email: stringValue(row.email),
+    clientId: stringValue(row.client_id),
+    clientSecret: stringValue(row.client_secret),
+    ipAddress: stringValue(row.ip_address) || '0.0.0.0',
+    isEnabled: booleanValue(row.is_enabled),
+    createdAt: toDate(row.created_at),
+    updatedAt: toDate(row.updated_at),
+  }
+}
+
+function envGlobalSettingsRecord(environment: GstProviderEnvironment = gspConfig.environment, purpose: GstProviderPurpose = 'einvoice_eway'): GstProviderGlobalSettingsRecord {
+  return {
+    id: '0',
+    uuid: 'ENV',
+    provider: 'whitebooks',
+    environment,
+    purpose,
+    baseUrl: envBaseUrl(environment),
+    email: '',
+    clientId: '',
+    clientSecret: '',
+    ipAddress: '0.0.0.0',
+    isEnabled: false,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  }
+}
+
+function mergeSettingsRecord(settings: GstProviderSettingsRecord, global: GstProviderGlobalSettingsRecord): GstProviderSettingsRecord {
+  return {
+    ...settings,
+    purpose: global.purpose,
+    baseUrl: global.baseUrl || settings.baseUrl,
+    email: global.email || settings.email,
+    clientId: global.clientId || settings.clientId,
+    clientSecret: global.clientSecret || settings.clientSecret,
+    hasClientSecret: Boolean(global.clientSecret || settings.clientSecret),
+    ipAddress: global.ipAddress || settings.ipAddress,
+    isEnabled: Boolean(global.isEnabled && settings.isEnabled),
+  }
+}
+
+function mergeSettingsSecretRecord(settings: GstProviderSettingsSecretRecord, global: GstProviderGlobalSettingsRecord): GstProviderSettingsSecretRecord {
+  return {
+    ...mergeSettingsRecord(settings, global),
+    password: settings.password,
+    clientSecret: global.clientSecret || settings.clientSecret,
   }
 }
 
@@ -304,12 +466,15 @@ function toSettingsRecord(row: Record<string, unknown>): GstProviderSettingsReco
     companyId: String(row.company_id),
     provider: providerValue(row.provider),
     environment: environmentValue(row.environment),
-    baseUrl: stringValue(row.base_url) || 'https://api.mastergst.com',
+    purpose: 'einvoice_eway',
+    baseUrl: stringValue(row.base_url) || defaultBaseUrl(environmentValue(row.environment)),
     email: stringValue(row.email),
     username: stringValue(row.username),
     hasPassword: Boolean(stringValue(row.password_secret)),
+    password: stringValue(row.password_secret),
     clientId: stringValue(row.client_id),
     hasClientSecret: Boolean(stringValue(row.client_secret)),
+    clientSecret: stringValue(row.client_secret),
     gstin: stringValue(row.gstin),
     ipAddress: stringValue(row.ip_address) || '0.0.0.0',
     isEnabled: booleanValue(row.is_enabled),
@@ -326,19 +491,22 @@ function toSettingsSecretRecord(row: Record<string, unknown>): GstProviderSettin
   }
 }
 
-function emptySettingsRecord(companyId: number): GstProviderSettingsRecord {
+function emptySettingsRecord(companyId: number, environment: GstProviderEnvironment = 'sandbox'): GstProviderSettingsRecord {
   return {
     id: '',
     uuid: '',
     companyId: String(companyId),
-    provider: 'mastergst',
-    environment: 'sandbox',
-    baseUrl: 'https://api.mastergst.com',
+    provider: 'whitebooks',
+    environment,
+    purpose: 'einvoice_eway',
+    baseUrl: defaultBaseUrl(environment),
     email: '',
     username: '',
     hasPassword: false,
+    password: '',
     clientId: '',
     hasClientSecret: false,
+    clientSecret: '',
     gstin: '',
     ipAddress: '0.0.0.0',
     isEnabled: false,
@@ -444,6 +612,11 @@ function findString(value: unknown, keys: readonly string[]): string {
 
 function parseProviderDate(value: string) {
   if (!value) return null
+  const timestamp = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/)
+  if (timestamp) {
+    const [, year, month, day, hour, minute, second] = timestamp
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  }
   const normalized = value.includes('/') ? value.split('/').reverse().join('-') : value
   const date = new Date(normalized)
   return Number.isNaN(date.getTime()) ? value : date
@@ -461,11 +634,15 @@ function secretValue(input: GstProviderSettingsInput, key: 'clientSecret' | 'pas
 }
 
 function providerValue(value: unknown): GstProvider {
-  return value === 'mastergst' ? 'mastergst' : 'mastergst'
+  return value === 'whitebooks' ? 'whitebooks' : 'whitebooks'
 }
 
 function environmentValue(value: unknown): GstProviderEnvironment {
   return value === 'production' ? 'production' : 'sandbox'
+}
+
+function purposeValue(value: unknown): GstProviderPurpose {
+  return value === 'eway_only' ? 'eway_only' : 'einvoice_eway'
 }
 
 function cleanGstin(value: unknown) {
@@ -474,6 +651,24 @@ function cleanGstin(value: unknown) {
 
 function cleanUrl(value: unknown) {
   return stringValue(value).replace(/\/+$/, '')
+}
+
+function defaultBaseUrl(environment: GstProviderEnvironment) {
+  return environment === 'production' ? whiteBooksProductionBaseUrl : whiteBooksSandboxBaseUrl
+}
+
+function envBaseUrl(environment: GstProviderEnvironment) {
+  return environment === 'production' ? gspConfig.productionBaseUrl : gspConfig.sandboxBaseUrl
+}
+
+function nowSqlString() {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
+}
+
+function tokenPreview(value: unknown) {
+  const token = stringValue(value)
+  if (!token) return null
+  return `...${token.slice(-6)}`
 }
 
 function stringValue(value: unknown) {
@@ -501,6 +696,15 @@ function parseJson(value: unknown): unknown {
   } catch {
     return {}
   }
+}
+
+function redactStoredSecretResponse(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactStoredSecretResponse)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+    key,
+    ['authtoken', 'auth-token', 'client_id', 'clientid', 'clientsecret', 'client_secret', 'password', 'sek', 'token'].includes(key.toLowerCase()) ? '***' : redactStoredSecretResponse(entry),
+  ]))
 }
 
 function toDate(value: unknown) {

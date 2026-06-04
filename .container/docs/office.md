@@ -1,6 +1,6 @@
 ```
 server {
-server_name thetirupurtextiles.com www.thetirupurtextiles.com shop.thetirupurtextiles.com;
+server_name office.aaran.org;
 
     large_client_header_buffers 8 32k;
     client_header_buffer_size 16k;
@@ -40,28 +40,15 @@ server_name thetirupurtextiles.com www.thetirupurtextiles.com shop.thetirupurtex
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    listen 443 ssl; # managed by Certbot
-    ssl_certificate /etc/letsencrypt/live/codexsun.com/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /etc/letsencrypt/live/codexsun.com/privkey.pem; # managed by Certbot
-    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 }
 
 server {
-    if ($host = www.thetirupurtextiles.com) {
-        return 301 https://$host$request_uri;
-    }
-
-    if ($host = thetirupurtextiles.com) {
-        return 301 https://$host$request_uri;
-    }
-    
-    if ($host = shop.thetirupurtextiles.com) {
+    if ($host = office.aaran.org) {
       return 301 https://$host$request_uri;
     }
 
     listen 80;
-    server_name thetirupurtextiles.com www.thetirupurtextiles.com shop.thetirupurtextiles.com;
+    server_name office.aaran.org;
     return 404; # managed by Certbot
 }
 ```
@@ -71,4 +58,4 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-sudo certbot --nginx -d sukraa.codexsun.com
+sudo certbot --nginx -d office.aaran.org

@@ -2,15 +2,28 @@
 
 ## Version State
 
-- **Current version:** `1.0.72`
-- **Release tag:** `v-1.0.72`
-- **Changelog label:** `v 1.0.72`
+- **Current version:** `1.0.73`
+- **Release tag:** `v-1.0.73`
+- **Changelog label:** `v 1.0.73`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.73
+
+### [v 1.0.73] 2026-06-04 7:04 pm - GST WhiteBooks compliance release
+
+- Bumped workspace version to 1.0.73
 ## v-1.0.72
+
+### [v 1.0.72] 2026-06-04 - GST WhiteBooks GSP compliance wiring
+
+- Split WhiteBooks GSP credentials into super-admin managed sandbox/production tabs with separate E-invoice + E-way and E-way-only credential cards.
+- Moved GSP credential lookup to database-backed global settings, while tenant GST API settings keep only tenant username, password, GSTIN, and sandbox/production selection.
+- Wired sales E-invoice and E-way generation to merge global GSP credentials with tenant GST credentials, save IRN/ack/signed QR/e-way details back to sales, and print the saved e-way bill as a Code 128 barcode.
+- Fixed GST token-status polling so incomplete or disabled settings return a no-token state instead of noisy 400 responses.
+- Added `office.aaran.org` to Vite dev/preview allowed hosts for cloud access.
 
 ### [v 1.0.72] 2026-06-04 9:47 am - created account module
 

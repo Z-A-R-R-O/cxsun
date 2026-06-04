@@ -6,6 +6,7 @@ import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "src/components/ui/card"
 import { Switch } from "src/components/ui/switch"
+import { NativeSelect, NativeSelectOption } from "src/components/ui/native-select"
 import { MasterListPageFrame } from "src/components/blocks/lists/master-list"
 import { LetterheadBuilder } from "src/features/company/letterhead-builder"
 import type { AuthSession } from "src/features/auth/auth-client"
@@ -52,6 +53,13 @@ export function SalesSettingsPage({ session }: { session: AuthSession }) {
             label: "Layout",
             content: (
               <SettingsCard title="Sales Layout" description="Toggle fields used by sales entry and print screens.">
+                <label className="grid gap-2 rounded-md border border-border/70 bg-background px-4 py-3">
+                  <span className="text-sm font-medium text-foreground">GST API mode</span>
+                  <NativeSelect className="w-full" value={state.salesGstApiMode} onChange={(event) => setState((current) => ({ ...current, salesGstApiMode: event.target.value === "eway_only" ? "eway_only" : "einvoice_eway" }))}>
+                    <NativeSelectOption value="einvoice_eway">E-invoice + E-way</NativeSelectOption>
+                    <NativeSelectOption value="eway_only">E-way only</NativeSelectOption>
+                  </NativeSelect>
+                </label>
                 {state.salesBillingLayout.map((setting) => (
                   <SettingSwitchRow key={setting.id} setting={setting} onToggle={(enabled) => setState((current) => updateSalesBillingLayoutSetting(current, setting.id, enabled))} />
                 ))}

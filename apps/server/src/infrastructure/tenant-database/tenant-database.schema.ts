@@ -756,6 +756,7 @@ export interface TenantGstProviderTokensTable {
   setting_id: number
   provider: string
   environment: string
+  purpose: string
   gstin: string
   auth_token: string
   sek: string | null
