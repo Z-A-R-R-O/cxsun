@@ -1,7 +1,7 @@
 {
   "name": "@cxsun/frontend",
   "private": true,
-  "version": "1.0.83",
+  "version": "1.0.84",
   "type": "module",
   "scripts": {
     "dev": "node ../../apps/cli/preflight.mjs frontend",

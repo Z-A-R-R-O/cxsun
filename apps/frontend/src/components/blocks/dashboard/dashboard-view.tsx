@@ -63,6 +63,9 @@ const DefaultCompanyPage = lazy(() =>
 const IndustryPage = lazy(() =>
   import('src/features/industry/industry-page').then((module) => ({ default: module.IndustryPage })),
 )
+const CompanyIndustryPage = lazy(() =>
+  import('src/features/industry/company-industry-page').then((module) => ({ default: module.CompanyIndustryPage })),
+)
 const TenantDomainPage = lazy(() =>
   import('src/features/tenant-domain/tenant-domain-page').then((module) => ({ default: module.TenantDomainPage })),
 )
@@ -162,6 +165,7 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
     page === "setup" ||
     page === "tenant-domain" ||
     page === "industry" ||
+    page === "company-industry" ||
     page === "company" ||
     page === "system-update" ||
     page === "gst-api" ||
@@ -193,7 +197,7 @@ function defaultPageForApp(appId: DashboardAppId): DashboardPage {
 }
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager"],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company-industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager"],
   admin: ["overview", "company", "helpdesk", "bugs", "system-update"],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
@@ -209,6 +213,7 @@ const pageLabels: Partial<Record<DashboardPage, string>> = {
   "setup": "App Setup",
   "tenant-domain": "Tenant Domains",
   "industry": "Industries",
+  "company-industry": "Company Industry",
   "company": "Companies",
   "system-update": "System Update",
   "gst-api": "GST API",
@@ -565,6 +570,8 @@ export function DashboardView({
             <TenantDomainPage session={session} />
           ) : visiblePage === "industry" ? (
             <IndustryPage session={session} />
+          ) : visiblePage === "company-industry" ? (
+            <CompanyIndustryPage session={session} />
           ) : visiblePage === "company" && mode === "admin" ? (
             <SupportPage type="helpdesk" />
           ) : visiblePage === "company" ? (

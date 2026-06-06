@@ -184,6 +184,15 @@ export class CompanyRepository {
       .where('id', '=', id)
       .execute()
 
+    await context.database
+      .updateTable('default_companies')
+      .set({
+        industry_id: data.industry_id,
+        updated_at: new Date(),
+      })
+      .where('company_id', '=', id)
+      .execute()
+
     await this.replaceChildren(context, id, data)
 
     const company = await this.findById(context, id)
@@ -258,7 +267,7 @@ export class CompanyRepository {
       uuid: String(row.uuid),
       tenantId: isSuperAdmin ? Number(row.tenant_id ?? context.tenant.id) : null,
       tenantName: context.tenant.name,
-      industryId: isSuperAdmin ? industryId || null : null,
+      industryId: industryId || null,
       industryCode: industry?.code ?? null,
       industryName: industry?.name ?? 'Not classified',
       code: String(row.code ?? ''),

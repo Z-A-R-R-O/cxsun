@@ -176,6 +176,7 @@ export function SalesInvoiceDocument({
               <td className={`${totalItemCell} font-bold`}>Total</td>
             )}
             <td className={totalItemCell}>{sumQty(record.items)}</td>
+            <td className={totalItemCell}>&nbsp;</td>
             <td className={`${totalItemCell} text-right`}>{money(totals.taxableAmount)}</td>
             <td className={totalItemCell}>&nbsp;</td>
             {isCgstSgst ? (
@@ -224,18 +225,19 @@ export function SalesInvoiceDocument({
   )
 }
 
-type PrintItemColumnKey = "cgst" | "colour" | "gstPercent" | "hsn" | "igst" | "poDc" | "product" | "quantity" | "serial" | "sgst" | "size" | "taxable" | "total"
+type PrintItemColumnKey = "cgst" | "colour" | "gstPercent" | "hsn" | "igst" | "poDc" | "product" | "quantity" | "rate" | "serial" | "sgst" | "size" | "taxable" | "total"
 
 function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; showDc: boolean; showPo: boolean; showSize: boolean }) {
   const showPoDc = settings.showPo || settings.showDc
   return [
     { key: "serial", label: "S.no", widthClass: "w-[28px] text-[8px]" },
-    { key: "product", label: "Particulars", widthClass: settings.showColour || settings.showSize || showPoDc ? "w-[178px]" : "w-[258px]" },
+    { key: "product", label: "Particulars", widthClass: settings.showColour || settings.showSize || showPoDc ? "w-[120px]" : "w-[200px]" },
     { key: "hsn", label: "HSN", widthClass: "w-[48px]" },
     ...(settings.showColour ? [{ key: "colour" as const, label: "Colour", widthClass: "w-[54px]" }] : []),
     ...(settings.showSize ? [{ key: "size" as const, label: "Size", widthClass: "w-[42px]" }] : []),
     ...(showPoDc ? [{ key: "poDc" as const, label: [settings.showPo ? "PO" : null, settings.showDc ? "DC" : null].filter(Boolean).join(" / "), widthClass: "w-[58px]" }] : []),
     { key: "quantity", label: "Qty", widthClass: "w-[42px]" },
+    { key: "rate", label: "Rate", widthClass: "w-[58px]" },
     { key: "taxable", label: "Taxable", widthClass: "w-[70px]" },
     { key: "gstPercent", label: "GST %", widthClass: "w-[42px]" },
     ...(isCgstSgst ? [{ key: "cgst" as const, label: "CGST", widthClass: "w-[58px]" }, { key: "sgst" as const, label: "SGST", widthClass: "w-[58px]" }] : [{ key: "igst" as const, label: "IGST", widthClass: "w-[66px]" }]),
@@ -262,13 +264,14 @@ function SalesPrintItemRow({ columns, index, isCgstSgst, item }: { columns: Retu
       </div>
     ),
     quantity: item.quantity,
+    rate: money(item.rate),
     serial: index + 1,
     sgst: money(isCgstSgst ? split.second : 0),
     size: item.size ?? "",
     taxable: money(taxable),
     total: money(total),
   }
-  const rightAlignedKeys = new Set<PrintItemColumnKey>(["cgst", "igst", "sgst", "taxable", "total"])
+  const rightAlignedKeys = new Set<PrintItemColumnKey>(["cgst", "igst", "rate", "sgst", "taxable", "total"])
   return (
     <tr>
       {columns.map((column, columnIndex) => <td key={column.key} className={`${lineItemCell} ${column.key === "product" ? "break-words text-left" : ""} ${rightAlignedKeys.has(column.key) ? "text-right" : ""} ${columnIndex === columns.length - 1 ? "border-r-0" : ""}`}>{cells[column.key]}</td>)}

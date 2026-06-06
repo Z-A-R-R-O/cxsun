@@ -202,9 +202,9 @@ export function IndustryPage({ session }: { session: AuthSession }) {
               </tr>
             </thead>
             <tbody>
-              {pageIndustries.map((industry, index) => (
+              {pageIndustries.map((industry) => (
                 <tr key={industry.id} className={cn("border-b border-border/70", industry.deleted_at && "bg-muted/20 text-muted-foreground")}>
-                  <td className="px-4 py-2 text-muted-foreground">{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{industry.id}</td>
                   {visibleColumns.name ? (
                     <td className="px-4 py-2">
                       <button className="cursor-pointer font-medium hover:underline" type="button" onClick={() => setSelectedIndustry(industry)}>

@@ -2,13 +2,24 @@
 
 ## Version State
 
-- **Current version:** `1.0.83`
-- **Release tag:** `v-1.0.83`
-- **Changelog label:** `v 1.0.83`
+- **Current version:** `1.0.84`
+- **Release tag:** `v-1.0.84`
+- **Changelog label:** `v 1.0.84`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.84
+
+### [v 1.0.84] 2026-06-06 7:38 pm - Company industry assignment and sales print controls
+
+- Bumped workspace version to 1.0.84
+- Added a super-admin Company Industry page for assigning active industry profiles to companies across tenant workspaces.
+- Synchronized company industry assignments with default-company context and seeded tenant company records.
+- Added the missing Rate column to Sales invoice print, including fitted column widths and aligned totals.
+- Added configurable logo left and top positions to the Sales Settings letterhead designer and shared print renderer.
+- Updated deployment documentation with the latest tenant domain and Nginx configuration examples.
 
 ## v-1.0.83
 

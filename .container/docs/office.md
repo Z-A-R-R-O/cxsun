@@ -1,6 +1,6 @@
 ```
 server {
-server_name office.aaran.org;
+server_name asknits.codexsun.com;
 
     large_client_header_buffers 8 32k;
     client_header_buffer_size 16k;
@@ -43,12 +43,12 @@ server_name office.aaran.org;
 }
 
 server {
-    if ($host = office.aaran.org) {
+    if ($host = asknits.codexsun.com) {
       return 301 https://$host$request_uri;
     }
 
     listen 80;
-    server_name office.aaran.org;
+    server_name asknits.codexsun.com;
     return 404; # managed by Certbot
 }
 ```
@@ -58,4 +58,4 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-sudo certbot --nginx -d office.aaran.org
+sudo certbot --nginx -d asknits.codexsun.com

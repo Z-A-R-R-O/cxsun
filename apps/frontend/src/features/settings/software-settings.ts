@@ -50,6 +50,8 @@ export interface LetterheadSettings {
   contactFontSize: number
   heightMm: number
   logoHeightMm: number
+  logoLeftMm: number
+  logoTopMm: number
   logoWidthMm: number
   taxColor: string
   taxFontSize: number
@@ -73,6 +75,8 @@ export const defaultSoftwareSettingsState: SoftwareSettingsState = {
     contactFontSize: 11,
     heightMm: 42,
     logoHeightMm: 24,
+    logoLeftMm: 4,
+    logoTopMm: 9,
     logoWidthMm: 28,
     taxColor: "#000000",
     taxFontSize: 11,

@@ -95,3 +95,6 @@ ln -sf /etc/nginx/sites-available/sukraa.codexsun.com /etc/nginx/sites-enabled/s
 ln -sf /etc/nginx/sites-available/skprinters.codexsun.com /etc/nginx/sites-enabled/skprinters.codexsun.com
 
 ln -sf /etc/nginx/sites-available/office.aaran.org /etc/nginx/sites-enabled/office.aaran.org
+ln -sf /etc/nginx/sites-available/arabab.codexsun.com /etc/nginx/sites-enabled/arabab.codexsun.com
+ln -sf /etc/nginx/sites-available/tirupurtextiles.codexsun.com /etc/nginx/sites-enabled/tirupurtextiles.codexsun.com
+ln -sf /etc/nginx/sites-available/asknits.codexsun.com /etc/nginx/sites-enabled/asknits.codexsun.com

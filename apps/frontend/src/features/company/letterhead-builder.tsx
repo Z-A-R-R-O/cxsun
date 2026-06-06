@@ -30,17 +30,17 @@ export function LetterheadBuilder({
   const logoUrl = companyLogoUrl(company, "logo", { fallback: false })
 
   return (
-    <div className={`grid grid-cols-[32mm_1fr_32mm] items-center px-2 py-2 text-center ${className}`} style={{ borderColor: style.borderColor, minHeight: `${style.heightMm}mm` }}>
-      <div className="flex items-center justify-center">
+    <div className={`relative grid grid-cols-[32mm_1fr_32mm] items-center px-2 py-2 text-center ${className}`} style={{ borderColor: style.borderColor, minHeight: `${style.heightMm}mm` }}>
+      <div>
         {showLogo && logoUrl ? (
           <img
             src={logoUrl}
             alt={companyName}
-            className="object-contain"
+            className="absolute object-contain"
             onError={(event) => {
               event.currentTarget.removeAttribute("src")
             }}
-            style={{ maxHeight: `${style.logoHeightMm}mm`, maxWidth: `${style.logoWidthMm}mm` }}
+            style={{ left: `${style.logoLeftMm}mm`, maxHeight: `${style.logoHeightMm}mm`, maxWidth: `${style.logoWidthMm}mm`, top: `${style.logoTopMm}mm` }}
           />
         ) : null}
       </div>
@@ -94,6 +94,8 @@ export function normalizeLetterheadSettings(settings?: Partial<LetterheadSetting
     contactFontSize: clampNumber(settings?.contactFontSize, 8, 20, defaults.contactFontSize),
     heightMm: clampNumber(settings?.heightMm, 24, 70, defaults.heightMm),
     logoHeightMm: clampNumber(settings?.logoHeightMm, 10, 50, defaults.logoHeightMm),
+    logoLeftMm: clampNumber(settings?.logoLeftMm, -20, 200, defaults.logoLeftMm),
+    logoTopMm: clampNumber(settings?.logoTopMm, -20, 70, defaults.logoTopMm),
     logoWidthMm: clampNumber(settings?.logoWidthMm, 10, 60, defaults.logoWidthMm),
     taxFontSize: clampNumber(settings?.taxFontSize, 8, 20, defaults.taxFontSize),
   }

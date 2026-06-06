@@ -135,6 +135,8 @@ function LetterheadDesigner({ company, setState, state }: { company: ReturnType<
         <DesignerField label="Header height mm" type="number" value={String(value.heightMm)} onChange={(next) => setState((current) => updateLetterheadSetting(current, "heightMm", Number(next || 0)))} />
         <DesignerField label="Logo height mm" type="number" value={String(value.logoHeightMm)} onChange={(next) => setState((current) => updateLetterheadSetting(current, "logoHeightMm", Number(next || 0)))} />
         <DesignerField label="Logo width mm" type="number" value={String(value.logoWidthMm)} onChange={(next) => setState((current) => updateLetterheadSetting(current, "logoWidthMm", Number(next || 0)))} />
+        <DesignerField label="Logo left mm" type="number" value={String(value.logoLeftMm)} onChange={(next) => setState((current) => updateLetterheadSetting(current, "logoLeftMm", Number(next || 0)))} />
+        <DesignerField label="Logo top mm" type="number" value={String(value.logoTopMm)} onChange={(next) => setState((current) => updateLetterheadSetting(current, "logoTopMm", Number(next || 0)))} />
         <DesignerField label="Company color" type="color" value={value.companyNameColor} onChange={(next) => setState((current) => updateLetterheadSetting(current, "companyNameColor", next))} />
         <DesignerField label="Address color" type="color" value={value.addressColor} onChange={(next) => setState((current) => updateLetterheadSetting(current, "addressColor", next))} />
         <DesignerField label="Border color" type="color" value={value.borderColor} onChange={(next) => setState((current) => updateLetterheadSetting(current, "borderColor", next))} />

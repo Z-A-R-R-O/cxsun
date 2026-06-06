@@ -302,6 +302,17 @@ function readTenantCompanies(tenant: Tenant) {
   }
 }
 
+function readTenantIndustryCode(tenant: Tenant) {
+  try {
+    const settings = JSON.parse(tenant.payload_settings || '{}') as {
+      liveScope?: { industry?: unknown }
+    }
+    return typeof settings.liveScope?.industry === 'string' ? settings.liveScope.industry.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
 async function seedTenantDatabase(database: TenantDatabase, tenant: Tenant) {
   await seedCommonModuleTables(database)
   await seedDefaultSiteSliders(database as never, tenant)
@@ -377,6 +388,11 @@ async function seedScopedCompanies(database: TenantDatabase, tenant: Tenant) {
   if (companies.length === 0) {
     return
   }
+  const industryCode = readTenantIndustryCode(tenant)
+  const industry = industryCode
+    ? await getDatabase().selectFrom('industries').select('id').where('code', '=', industryCode).executeTakeFirst()
+    : undefined
+  const seededIndustryId = Number(industry?.id ?? 0)
 
   for (const [index, companyName] of companies.entries()) {
     const code = companyName
@@ -388,7 +404,7 @@ async function seedScopedCompanies(database: TenantDatabase, tenant: Tenant) {
 
     const existing = await database
       .selectFrom('companies')
-      .select('id')
+      .select(['id', 'industry_id'])
       .where((eb) => eb.or([
         eb('code', '=', code),
         eb('name', '=', companyName),
@@ -398,7 +414,7 @@ async function seedScopedCompanies(database: TenantDatabase, tenant: Tenant) {
 
     const row = {
       tenant_id: tenant.id,
-      industry_id: 0,
+      industry_id: seededIndustryId,
       code,
       name: companyName,
       legal_name: companyName,
@@ -428,7 +444,15 @@ async function seedScopedCompanies(database: TenantDatabase, tenant: Tenant) {
     }
 
     if (existing) {
-      await database.updateTable('companies').set(row).where('id', '=', existing.id).execute()
+      const { industry_id: _seededIndustryId, ...existingRow } = row
+      await database
+        .updateTable('companies')
+        .set({
+          ...existingRow,
+          ...(Number(existing.industry_id ?? 0) <= 0 && seededIndustryId > 0 ? { industry_id: seededIndustryId } : {}),
+        })
+        .where('id', '=', existing.id)
+        .execute()
       continue
     }
 

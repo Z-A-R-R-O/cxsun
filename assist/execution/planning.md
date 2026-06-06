@@ -1,7 +1,7 @@
 # Session Plan
 
 **Date:** 2026-06-06
-**Version:** 1.0.82
+**Version:** 1.0.84
 **Focus:** Stabilize the current Billing and Export Sales application shape.
 
 ## Objective

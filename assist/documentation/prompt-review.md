@@ -2073,6 +2073,12 @@ curl -X GET "https://apisandbox.whitebooks.in/einvoice/authenticate?email=aarano
 
 get AuthToken and TokenExpiry and save for session and then ...
 ```
+
+User prompt:
+
+```
+in sales print rate column is missing in print make this in print
+```
 change WHITEBOOKS_SANDBOX_ to GSP_SANDBOX_ and WHITEBOOKS_PRODUCTION_ to GSP_ and refactor all and test remove variables from .env it in not in use and make GSP_SANBOX AND GSP SETTING get from database through super-admin and get user name and password from tenant side GST_API
 
 and in tenant make switch for production and sandbox on settings and switch accordingly
@@ -2094,3 +2100,11 @@ this is i asked
 read assist/readme and update assists rules and files according to this application updates , scan through application and update properly not overthinking
 
 write log on change log
+
+## 2026-06-06 - Sales print logo positioning
+
+in sales setting add positioning for logo left and top as input
+
+## 2026-06-06 - Changelog and version update
+
+create log in changelog with version update

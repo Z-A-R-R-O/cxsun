@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   Bug,
   BriefcaseBusiness,
+  Building2,
   Database,
   Factory,
   Globe2,
@@ -52,6 +53,7 @@ export type DashboardPage =
   | "tenant"
   | "tenant-domain"
   | "industry"
+  | "company-industry"
   | "company"
   | "system-update"
   | "gst-api"
@@ -74,6 +76,7 @@ const superAdminNav = [
       { title: "Tenant", url: "#", icon: Users },
       { title: "Domain", url: "#", icon: Globe2 },
       { title: "Industry", url: "#", icon: Factory },
+      { title: "Company Industry", url: "#", icon: Building2 },
       { title: "Admin User Manager", url: "#", icon: UserRoundCog },
     ],
   },
@@ -122,6 +125,7 @@ function pageFromTitle(title: string): DashboardPage | undefined {
     Domain: "tenant-domain",
     Helpdesk: "helpdesk",
     Industry: "industry",
+    "Company Industry": "company-industry",
     Overview: "overview",
     Roles: "tenant-roles",
     Setup: "setup",
