@@ -1,6 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 
-export type DocumentEntryKind = "bankBook" | "cashBook" | "deliveryNote" | "payment" | "purchase" | "purchaseReceipt" | "receipt" | "sales"
+export type DocumentEntryKind = "bankBook" | "cashBook" | "deliveryNote" | "exportSales" | "payment" | "purchase" | "purchaseReceipt" | "receipt" | "sales"
 
 export interface DocumentNumberSetting {
   id: string
@@ -34,6 +34,7 @@ export interface DocumentNumberSettingInput {
 
 export const documentNumberLabels: Record<DocumentEntryKind, string> = {
   sales: "Sales",
+  exportSales: "Export Sales",
   purchase: "Purchase",
   purchaseReceipt: "Purchase Receipt",
   deliveryNote: "Delivery Note",
@@ -43,7 +44,7 @@ export const documentNumberLabels: Record<DocumentEntryKind, string> = {
   bankBook: "Bank Book",
 }
 
-export const documentNumberKindOrder: readonly DocumentEntryKind[] = ["sales", "purchase", "purchaseReceipt", "deliveryNote", "payment", "receipt", "cashBook", "bankBook"]
+export const documentNumberKindOrder: readonly DocumentEntryKind[] = ["sales", "exportSales", "purchase", "purchaseReceipt", "deliveryNote", "payment", "receipt", "cashBook", "bankBook"]
 
 export async function listDocumentNumberSettings(session: AuthSession, options?: { signal?: AbortSignal }) {
   const response = await fetch(`${apiBaseUrl}/api/v1/document-settings/numbers`, {

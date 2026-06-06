@@ -2,13 +2,32 @@
 
 ## Version State
 
-- **Current version:** `1.0.80`
-- **Release tag:** `v-1.0.80`
-- **Changelog label:** `v 1.0.80`
+- **Current version:** `1.0.82`
+- **Release tag:** `v-1.0.82`
+- **Changelog label:** `v 1.0.82`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.82
+
+### [v 1.0.82] 2026-06-06 8:38 am - working on export sales
+
+- Bumped workspace version to 1.0.82
+- working on export sales
+## v-1.0.81
+
+### [v 1.0.81] 2026-06-06 7:33 am - Export sales and accounting-year dashboard
+
+- Bumped workspace version to 1.0.81
+- Added Export Sales as a separate Billing entry module with its own list, show, upsert, comments, activities, suspend/restore, GST actions, and exact invoice print workflow.
+- Added dedicated export-sales tenant tables and API routes, keeping export invoices isolated from domestic sales records.
+- Added separate Export Sales document numbering with the `exportSales` kind and default `EXP` prefix, configurable from Document Settings.
+- Wired Export Sales PDF email delivery through the existing tenant mail queue and exact visible print capture.
+- Added Export Sales to the Billing Entries side menu and lazy-loaded dashboard routing.
+- Fixed Billing Overview totals, recent transactions, animated monthly chart, and summary table to follow the selected company and accounting-year start/end period.
+- Filtered Sales, Purchase, Receipt, Payment, Cash Book, and Bank Book lists by both the selected company and selected accounting year.
 
 ## v-1.0.80
 

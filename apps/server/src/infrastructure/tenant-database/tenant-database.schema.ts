@@ -700,6 +700,23 @@ export interface TenantSalesEntryActivitiesTable {
   created_at: Generated<Date>
 }
 
+export interface TenantExportSalesEntriesTable extends TenantSalesEntriesTable {
+  currency_id: number | null
+  currency_name: string | null
+}
+
+export interface TenantExportSalesEntryItemsTable extends Omit<TenantSalesEntryItemsTable, 'sales_entry_id'> {
+  export_sales_entry_id: number
+}
+
+export interface TenantExportSalesEntryCommentsTable extends Omit<TenantSalesEntryCommentsTable, 'sales_entry_id'> {
+  export_sales_entry_id: number
+}
+
+export interface TenantExportSalesEntryActivitiesTable extends Omit<TenantSalesEntryActivitiesTable, 'sales_entry_id'> {
+  export_sales_entry_id: number
+}
+
 export interface TenantCompanySettingsTable {
   id: Generated<number>
   uuid: string
@@ -934,6 +951,10 @@ export interface TenantDatabaseSchema {
   sales_entry_items: TenantSalesEntryItemsTable
   sales_entry_comments: TenantSalesEntryCommentsTable
   sales_entry_activities: TenantSalesEntryActivitiesTable
+  export_sales_entries: TenantExportSalesEntriesTable
+  export_sales_entry_items: TenantExportSalesEntryItemsTable
+  export_sales_entry_comments: TenantExportSalesEntryCommentsTable
+  export_sales_entry_activities: TenantExportSalesEntryActivitiesTable
   company_settings: TenantCompanySettingsTable
   document_number_settings: TenantDocumentNumberSettingsTable
   gst_provider_settings: TenantGstProviderSettingsTable

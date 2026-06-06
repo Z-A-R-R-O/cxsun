@@ -74,11 +74,13 @@ export class PurchaseEntryRepository {
   constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
 
   async list(context: TenantRuntimeContext) {
+    const companyId = await this.defaultCompanyId(context)
     const accountingYearId = await this.defaultAccountingYearId(context)
     const rows = await this.database(context)
       .selectFrom('purchase_entries')
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', companyId)
       .where('accounting_year_id', '=', accountingYearId)
       .where('deleted_at', 'is', null)
       .orderBy('entry_date', 'desc')
@@ -351,6 +353,15 @@ export class PurchaseEntryRepository {
   }
 
   private async defaultCompanyId(context: TenantRuntimeContext) {
+    const defaultCompany = await this.database(context)
+      .selectFrom('default_companies')
+      .select('company_id')
+      .where('is_active', '=', true)
+      .orderBy('id', 'asc')
+      .executeTakeFirst()
+
+    if (defaultCompany?.company_id) return Number(defaultCompany.company_id)
+
     const company = await this.database(context)
       .selectFrom('companies')
       .select('id')

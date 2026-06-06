@@ -152,11 +152,11 @@ function DesignerField({ label, onChange, type = "text", value }: { label: strin
   )
 }
 
-export function DocumentSettingsPage({ session }: { session: AuthSession }) {
+export function DocumentSettingsPage({ exportSalesEnabled = true, session }: { exportSalesEnabled?: boolean; session: AuthSession }) {
   return (
     <DocumentNumberSettingsPage
       description="Configure automatic document numbers for billing vouchers, cash book, and bank book."
-      kinds={documentNumberKindOrder}
+      kinds={exportSalesEnabled ? documentNumberKindOrder : documentNumberKindOrder.filter((kind) => kind !== "exportSales")}
       session={session}
       technicalName="page.settings.document-settings"
       title="Document Settings"

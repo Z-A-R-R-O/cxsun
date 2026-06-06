@@ -149,6 +149,7 @@ export function AppSidebar({
   defaultCompanyContext,
   onLogout,
   onTenantChange,
+  hiddenPages = [],
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   activePage?: DashboardPage
@@ -162,6 +163,7 @@ export function AppSidebar({
   defaultCompanyContext?: DefaultCompanyContext | null
   onLogout?: () => void
   onTenantChange?: (tenantSlug: string) => void
+  hiddenPages?: DashboardPage[]
 }) {
   const selectedApp = getDashboardApp(activeApp)
   const defaultCompanyLogo = companyLogoSet(defaultCompanyContext, { fallback: false })
@@ -177,14 +179,15 @@ export function AppSidebar({
     ),
     [defaultCompanyContext?.companyName, defaultCompanyLogo.logoDarkUrl, defaultCompanyLogo.logoUrl],
   )
-  const tenantTopNav = selectedApp.topMenuItems?.map((item) => mapAppMenuItem(item)) ?? []
+  const hiddenPageSet = new Set(hiddenPages)
+  const tenantTopNav = selectedApp.topMenuItems?.filter((item) => !hiddenPageSet.has(item.page)).map((item) => mapAppMenuItem(item)) ?? []
   const tenantGroupNav = selectedApp.menuGroups.map((group, index) => ({
     title: group.title,
     url: "#",
     icon: group.icon,
     defaultOpen: index === 0 || group.items.some((item) => appMenuItemHasPage(item, activePage)),
-    items: group.items.map((item) => mapAppMenuItem(item)),
-  }))
+    items: group.items.filter((item) => !hiddenPageSet.has(item.page)).map((item) => mapAppMenuItem(item)),
+  })).filter((group) => group.items.length > 0)
   const tenantAppNav = [...tenantTopNav, ...tenantGroupNav]
   const sourceNav =
     dashboardMode === "super-admin"

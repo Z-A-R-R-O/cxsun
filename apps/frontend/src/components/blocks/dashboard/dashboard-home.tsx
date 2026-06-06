@@ -1,4 +1,4 @@
-import { Bug, Building2, ChevronRight, HandCoins, Headset, Network, RefreshCw, ReceiptIndianRupee, ReceiptText, ShieldCheck, ShoppingBag, UserRoundCheck } from "lucide-react"
+import { Bug, Building2, ChevronRight, HandCoins, Headset, Network, RefreshCw, ReceiptIndianRupee, ReceiptText, Send, ShieldCheck, ShoppingBag, UserRoundCheck } from "lucide-react"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
@@ -7,10 +7,12 @@ import type { DashboardMode, DashboardPage } from "src/components/blocks/sidebar
 import { cn } from "src/lib/utils"
 import { dashboardApps, type DashboardAppId, type DashboardAppMenuItem } from "src/components/blocks/dashboard/dashboard-apps"
 import type { AuthSession } from "src/features/auth/auth-client"
+import type { DefaultCompanyContext } from "src/features/company/company-client"
 import { listPaymentEntries, type PaymentEntry } from "src/features/payment/payment-client"
 import { listPurchaseEntries, type PurchaseEntry } from "src/features/purchase/purchase-client"
 import { listReceiptEntries, type ReceiptEntry } from "src/features/receipt/receipt-client"
 import { listSalesEntries, type SalesEntry } from "src/features/sales/sales-client"
+import { listExportSalesEntries, type ExportSalesEntry } from "src/features/export-sales/export-sales-client"
 
 const dashboardCopy = {
   "super-admin": {
@@ -64,10 +66,14 @@ export function DashboardHome({
   onChangeApp,
   onOpenBillingEntry,
   onNavigate,
+  defaultCompanyContext,
+  exportSalesEnabled = true,
   session,
 }: {
   activeApp?: DashboardAppId
   appEnabled?: Record<DashboardAppId, boolean>
+  defaultCompanyContext?: DefaultCompanyContext | null
+  exportSalesEnabled?: boolean
   mode: DashboardMode
   onChangeApp?: (appId: DashboardAppId) => void
   onOpenBillingEntry?: (entry: BillingRecentTransaction) => void
@@ -109,8 +115,10 @@ export function DashboardHome({
         </div>
       </div>
       {metrics.length ? <SectionCards metrics={metrics} /> : null}
-      {mode === "tenant" && activeApp === "billing" && session ? <BillingTransactionDashboard onNavigate={onNavigate} onOpenBillingEntry={onOpenBillingEntry} session={session} /> : null}
-      {mode === "tenant" ? <DeskShortcutCards appId={selectedApp.id} onNavigate={onNavigate} onChangeApp={onChangeApp} /> : null}
+      {mode === "tenant" && activeApp === "billing" && session ? (
+        <BillingTransactionDashboard defaultCompanyContext={defaultCompanyContext ?? null} exportSalesEnabled={exportSalesEnabled} onNavigate={onNavigate} onOpenBillingEntry={onOpenBillingEntry} session={session} />
+      ) : null}
+      {mode === "tenant" ? <DeskShortcutCards appId={selectedApp.id} exportSalesEnabled={exportSalesEnabled} onNavigate={onNavigate} onChangeApp={onChangeApp} /> : null}
       {cards.length ? (
         <div className="grid gap-4 px-4 lg:grid-cols-3 lg:px-6">
           {cards.map(({ body, Icon, title }) => (
@@ -148,33 +156,47 @@ function deskHeaderBackground(appId: DashboardAppId) {
 }
 
 function BillingTransactionDashboard({
+  defaultCompanyContext,
+  exportSalesEnabled,
   onNavigate,
   onOpenBillingEntry,
   session,
 }: {
+  defaultCompanyContext: DefaultCompanyContext | null
+  exportSalesEnabled: boolean
   onNavigate?: (page: DashboardPage) => void
   onOpenBillingEntry?: (entry: BillingRecentTransaction) => void
   session: AuthSession
 }) {
-  const salesQuery = useQuery({ queryKey: ["billing-overview-sales", session.selectedTenant.slug], queryFn: () => listSalesEntries(session) })
-  const purchaseQuery = useQuery({ queryKey: ["billing-overview-purchase", session.selectedTenant.slug], queryFn: () => listPurchaseEntries(session) })
-  const receiptQuery = useQuery({ queryKey: ["billing-overview-receipt", session.selectedTenant.slug], queryFn: () => listReceiptEntries(session) })
-  const paymentQuery = useQuery({ queryKey: ["billing-overview-payment", session.selectedTenant.slug], queryFn: () => listPaymentEntries(session) })
-  const isLoading = salesQuery.isLoading || purchaseQuery.isLoading || receiptQuery.isLoading || paymentQuery.isLoading
+  const contextKey = [
+    defaultCompanyContext?.companyId ?? "company",
+    defaultCompanyContext?.accountingYearId ?? "year",
+    defaultCompanyContext?.accountingYearStartDate ?? "start",
+    defaultCompanyContext?.accountingYearEndDate ?? "end",
+  ]
+  const salesQuery = useQuery({ queryKey: ["billing-overview-sales", session.selectedTenant.slug, ...contextKey], queryFn: () => listSalesEntries(session) })
+  const exportSalesQuery = useQuery({ enabled: exportSalesEnabled, queryKey: ["billing-overview-export-sales", session.selectedTenant.slug, ...contextKey], queryFn: () => listExportSalesEntries(session) })
+  const purchaseQuery = useQuery({ queryKey: ["billing-overview-purchase", session.selectedTenant.slug, ...contextKey], queryFn: () => listPurchaseEntries(session) })
+  const receiptQuery = useQuery({ queryKey: ["billing-overview-receipt", session.selectedTenant.slug, ...contextKey], queryFn: () => listReceiptEntries(session) })
+  const paymentQuery = useQuery({ queryKey: ["billing-overview-payment", session.selectedTenant.slug, ...contextKey], queryFn: () => listPaymentEntries(session) })
+  const isLoading = salesQuery.isLoading || exportSalesQuery.isLoading || purchaseQuery.isLoading || receiptQuery.isLoading || paymentQuery.isLoading
 
   const summary = useMemo(
     () => buildBillingSummary({
+      context: defaultCompanyContext,
+      exportSales: exportSalesEnabled ? exportSalesQuery.data ?? [] : [],
+      exportSalesEnabled,
       payments: paymentQuery.data ?? [],
       purchases: purchaseQuery.data ?? [],
       receipts: receiptQuery.data ?? [],
       sales: salesQuery.data ?? [],
     }),
-    [paymentQuery.data, purchaseQuery.data, receiptQuery.data, salesQuery.data],
+    [defaultCompanyContext, exportSalesEnabled, exportSalesQuery.data, paymentQuery.data, purchaseQuery.data, receiptQuery.data, salesQuery.data],
   )
 
   return (
     <div className="space-y-5 px-4 lg:px-6">
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className={cn("grid gap-5 md:grid-cols-2", exportSalesEnabled ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
         {summary.cards.map((card) => {
           const visual = billingCardVisual(card.label)
           const Icon = visual.icon
@@ -215,10 +237,11 @@ function BillingTransactionDashboard({
         <Card className="h-full rounded-md border-border/70 bg-card/95 shadow-sm">
           <CardHeader className="px-5 pb-4 pt-5">
             <CardTitle>Transaction Movement</CardTitle>
-            <p className="text-sm text-muted-foreground">Monthly sales, purchase, receipts, and payments for the current accounting year list.</p>
+            <p className="text-sm text-muted-foreground">Monthly sales, purchase, receipts, and payments for {summary.periodLabel}.</p>
           </CardHeader>
-          <CardContent className="px-5 pb-5">
+          <CardContent className="space-y-5 px-5 pb-5">
             <TransactionBars rows={summary.monthly} />
+            <PeriodSummaryTable exportSalesEnabled={exportSalesEnabled} rows={summary.monthly} />
           </CardContent>
         </Card>
 
@@ -236,7 +259,7 @@ function BillingTransactionDashboard({
   )
 }
 
-function DeskShortcutCards({ appId, onChangeApp, onNavigate }: { appId: DashboardAppId; onChangeApp?: (appId: DashboardAppId) => void; onNavigate?: (page: DashboardPage) => void }) {
+function DeskShortcutCards({ appId, exportSalesEnabled, onChangeApp, onNavigate }: { appId: DashboardAppId; exportSalesEnabled: boolean; onChangeApp?: (appId: DashboardAppId) => void; onNavigate?: (page: DashboardPage) => void }) {
   const app = dashboardApps.find((entry) => entry.id === appId) ?? dashboardApps[0]
 
   return (
@@ -253,7 +276,7 @@ function DeskShortcutCards({ appId, onChangeApp, onNavigate }: { appId: Dashboar
               <p className="text-sm leading-5 text-muted-foreground">{appGroupDescription(group.title)}</p>
             </CardHeader>
             <CardContent className="space-y-2">
-              {group.items.map((item) => (
+              {group.items.filter((item) => exportSalesEnabled || item.page !== "app-billing-export-sales").map((item) => (
                 <ShortcutButton key={item.title} item={item} onSelect={(page) => {
                   const nextApp = dashboardAppIdFromPage(page)
                   if (nextApp) {
@@ -338,6 +361,7 @@ function TransactionBars({ rows }: { rows: Array<{ month: string; payments: numb
 
 function billingCardVisual(label: string) {
   if (label === "Total Sales") return { accent: "bg-emerald-600", icon: ReceiptText }
+  if (label === "Export Sales") return { accent: "bg-violet-600", icon: Send }
   if (label === "Total Purchase") return { accent: "bg-sky-600", icon: ShoppingBag }
   if (label === "Receipts") return { accent: "bg-amber-500", icon: ReceiptIndianRupee }
   return { accent: "bg-rose-600", icon: HandCoins }
@@ -345,6 +369,7 @@ function billingCardVisual(label: string) {
 
 function billingCardPage(label: string): DashboardPage {
   if (label === "Total Sales") return "app-billing-sales"
+  if (label === "Export Sales") return "app-billing-export-sales"
   if (label === "Total Purchase") return "app-billing-purchase"
   if (label === "Receipts") return "app-billing-receipts"
   return "app-billing-payments"
@@ -379,6 +404,34 @@ function RecentTransactions({ onOpen, rows }: { onOpen?: (entry: BillingRecentTr
           </div>
         </button>
       ))}
+    </div>
+  )
+}
+
+function PeriodSummaryTable({ exportSalesEnabled, rows }: { exportSalesEnabled: boolean; rows: BillingMonthlySummary[] }) {
+  const gridClassName = exportSalesEnabled ? "grid-cols-[1fr_repeat(5,minmax(0,1.1fr))]" : "grid-cols-[1fr_repeat(4,minmax(0,1.1fr))]"
+  return (
+    <div className="overflow-hidden rounded-md border border-border/70">
+      <div className={cn("grid bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground", gridClassName)}>
+        <span>Month</span>
+        <span className="text-right">Sales</span>
+        {exportSalesEnabled ? <span className="text-right">Export Sales</span> : null}
+        <span className="text-right">Purchase</span>
+        <span className="text-right">Receipts</span>
+        <span className="text-right">Payments</span>
+      </div>
+      <div className="max-h-48 overflow-auto">
+        {rows.map((row) => (
+          <div key={row.month} className={cn("grid border-t border-border/70 px-3 py-2 text-xs", gridClassName)}>
+            <span className="font-medium">{row.month}</span>
+            <span className="text-right tabular-nums">{formatCompactCurrency(row.sales)}</span>
+            {exportSalesEnabled ? <span className="text-right tabular-nums">{formatCompactCurrency(row.exportSales)}</span> : null}
+            <span className="text-right tabular-nums">{formatCompactCurrency(row.purchase)}</span>
+            <span className="text-right tabular-nums">{formatCompactCurrency(row.receipts)}</span>
+            <span className="text-right tabular-nums">{formatCompactCurrency(row.payments)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -432,9 +485,10 @@ function appGroupDescription(title: string) {
   return descriptions[title] ?? "Workspace menu shortcuts."
 }
 
-const financialYearMonthLabels = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-
 interface BillingSummaryInput {
+  context: DefaultCompanyContext | null
+  exportSales: ExportSalesEntry[]
+  exportSalesEnabled: boolean
   payments: PaymentEntry[]
   purchases: PurchaseEntry[]
   receipts: ReceiptEntry[]
@@ -450,32 +504,50 @@ export interface BillingRecentTransaction {
   type: "payment" | "purchase" | "receipt" | "sales"
 }
 
+interface BillingMonthlySummary {
+  exportSales: number
+  month: string
+  payments: number
+  purchase: number
+  receipts: number
+  sales: number
+}
+
 function buildBillingSummary(input: BillingSummaryInput) {
-  const now = new Date()
-  const financialYear = financialYearRange(now)
-  const monthly = financialYearMonthLabels.map((month) => ({ month, sales: 0, purchase: 0, receipts: 0, payments: 0 }))
-  const sales = summarizeTransactions(input.sales, (entry) => entry.invoice_date, (entry) => entry.grand_total, financialYear, (entry) => {
+  const financialYear = financialYearRange(input.context)
+  const scopedSales = filterByContext(input.sales, input.context)
+  const scopedExportSales = filterByContext(input.exportSales, input.context)
+  const scopedPurchases = filterByContext(input.purchases, input.context)
+  const scopedReceipts = filterByContext(input.receipts, input.context)
+  const scopedPayments = filterByContext(input.payments, input.context)
+  const monthly: BillingMonthlySummary[] = financialYear.months.map((month) => ({ month: month.label, sales: 0, exportSales: 0, purchase: 0, receipts: 0, payments: 0 }))
+  const sales = summarizeTransactions(scopedSales, (entry) => entry.invoice_date, (entry) => entry.grand_total, financialYear, (entry) => {
     addMonthly(monthly, entry.invoice_date, "sales", entry.grand_total, financialYear)
   })
-  const purchase = summarizeTransactions(input.purchases, (entry) => entry.entry_date, (entry) => entry.grand_total, financialYear, (entry) => {
+  const exportSales = summarizeTransactions(scopedExportSales, (entry) => entry.invoice_date, (entry) => entry.grand_total, financialYear, (entry) => {
+    addMonthly(monthly, entry.invoice_date, "exportSales", entry.grand_total, financialYear)
+  })
+  const purchase = summarizeTransactions(scopedPurchases, (entry) => entry.entry_date, (entry) => entry.grand_total, financialYear, (entry) => {
     addMonthly(monthly, entry.entry_date, "purchase", entry.grand_total, financialYear)
   })
-  const receipts = summarizeTransactions(input.receipts, (entry) => entry.receipt_date, (entry) => entry.net_amount, financialYear, (entry) => {
+  const receipts = summarizeTransactions(scopedReceipts, (entry) => entry.receipt_date, (entry) => entry.net_amount, financialYear, (entry) => {
     addMonthly(monthly, entry.receipt_date, "receipts", entry.net_amount, financialYear)
   })
-  const payments = summarizeTransactions(input.payments, (entry) => entry.payment_date, (entry) => entry.net_amount, financialYear, (entry) => {
+  const payments = summarizeTransactions(scopedPayments, (entry) => entry.payment_date, (entry) => entry.net_amount, financialYear, (entry) => {
     addMonthly(monthly, entry.payment_date, "payments", entry.net_amount, financialYear)
   })
 
   return {
     cards: [
       { label: "Total Sales", ...sales },
+      ...(input.exportSalesEnabled ? [{ label: "Export Sales", ...exportSales }] : []),
       { label: "Total Purchase", ...purchase },
       { label: "Receipts", ...receipts },
       { label: "Payments", ...payments },
     ],
     monthly,
-    recent: recentBillingTransactions(input, financialYear),
+    periodLabel: input.context?.accountingYearName || `${formatDisplayDate(financialYear.start.toISOString())} - ${formatDisplayDate(addDays(financialYear.end, -1).toISOString())}`,
+    recent: recentBillingTransactions({ context: input.context, exportSales: scopedExportSales, exportSalesEnabled: input.exportSalesEnabled, payments: scopedPayments, purchases: scopedPurchases, receipts: scopedReceipts, sales: scopedSales }, financialYear),
   }
 }
 
@@ -544,34 +616,59 @@ function summarizeTransactions<T>(
 }
 
 function addMonthly(
-  rows: Array<{ month: string; payments: number; purchase: number; receipts: number; sales: number }>,
+  rows: BillingMonthlySummary[],
   dateValue: string | null | undefined,
-  key: "payments" | "purchase" | "receipts" | "sales",
+  key: "exportSales" | "payments" | "purchase" | "receipts" | "sales",
   value: number | null | undefined,
   financialYear: FinancialYearRange,
 ) {
   const date = parseEntryDate(dateValue)
   if (!isInFinancialYear(date, financialYear)) return
-  rows[financialYearMonthIndex(date)][key] += numeric(value)
+  const index = financialYearMonthIndex(date, financialYear)
+  if (index >= 0) rows[index][key] += numeric(value)
 }
 
 interface FinancialYearRange {
   end: Date
+  months: Array<{ label: string; month: number; year: number }>
   now: Date
   start: Date
 }
 
-function financialYearRange(now: Date): FinancialYearRange {
+function financialYearRange(context: DefaultCompanyContext | null): FinancialYearRange {
+  const configuredStart = parseEntryDate(context?.accountingYearStartDate)
+  const configuredEnd = parseEntryDate(context?.accountingYearEndDate)
+  if (configuredStart && configuredEnd && configuredEnd >= configuredStart) {
+    const start = startOfDay(configuredStart)
+    const end = addDays(startOfDay(configuredEnd), 1)
+    return { end, months: buildMonthSlots(start, end), now: new Date(), start }
+  }
+
+  const now = new Date()
   const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+  const start = new Date(startYear, 3, 1)
+  const end = new Date(startYear + 1, 3, 1)
   return {
-    end: new Date(startYear + 1, 3, 1),
+    end,
+    months: buildMonthSlots(start, end),
     now,
-    start: new Date(startYear, 3, 1),
+    start,
   }
 }
 
-function financialYearMonthIndex(date: Date) {
-  return (date.getMonth() + 9) % 12
+function buildMonthSlots(start: Date, end: Date) {
+  const slots: Array<{ label: string; month: number; year: number }> = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const stop = new Date(end.getFullYear(), end.getMonth(), 1)
+  while (cursor < stop && slots.length < 24) {
+    slots.push({ label: cursor.toLocaleString("en-IN", { month: "short" }), month: cursor.getMonth(), year: cursor.getFullYear() })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return slots.length ? slots : [{ label: "Apr", month: 3, year: start.getFullYear() }]
+}
+
+function financialYearMonthIndex(date: Date, financialYear: FinancialYearRange) {
+  return financialYear.months.findIndex((month) => month.month === date.getMonth() && month.year === date.getFullYear())
 }
 
 function isInFinancialYear(date: Date | null, financialYear: FinancialYearRange): date is Date {
@@ -584,6 +681,21 @@ function parseEntryDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function startOfDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate())
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value)
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function filterByContext<T extends { accounting_year_id: number; company_id: number }>(entries: T[], context: DefaultCompanyContext | null) {
+  if (!context) return entries
+  return entries.filter((entry) => entry.company_id === context.companyId && entry.accounting_year_id === context.accountingYearId)
+}
+
 function numeric(value: number | null | undefined) {
   const numberValue = Number(value ?? 0)
   return Number.isFinite(numberValue) ? numberValue : 0
@@ -593,6 +705,15 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
     currency: "INR",
     maximumFractionDigits: 2,
+    style: "currency",
+  }).format(value)
+}
+
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    currency: "INR",
+    maximumFractionDigits: 0,
+    notation: Math.abs(value) >= 100000 ? "compact" : "standard",
     style: "currency",
   }).format(value)
 }

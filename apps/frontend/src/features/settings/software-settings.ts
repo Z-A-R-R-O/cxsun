@@ -113,6 +113,7 @@ export const defaultSoftwareSettingsState: SoftwareSettingsState = {
   ],
   features: [
     { id: "feature-billing", label: "Billing", description: "Sales, purchase, receipt, payment, and report modules for simple billing.", scope: "industry", enabled: true },
+    { id: "feature-export-sales", label: "Export Sales", description: "Shows Export Sales entries, totals, shortcuts, and document settings across the Billing desk.", scope: "client", enabled: true },
   ],
 }
 

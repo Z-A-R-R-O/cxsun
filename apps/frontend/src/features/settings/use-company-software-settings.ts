@@ -1,7 +1,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
 import { toast } from "sonner"
 import type { AuthSession } from "src/features/auth/auth-client"
-import { listCompanies, type CompanyRecord } from "src/features/company/company-client"
+import { getDefaultCompanyContext, listCompanies, type CompanyRecord } from "src/features/company/company-client"
 import { defaultSoftwareSettingsState, type SoftwareSettingsState } from "./software-settings"
 import {
   loadCompanySoftwareSettings,
@@ -19,9 +19,9 @@ export function useCompanySoftwareSettings(session: AuthSession) {
 
   useEffect(() => {
     const controller = new AbortController()
-    void listCompanies(session)
-      .then((companies) => {
-        const company = companies.find((item) => item.isPrimary) ?? companies[0] ?? null
+    void Promise.all([listCompanies(session), getDefaultCompanyContext(session)])
+      .then(([companies, defaultContext]) => {
+        const company = companies.find((item) => item.id === defaultContext?.companyId) ?? companies.find((item) => item.isPrimary) ?? companies[0] ?? null
         setCompanyId(company?.id ?? null)
         setCompanyName(company?.name ?? "Active company")
         setCompany(company)
@@ -47,6 +47,7 @@ export function useCompanySoftwareSettings(session: AuthSession) {
     saveCompanySoftwareSettings(companyId, nextState)
     const saved = await saveCompanySoftwareSettingsToServer(session, companyId, nextState)
     setState(saved)
+    window.dispatchEvent(new CustomEvent("cxsun:software-settings-saved", { detail: { companyId } }))
     toast.success("Company settings saved", { description: `${companyName} settings are now shared across devices.` })
   }
 

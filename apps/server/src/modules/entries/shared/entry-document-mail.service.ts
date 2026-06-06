@@ -7,7 +7,7 @@ import { MailRepository } from '../../mail/mail.repository.js'
 import { removeTemporaryMailAttachments, storeTemporaryMailAttachment } from '../../mail/mail-temporary-storage.js'
 import { PrintHtmlPdfService } from './print-html-pdf.service.js'
 
-type EntryKind = 'payment' | 'purchase' | 'receipt' | 'sales'
+type EntryKind = 'exportSales' | 'payment' | 'purchase' | 'receipt' | 'sales'
 type EntryRecord = Record<string, unknown>
 
 @Injectable()
@@ -78,6 +78,7 @@ function entryDetails(kind: EntryKind, entry: EntryRecord) {
     purchase: { date: 'entry_date', document: 'entry_no', party: 'supplier_name', title: 'Purchase Entry' },
     receipt: { date: 'receipt_date', document: 'receipt_no', party: 'party_name', title: 'Receipt Voucher' },
     sales: { date: 'invoice_date', document: 'invoice_no', party: 'customer_name', title: 'Tax Invoice' },
+    exportSales: { date: 'invoice_date', document: 'invoice_no', party: 'customer_name', title: 'Export Tax Invoice' },
   } as const
   const definition = definitions[kind]
   return {

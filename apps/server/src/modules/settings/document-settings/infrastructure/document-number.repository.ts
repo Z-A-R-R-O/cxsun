@@ -190,6 +190,16 @@ export class DocumentNumberRepository {
       return rows.map((row: Record<string, unknown>) => String(row.invoice_no ?? ''))
     }
 
+    if (kind === 'exportSales') {
+      const rows = await this.database(context)
+        .selectFrom('export_sales_entries')
+        .select('invoice_no')
+        .where('company_id', '=', companyId)
+        .where('accounting_year_id', '=', accountingYearId)
+        .execute()
+      return rows.map((row: Record<string, unknown>) => String(row.invoice_no ?? ''))
+    }
+
     if (kind === 'purchase') {
       const rows = await this.database(context)
         .selectFrom('purchase_entries')
@@ -342,7 +352,7 @@ function normalizeKind(value: string): DocumentEntryKind {
 }
 
 function defaultPrefix(kind: DocumentEntryKind) {
-  return { bankBook: 'BB', cashBook: 'CB', deliveryNote: 'DNT', payment: 'PAY', purchase: 'PUR', purchaseReceipt: 'PRC', receipt: 'REC', sales: 'SAL' }[kind]
+  return { bankBook: 'BB', cashBook: 'CB', deliveryNote: 'DNT', exportSales: 'EXP', payment: 'PAY', purchase: 'PUR', purchaseReceipt: 'PRC', receipt: 'REC', sales: 'SAL' }[kind]
 }
 
 function cleanPrefix(value: string | null | undefined) {

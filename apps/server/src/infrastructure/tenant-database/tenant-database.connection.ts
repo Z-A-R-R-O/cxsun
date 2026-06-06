@@ -9,6 +9,7 @@ import { nowIso } from '../database/database-module.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
 import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
+import { migrateExportSalesEntryTables } from '../../modules/entries/export-sales/index.js'
 import { migratePurchaseEntryTables } from '../../modules/entries/purchase/index.js'
 import { migratePurchaseReceiptTables } from '../../modules/stock/inward/purchase-receipt/index.js'
 import { migrateDeliveryNoteTables } from '../../modules/stock/outward/delivery-note/index.js'
@@ -118,6 +119,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await createContactCommunicationTables(database)
   await migrateCommonModuleTables(database)
   await migrateSalesEntryTables(database)
+  await migrateExportSalesEntryTables(database)
   await migratePurchaseEntryTables(database)
   await migratePurchaseReceiptTables(database)
   await migrateDeliveryNoteTables(database)

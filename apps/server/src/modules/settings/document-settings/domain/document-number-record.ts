@@ -1,4 +1,4 @@
-export type DocumentEntryKind = 'bankBook' | 'cashBook' | 'deliveryNote' | 'payment' | 'purchase' | 'purchaseReceipt' | 'receipt' | 'sales'
+export type DocumentEntryKind = 'bankBook' | 'cashBook' | 'deliveryNote' | 'exportSales' | 'payment' | 'purchase' | 'purchaseReceipt' | 'receipt' | 'sales'
 
 export interface DocumentNumberContext {
   companyId?: string
@@ -36,4 +36,4 @@ export interface DocumentNumberSettingInput {
   autoEnabled?: boolean | number | null
 }
 
-export const documentEntryKinds = ['sales', 'purchase', 'purchaseReceipt', 'deliveryNote', 'payment', 'receipt', 'cashBook', 'bankBook'] as const
+export const documentEntryKinds = ['sales', 'exportSales', 'purchase', 'purchaseReceipt', 'deliveryNote', 'payment', 'receipt', 'cashBook', 'bankBook'] as const

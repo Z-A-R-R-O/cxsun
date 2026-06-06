@@ -93,11 +93,13 @@ export class AccountsRepository {
 
   async listEntries(context: TenantRuntimeContext, bookType: AccountBookType) {
     await this.ensureDefaultLedgers(context)
+    const companyId = await this.defaultCompanyId(context)
     const accountingYearId = await this.defaultAccountingYearId(context)
     const rows = await this.database(context)
       .selectFrom(this.bookTable(bookType))
       .selectAll()
       .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', companyId)
       .where('accounting_year_id', '=', accountingYearId)
       .where('deleted_at', 'is', null)
       .orderBy('voucher_date', 'desc')

@@ -135,7 +135,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-emerald-600 text-white",
     icon: ReceiptText,
     menuGroups: [
-      { title: "Entries", icon: FileText, items: [item("billing", "sales", "Sales", FileText), item("billing", "purchase", "Purchase", ReceiptText), item("billing", "receipts", "Receipts", ReceiptText), item("billing", "payments", "Payments", CreditCard)] },
+      { title: "Entries", icon: FileText, items: [item("billing", "sales", "Sales", FileText), item("billing", "export-sales", "Export Sales", Send), item("billing", "purchase", "Purchase", ReceiptText), item("billing", "receipts", "Receipts", ReceiptText), item("billing", "payments", "Payments", CreditCard)] },
       { title: "Accounts", icon: Landmark, items: [item("billing", "cash-book", "Cash Book", Banknote), item("billing", "bank-book", "Bank Book", Landmark)] },
       { title: "Report", icon: BarChart3, items: [item("billing", "customer-statement", "Customer Statement", BarChart3), item("billing", "supplier-statement", "Supplier Statement", BarChart3), item("billing", "gst-report", "GST Report", BarChart3)] },
       { title: "Compliance", icon: Send, items: [item("billing", "gst-production", "GST API", Send)] },

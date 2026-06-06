@@ -27,6 +27,8 @@ import { Card, CardContent, CardHeader, CardTitle } from 'src/components/ui/card
 import { RadioGroup, RadioGroupItem } from 'src/components/ui/radio-group'
 import { GlobalLoader } from 'src/components/blocks/loading/global-loader'
 import { cn } from 'src/lib/utils'
+import { isSoftwareSettingEnabled } from 'src/features/settings/software-settings'
+import { loadCompanySoftwareSettingsFromServer } from 'src/features/settings/software-settings-service'
 
 const LoginForm = lazy(() =>
   import('../auth/login-form').then((module) => ({ default: module.LoginForm })),
@@ -81,6 +83,9 @@ const ProductPage = lazy(() =>
 )
 const SalesPage = lazy(() =>
   import('src/features/sales/sales-page').then((module) => ({ default: module.SalesPage })),
+)
+const ExportSalesPage = lazy(() =>
+  import('src/features/export-sales/export-sales-page').then((module) => ({ default: module.ExportSalesPage })),
 )
 const CashBookPage = lazy(() =>
   import('src/features/accounts/accounts-book-page').then((module) => ({ default: module.CashBookPage })),
@@ -234,6 +239,7 @@ function prefetchAppModules(appId: DashboardAppId) {
 
     if (appId === "billing") {
       void import('src/features/sales/sales-page')
+      void import('src/features/export-sales/export-sales-page')
       void import('src/features/purchase/purchase-page')
       void import('src/features/receipt/receipt-page')
       void import('src/features/payment/payment-page')
@@ -346,6 +352,20 @@ export function DashboardView({
     queryKey: ["default-company-context", session?.selectedTenant.slug],
     queryFn: () => getDefaultCompanyContext(session as AuthSession),
   })
+  const softwareSettingsQuery = useQuery({
+    enabled: Boolean(session && !needsLogin && mode === "tenant" && defaultCompanyContextQuery.data?.companyId),
+    queryKey: ["company-software-settings", session?.selectedTenant.slug, defaultCompanyContextQuery.data?.companyId],
+    queryFn: () => loadCompanySoftwareSettingsFromServer(session as AuthSession, defaultCompanyContextQuery.data?.companyId),
+  })
+  const exportSalesEnabled = softwareSettingsQuery.data ? isSoftwareSettingEnabled(softwareSettingsQuery.data, "feature-export-sales") : true
+
+  useEffect(() => {
+    function refreshSoftwareSettings() {
+      void queryClient.invalidateQueries({ queryKey: ["company-software-settings", session?.selectedTenant.slug] })
+    }
+    window.addEventListener("cxsun:software-settings-saved", refreshSoftwareSettings)
+    return () => window.removeEventListener("cxsun:software-settings-saved", refreshSoftwareSettings)
+  }, [queryClient, session?.selectedTenant.slug])
   const landingMutation = useMutation({
     mutationFn: (appId: DashboardAppId) => {
       if (!session || !defaultCompanyContextQuery.data) {
@@ -456,7 +476,8 @@ export function DashboardView({
 
   const accessiblePage = pageAccess[mode].includes(activePage) ? activePage : "overview"
   const activePageApp = dashboardAppFromPage(accessiblePage)
-  const visiblePage = activePageApp && !enabledApps[activePageApp] ? "overview" : accessiblePage
+  const featureVisiblePage = !exportSalesEnabled && accessiblePage === "app-billing-export-sales" ? "app-billing-overview" : accessiblePage
+  const visiblePage = activePageApp && !enabledApps[activePageApp] ? "overview" : featureVisiblePage
   const breadcrumbLabel = getBreadcrumbLabel({ appId: activeApp, mode, page: visiblePage })
   const moduleKey = pageModuleKey(visiblePage)
   const overviewApp = dashboardOverviewAppFromPage(visiblePage)
@@ -524,6 +545,7 @@ export function DashboardView({
         selectedTenant={session.selectedTenant.slug}
         tenants={session.tenants}
         user={session.user}
+        hiddenPages={exportSalesEnabled ? [] : ["app-billing-export-sales"]}
       />
       <SidebarInset>
         <SiteHeader
@@ -551,6 +573,8 @@ export function DashboardView({
             <DashboardHome
               activeApp={overviewApp}
               appEnabled={enabledApps}
+              defaultCompanyContext={defaultCompanyContextQuery.data ?? null}
+              exportSalesEnabled={exportSalesEnabled}
               mode={mode}
               onChangeApp={changeApp}
               onOpenBillingEntry={openBillingEntry}
@@ -590,6 +614,8 @@ export function DashboardView({
             <SupportPage type="tenant-roles" />
           ) : visiblePage === "app-billing-sales" ? (
             <SalesPage initialEntryUuid={focusedBillingEntry?.type === "sales" ? focusedBillingEntry.id : null} session={session} />
+          ) : visiblePage === "app-billing-export-sales" && exportSalesEnabled ? (
+            <ExportSalesPage session={session} />
           ) : visiblePage === "app-accounts-cash-book" || visiblePage === "app-billing-cash-book" ? (
             <CashBookPage session={session} />
           ) : visiblePage === "app-accounts-bank-book" || visiblePage === "app-billing-bank-book" ? (
@@ -637,7 +663,7 @@ export function DashboardView({
           ) : visiblePage === "app-billing-settings" ? (
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (
-            <DocumentSettingsPage session={session} />
+            <DocumentSettingsPage exportSalesEnabled={exportSalesEnabled} session={session} />
           ) : visiblePage === "app-billing-gst-production" ? (
             <GstSandboxPage allowEnvironmentSelect preferredEnvironment="production" session={session} />
           ) : visiblePage === "app-inventory-document-settings" ? (
@@ -656,6 +682,8 @@ export function DashboardView({
             <DashboardHome
               activeApp={activeApp}
               appEnabled={enabledApps}
+              defaultCompanyContext={defaultCompanyContextQuery.data ?? null}
+              exportSalesEnabled={exportSalesEnabled}
               mode={mode}
               onChangeApp={changeApp}
               onOpenBillingEntry={openBillingEntry}
