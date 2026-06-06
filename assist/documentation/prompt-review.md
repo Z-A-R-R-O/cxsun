@@ -2108,3 +2108,36 @@ in sales setting add positioning for logo left and top as input
 ## 2026-06-06 - Changelog and version update
 
 create log in changelog with version update
+
+## 2026-06-06 - Sales print particulars attributes
+
+add colour and size to particulars in print and save space if colour and size present add this as 
+
+ITEM NAME + DESCRIPTION +
+- Colour : Red - Size : XL
+
+in single particulars
+
+## 2026-06-06 - Expand Sales print particulars
+
+in second line colour is hiding inside ... expand and complete this to end of cell
+
+## 2026-06-06 - Sales print description clamp
+
+make  two-line clamp  for description not to exceed width , keep item name full , description line clamp and other full
+
+## 2026-06-06 - Continuous Sales print particulars
+
+make this in continue text item name + desc + colour + size continue growing
+
+## 2026-06-06 - Hide placeholder Sales print attributes
+
+if record has id 1 or hypen - in colour and size leave empty do not add Colour : - or Size : -
+
+## 2026-06-06 - Hide empty Sales print compliance block
+
+in irn is auto creating or showing UUID of sales remove this and make this hide when there is no irn , ack or eway
+
+## 2026-06-06 - Changelog update
+
+create log in changelog

@@ -75,7 +75,8 @@ export function SalesInvoiceDocument({
   const companyName = printableText(company?.legalName) || printableText(company?.name) || "CXSun Tenant Company"
   const companyBank = company ? primaryBankAccount(company) : null
   const termsLines = salesPrintTerms(customTerms || record.terms)
-  const hasIrn = Boolean(salesDocumentValue(record, "irn"))
+  const hasIrn = Boolean(salesComplianceValue(record, "irn"))
+  const hasComplianceDetails = hasSalesComplianceDetails(record)
   const eInvoiceQrValue = useMemo(() => buildSalesEinvoiceQrPayload(record, company ?? null, totals), [company, record, totals])
   const hasEInvoiceQr = hasIrn && Boolean(eInvoiceQrValue)
 
@@ -105,16 +106,18 @@ export function SalesInvoiceDocument({
       <table className={tableClass}>
         <tbody>
           <tr>
-            <td className={`${baseCell} border-t border-gray-400 p-[5px]`}>
+            <td className={`${baseCell} border-t border-gray-400 p-[5px] ${hasComplianceDetails ? "" : "border-r-0"}`} colSpan={hasComplianceDetails ? 1 : 2}>
               <BillDetailsBlock lines={[
                 { label: "Invoice No:", value: record.invoice_no, strong: true },
                 { label: "Date:", value: formatDate(record.invoice_date), strong: true },
                 { label: "Work Order:", value: record.reference_no ?? "" },
               ]} />
             </td>
-            <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>
-              <IrnDetailsBlock record={record} />
-            </td>
+            {hasComplianceDetails ? (
+              <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>
+                <IrnDetailsBlock record={record} />
+              </td>
+            ) : null}
           </tr>
           <tr>
             <td className={`${baseCell} h-[74px] w-1/2 border-y border-gray-400 px-2.5 pb-2 pt-1 leading-tight`}>
@@ -159,7 +162,7 @@ export function SalesInvoiceDocument({
             ))}
           </tr>
           {itemLinePlan.rows.map((row) => row.kind === "item"
-            ? <SalesPrintItemRow key={`item-${row.index}`} columns={itemColumns} index={row.index} isCgstSgst={isCgstSgst} item={row.item} />
+            ? <SalesPrintItemRow key={`item-${row.index}`} columns={itemColumns} index={row.index} isCgstSgst={isCgstSgst} item={row.item} showColour={showColour} showSize={showSize} />
             : <BlankSalesPrintItemRow key={`blank-${row.index}`} columns={itemColumns} />)}
           <tr>
             {itemColumns.map((column, index) => (
@@ -225,16 +228,14 @@ export function SalesInvoiceDocument({
   )
 }
 
-type PrintItemColumnKey = "cgst" | "colour" | "gstPercent" | "hsn" | "igst" | "poDc" | "product" | "quantity" | "rate" | "serial" | "sgst" | "size" | "taxable" | "total"
+type PrintItemColumnKey = "cgst" | "gstPercent" | "hsn" | "igst" | "poDc" | "product" | "quantity" | "rate" | "serial" | "sgst" | "taxable" | "total"
 
 function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; showDc: boolean; showPo: boolean; showSize: boolean }) {
   const showPoDc = settings.showPo || settings.showDc
   return [
     { key: "serial", label: "S.no", widthClass: "w-[28px] text-[8px]" },
-    { key: "product", label: "Particulars", widthClass: settings.showColour || settings.showSize || showPoDc ? "w-[120px]" : "w-[200px]" },
+    { key: "product", label: "Particulars", widthClass: showPoDc ? "w-[142px]" : "w-[200px]" },
     { key: "hsn", label: "HSN", widthClass: "w-[48px]" },
-    ...(settings.showColour ? [{ key: "colour" as const, label: "Colour", widthClass: "w-[54px]" }] : []),
-    ...(settings.showSize ? [{ key: "size" as const, label: "Size", widthClass: "w-[42px]" }] : []),
     ...(showPoDc ? [{ key: "poDc" as const, label: [settings.showPo ? "PO" : null, settings.showDc ? "DC" : null].filter(Boolean).join(" / "), widthClass: "w-[58px]" }] : []),
     { key: "quantity", label: "Qty", widthClass: "w-[42px]" },
     { key: "rate", label: "Rate", widthClass: "w-[58px]" },
@@ -245,29 +246,34 @@ function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; 
   ] satisfies Array<{ key: PrintItemColumnKey; label: string; widthClass: string }>
 }
 
-function SalesPrintItemRow({ columns, index, isCgstSgst, item }: { columns: ReturnType<typeof printItemColumns>; index: number; isCgstSgst: boolean; item: SalesEntryItem }) {
+function SalesPrintItemRow({ columns, index, isCgstSgst, item, showColour, showSize }: { columns: ReturnType<typeof printItemColumns>; index: number; isCgstSgst: boolean; item: SalesEntryItem; showColour: boolean; showSize: boolean }) {
   const taxable = itemTaxable(item)
   const gst = itemTax(item)
   const split = splitTax(gst)
   const total = item.line_total ?? roundMoney(taxable + gst)
+  const colour = printableAttribute(item.colour)
+  const size = printableAttribute(item.size)
+  const attributes = [
+    showColour && colour ? `Colour : ${colour}` : "",
+    showSize && size ? `Size : ${size}` : "",
+  ].filter(Boolean).join(" - ")
   const cells: Record<PrintItemColumnKey, ReactNode> = {
     cgst: money(split.first),
-    colour: item.colour ?? "",
     gstPercent: `${Number(item.tax_rate || 0)}%`,
     hsn: item.hsn_code ?? "",
     igst: money(gst),
     poDc: [item.po_no, item.dc_no].filter(Boolean).join(" / "),
     product: (
-      <div className="overflow-hidden leading-[1.18] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+      <div className="whitespace-normal break-words leading-[1.18]">
         <span className="font-bold">{item.product_name}</span>
-        {item.description ? <><br /><span className="inline-block pt-px">{item.description}</span></> : null}
+        {item.description ? <span> - {item.description}</span> : null}
+        {attributes ? <span> - {attributes}</span> : null}
       </div>
     ),
     quantity: item.quantity,
     rate: money(item.rate),
     serial: index + 1,
     sgst: money(isCgstSgst ? split.second : 0),
-    size: item.size ?? "",
     taxable: money(taxable),
     total: money(total),
   }
@@ -335,26 +341,32 @@ function EInvoiceQrData({ value }: { value: string }) {
 }
 
 function IrnDetailsBlock({ record }: { record: SalesEntry }) {
-  const ewayBillNo = salesDocumentValue(record, "eway_bill_no")
+  const irn = salesComplianceValue(record, "irn")
+  const ackNo = salesComplianceValue(record, "ack_no")
+  const ackDate = salesComplianceValue(record, "ack_date")
+  const ewayBillNo = salesComplianceValue(record, "eway_bill_no")
+  const ewayBillDate = salesComplianceValue(record, "eway_bill_date")
   return (
     <div className="grid gap-1">
-      <div className="grid grid-cols-[34px_1fr] gap-1">
-        <span className="font-bold">IRN :</span>
-        <span className="break-all font-bold leading-tight">{salesDocumentValue(record, "irn") || record.uuid}</span>
-      </div>
+      {irn ? (
+        <div className="grid grid-cols-[34px_1fr] gap-1">
+          <span className="font-bold">IRN :</span>
+          <span className="break-all font-bold leading-tight">{irn}</span>
+        </div>
+      ) : null}
       <div className="grid gap-y-0.5">
-        <InlinePrintPairRow
+        {ackNo || ackDate ? <InlinePrintPairRow
           leftLabel="Ack No.:"
-          leftValue={salesDocumentValue(record, "ack_no")}
+          leftValue={ackNo}
           rightLabel="Ack Date:"
-          rightValue={formatDate(salesDocumentValue(record, "ack_date"))}
-        />
-        <InlinePrintPairRow
+          rightValue={ackDate ? formatDate(ackDate) : ""}
+        /> : null}
+        {ewayBillNo || ewayBillDate ? <InlinePrintPairRow
           leftLabel="E-Way Bill No.:"
           leftValue={ewayBillNo}
           rightLabel="Date:"
-          rightValue={formatDate(salesDocumentValue(record, "eway_bill_date"))}
-        />
+          rightValue={ewayBillDate ? formatDate(ewayBillDate) : ""}
+        /> : null}
       </div>
       {ewayBillNo ? <EwayBarcode value={ewayBillNo} /> : null}
     </div>
@@ -559,6 +571,20 @@ function parsePartyAddress(address: string | null | undefined) {
 
 function printableText(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
+}
+
+function hasSalesComplianceDetails(record: SalesEntry) {
+  return ["irn", "ack_no", "ack_date", "eway_bill_no", "eway_bill_date"].some((key) => Boolean(salesComplianceValue(record, key)))
+}
+
+function salesComplianceValue(record: SalesEntry, key: string) {
+  const value = salesDocumentValue(record, key)
+  return value === "-" ? "" : value
+}
+
+function printableAttribute(value: unknown) {
+  const text = printableText(value)
+  return text === "1" || text === "-" ? "" : text
 }
 
 function formatDate(value?: string | null) {

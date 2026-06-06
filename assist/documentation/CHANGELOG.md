@@ -19,6 +19,9 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Synchronized company industry assignments with default-company context and seeded tenant company records.
 - Added the missing Rate column to Sales invoice print, including fitted column widths and aligned totals.
 - Added configurable logo left and top positions to the Sales Settings letterhead designer and shared print renderer.
+- Merged Sales item description, colour, and size into one continuously wrapping Particulars cell, reclaiming space from separate Colour and Size columns.
+- Hidden placeholder Colour and Size values such as `1` and `-` from Sales print Particulars.
+- Removed the Sales UUID fallback from printed IRN details and hid empty IRN, acknowledgement, and E-way compliance sections.
 - Updated deployment documentation with the latest tenant domain and Nginx configuration examples.
 
 ## v-1.0.83
