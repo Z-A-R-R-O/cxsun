@@ -1,5 +1,14 @@
 # Work Log
 
+## 2026-06-07
+
+- Added the Tally integration desk with strict handshake validation against the selected Tally company.
+- Added Tally Master Sync pages for contacts and products with filtered lists, status badges, selectable rows, and selected-only sync actions.
+- Added reusable Tally sync status tracking for sales and purchase entry readiness checks.
+- Added backend sync link persistence, direct Tally ledger/product master export, and queue-backed entry export preparation.
+- Fixed Tally XML import and parser handling so contact ledgers sync successfully and store Tally master IDs.
+- Verified server/frontend typechecks and live Tally contact sync against `Sundarcomputers`.
+
 ## 2026-06-06
 
 - Added Export Sales as a separate tenant Billing entry module with independent tables, API, document numbering, list/show/upsert/print, GST actions, comments, activity, and exact-print PDF email delivery.

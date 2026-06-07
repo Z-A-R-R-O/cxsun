@@ -145,6 +145,9 @@ const TaskManagerAutomationPage = lazy(() =>
 const TallyPage = lazy(() =>
   import('src/features/tally/tally-page').then((module) => ({ default: module.TallyPage })),
 )
+const TallySyncPage = lazy(() =>
+  import('src/features/tally/tally-sync-page').then((module) => ({ default: module.TallySyncPage })),
+)
 const CrmPage = lazy(() =>
   import('src/features/crm/crm-page').then((module) => ({ default: module.CrmPage })),
 )
@@ -176,6 +179,7 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
   const expectedRoot = basePath.replace(/^\//, "")
   if (root !== expectedRoot) return "overview"
   if (appModulePages.includes(page as DashboardPage)) return page as DashboardPage
+  if (page === "app-tally-settings") return page as DashboardPage
   if (
     page === "tenant" ||
     page === "setup" ||
@@ -306,6 +310,7 @@ function prefetchAppModules(appId: DashboardAppId) {
 
     if (appId === "tally") {
       void import('src/features/tally/tally-page')
+      void import('src/features/tally/tally-sync-page')
       return
     }
 
@@ -760,10 +765,18 @@ export function DashboardView({
             <TaskManagerAutomationPage session={session} view="tags" />
           ) : visiblePage === "app-taskmanager-settings" ? (
             <TaskManagerAutomationPage session={session} view="settings" />
+          ) : visiblePage === "app-tally-handshake" || visiblePage === "app-tally-settings" ? (
+            <TallyPage session={session} view="handshake" />
           ) : visiblePage === "app-tally-desk" ? (
             <TallyPage session={session} view="desk" />
-          ) : visiblePage === "app-tally-settings" ? (
-            <TallyPage session={session} view="settings" />
+          ) : visiblePage === "app-tally-contact-sync" ? (
+            <TallySyncPage session={session} view="contacts" />
+          ) : visiblePage === "app-tally-product-sync" ? (
+            <TallySyncPage session={session} view="products" />
+          ) : visiblePage === "app-tally-sales-sync" ? (
+            <TallySyncPage session={session} view="sales" />
+          ) : visiblePage === "app-tally-purchase-sync" ? (
+            <TallySyncPage session={session} view="purchase" />
           ) : visiblePage === "app-tally-sync-jobs" ? (
             <TallyPage session={session} view="jobs" />
           ) : visiblePage === "app-billing-settings" ? (
@@ -997,7 +1010,9 @@ function appGroupDescription(title: string) {
     "Library": "Upload, browse, and organize media.",
     "Management": "Share, link, and govern media assets.",
     "Mail Desk": "Compose, queue, and inspect workspace mail.",
-    "Tally Desk": "Connection, voucher sync, and job controls.",
+    "Tally Desk": "Handshake, single-operation sync, and job controls.",
+    "Master Sync": "Contacts and products pushed as reusable Tally masters.",
+    "Entry Sync": "Invoice and purchase checks built on synced masters.",
     "Storefront": "Store operations and checkout flow.",
     "Catalog": "Products, collections, and variants.",
     "Customers": "Customer records and engagement.",

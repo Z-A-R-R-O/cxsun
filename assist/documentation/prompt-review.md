@@ -2198,3 +2198,15 @@ in this major update remove client and connect contact with this , add previous 
 and and in GST Filing it is for all contact in one place can edit and update this make this possible as two way entering one from contact gst filing another is on single page for all client for a particular month
 
 keep in mind do not disturb old contact only creating new table and extending for Credential and attach it separately
+
+## 2026-06-07 - Tally handshake, master sync, and changelog version update
+
+ok fine now create master sync add new module inside for sync master into tally like contact with classification of supplier and customer to specified sundrycreditors and sundry debtors with address and gst no given in our software to tally 
+
+make individual page with list of contact and status with synced to tally badge with list + filters for master contact
+
+the same for product individually
+
+and make this as reusable for  sale invoice and purchase entries that can check use of these masters and then push their records to tally
+
+create log for this with version update in changelog

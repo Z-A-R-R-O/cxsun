@@ -71,4 +71,30 @@ export async function migrateTallyTables(database: Kysely<DynamicDatabase>) {
       INDEX idx_tally_items_record (module_key, record_uuid)
     )
   `).execute(database)
+
+  await sql.raw(`
+    CREATE TABLE IF NOT EXISTS tally_sync_links (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid CHAR(8) NOT NULL UNIQUE,
+      tenant_id INT NOT NULL,
+      company_id INT NULL,
+      module_key VARCHAR(80) NOT NULL,
+      record_type VARCHAR(40) NOT NULL DEFAULT 'master',
+      record_id VARCHAR(120) NULL,
+      record_uuid VARCHAR(80) NOT NULL,
+      record_label VARCHAR(240) NULL,
+      classification VARCHAR(80) NULL,
+      tally_name VARCHAR(240) NULL,
+      tally_guid VARCHAR(160) NULL,
+      status VARCHAR(40) NOT NULL DEFAULT 'not-synced',
+      last_synced_at DATETIME NULL,
+      last_error TEXT NULL,
+      payload JSON NULL,
+      updated_by VARCHAR(191) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_tally_sync_links_record (tenant_id, company_id, module_key, record_uuid),
+      INDEX idx_tally_sync_links_status (tenant_id, module_key, status, updated_at)
+    )
+  `).execute(database)
 }

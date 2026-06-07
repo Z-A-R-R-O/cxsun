@@ -39,6 +39,7 @@ import {
   Scale,
   Send,
   Settings,
+  ShieldCheck,
   Shapes,
   ShoppingBag,
   Tags,
@@ -198,7 +199,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     id: "tally",
     name: "Tally",
     shortName: "Tally",
-    description: "Tally connection settings, voucher sync controls, job queue, and integration activity.",
+    description: "Tally handshake, single-operation sync desk, job queue, and integration activity.",
     status: "active",
     accent: "bg-blue-700 text-white",
     icon: Cable,
@@ -207,8 +208,24 @@ export const dashboardApps: DashboardAppDefinition[] = [
         title: "Tally Desk",
         icon: Cable,
         items: [
+          item("tally", "handshake", "Tally Handshake", ShieldCheck),
           item("tally", "desk", "Tally Desk", Cable),
-          item("tally", "settings", "Tally Settings", Settings),
+        ],
+      },
+      {
+        title: "Master Sync",
+        icon: UsersRound,
+        items: [
+          item("tally", "contact-sync", "Contact Sync", UsersRound),
+          item("tally", "product-sync", "Product Sync", PackageSearch),
+        ],
+      },
+      {
+        title: "Entry Sync",
+        icon: ReceiptText,
+        items: [
+          item("tally", "sales-sync", "Sales Sync", ReceiptText),
+          item("tally", "purchase-sync", "Purchase Sync", ShoppingBag),
           item("tally", "sync-jobs", "Sync Jobs", ClipboardList),
         ],
       },

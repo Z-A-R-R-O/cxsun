@@ -2,13 +2,30 @@
 
 ## Version State
 
-- **Current version:** `1.0.86`
-- **Release tag:** `v-1.0.86`
-- **Changelog label:** `v 1.0.86`
+- **Current version:** `1.0.87`
+- **Release tag:** `v-1.0.87`
+- **Changelog label:** `v 1.0.87`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.87
+
+### [v 1.0.87] 2026-06-07 11:59 pm - Tally handshake and master sync
+
+- Bumped workspace version to 1.0.87
+
+- Added the Tally integration app surface with handshake-first validation, dedicated Handshake and Desk views, and side-menu groups for Master Sync and Entry Sync.
+- Added strict Tally company validation against the company list and exact selected company object before enabling sync operations.
+- Added persistent `tally_sync_links` tracking for contact, product, sales, and purchase sync state.
+- Added Contact Sync and Product Sync pages with filters, status badges, selectable rows, select-all, and selected-only sync actions.
+- Added reusable Sales Sync and Purchase Sync readiness checks that block entry queueing until required contact and product masters are synced.
+- Added direct Tally master export for customer/supplier contacts as ledgers under Sundry Debtors and Sundry Creditors, including GSTIN and address details.
+- Added direct Tally product export as stock items with unit and HSN details.
+- Fixed Tally XML import to use the accepted `Import` envelope and hardened XML parsing for object names and master IDs.
+- Fixed sync failure persistence so Tally XML/error excerpts are safely stored in JSON columns instead of causing backend `500` errors.
+- Verified Tally contact sync live against the local Tally company `Sundarcomputers`, including synced ledger statuses and stored master IDs.
 
 ## v-1.0.86
 

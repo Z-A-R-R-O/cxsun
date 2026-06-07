@@ -81,9 +81,9 @@ function HomeBrandIntro() {
         <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl border border-sky-200 bg-white shadow-xl shadow-sky-950/10">
           <BrandLogo className="size-10" />
         </div>
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-sky-700">Codexsun business suite</p>
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-sky-700">Website · Billing · Operations — all in one place</p>
         <h1 className="mx-auto mt-4 max-w-5xl text-4xl font-black leading-tight tracking-normal md:text-6xl">
-          Your business work, powered by software that stays clear.
+          Run your business from one screen, not ten tabs.
         </h1>
         <div className="mx-auto mt-6 flex w-fit gap-2">
           <span className="h-1 w-8 rounded-full bg-sky-500" />
@@ -91,15 +91,15 @@ function HomeBrandIntro() {
           <span className="h-1 w-8 rounded-full bg-emerald-500" />
         </div>
         <p className="mx-auto mt-7 max-w-3xl text-lg leading-8 text-slate-600">
-          Codexsun brings website content, billing, customers, operations, and team access into one calm workspace built for growing businesses.
+          Most growing businesses juggle separate tools for their website, invoices, customers, and team work. Codexsun replaces that chaos with one connected workspace — so you spend less time managing software and more time serving customers.
         </p>
         <div className="mt-9 flex flex-wrap justify-center gap-3">
           <button className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-6 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700" type="button">
-            Get started
+            Start free today
             <ArrowRight className="size-4" />
           </button>
           <button className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-black uppercase tracking-wide text-slate-800 transition hover:border-slate-500" type="button">
-            Explore products
+            See how it works
             <ArrowRight className="size-4" />
           </button>
         </div>
@@ -111,33 +111,33 @@ function HomeBrandIntro() {
 const homeStats = [
   {
     accent: 'text-sky-600',
-    description: 'Growing businesses can run their public site and daily work from the same foundation.',
+    description: 'From retail shops to service firms — real businesses run their daily operations on Codexsun every day.',
     icon: UsersRound,
-    label: 'Clients served',
+    label: 'Businesses trust us',
     suffix: '+',
     value: 120,
   },
   {
     accent: 'text-emerald-600',
-    description: 'Website, billing, CRM, tasks, auditor tools, reports, and more can live together.',
+    description: 'Website, invoicing, CRM, inventory, tasks, and reports — tools you used to pay for separately, now built in.',
     icon: Layers3,
-    label: 'Apps connected',
+    label: 'Tools replaced',
     suffix: '+',
     value: 12,
   },
   {
     accent: 'text-amber-600',
-    description: 'Invoices, customer actions, follow-ups, and team tasks move through cleaner flows.',
+    description: 'Invoices sent, payments tracked, follow-ups completed — work that used to take hours now happens in minutes.',
     icon: CheckCircle2,
-    label: 'Work solved',
+    label: 'Actions completed',
     suffix: '+',
     value: 10000,
   },
   {
     accent: 'text-blue-600',
-    description: 'Business access, brand content, and workspace control stay clear as teams grow.',
+    description: 'Your data, your workspace, your rules. Role-based access keeps every team member in the right lane.',
     icon: ShieldCheck,
-    label: 'Control layer',
+    label: 'Your control',
     suffix: '%',
     value: 100,
   },
@@ -214,9 +214,9 @@ function HomeProductShowcase() {
         <ScrollReveal direction="bottom" distance={28}>
           <div className="relative overflow-hidden rounded-md border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 pb-8 pt-16 shadow-xl shadow-slate-950/5 md:px-8 md:pb-10 md:pt-20">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[linear-gradient(90deg,rgba(14,165,233,0.08)_1px,transparent_1px),linear-gradient(180deg,rgba(14,165,233,0.08)_1px,transparent_1px)] bg-[size:64px_64px]" />
-            <FloatingMetricCard className="left-[7%] top-10 hidden rotate-[-8deg] lg:block" label="Invoice cycle" value="12.5m" />
-            <FloatingMetricCard className="left-[38%] top-5 hidden lg:block" label="Billing check in progress" progress="64%" value="Live review" />
-            <FloatingMetricCard className="right-[8%] top-8 hidden rotate-[-7deg] lg:block" label="Work impact" value="432 actions" />
+            <FloatingMetricCard className="left-[7%] top-10 hidden rotate-[-8deg] lg:block" label="Avg. invoice time" value="3.2 min" />
+            <FloatingMetricCard className="left-[38%] top-5 hidden lg:block" label="Monthly collection rate" progress="64%" value="Rs. 8.4L" />
+            <FloatingMetricCard className="right-[8%] top-8 hidden rotate-[-7deg] lg:block" label="Tasks done today" value="48 of 52" />
 
             <div className="relative mx-auto max-w-6xl overflow-hidden rounded-md border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
               <div className="grid min-h-[480px] bg-slate-50 md:grid-cols-[72px_1fr]">
@@ -232,10 +232,10 @@ function HomeProductShowcase() {
                 <div className="p-5 md:p-8">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Codexsun workspace</p>
-                      <h2 className="mt-2 text-3xl font-black leading-tight tracking-normal md:text-4xl">Business activity analysis</h2>
+                      <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Your daily command centre</p>
+                      <h2 className="mt-2 text-3xl font-black leading-tight tracking-normal md:text-4xl">Your daily business at a glance</h2>
                       <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                        See billing, customer follow-up, storefront activity, and team work from one calm operating view.
+                        Open your workspace and instantly see what needs attention — pending invoices, customer follow-ups, team tasks, and revenue trends. No digging required.
                       </p>
                     </div>
                     <div className="flex gap-2 text-sm font-bold text-slate-600">
@@ -247,9 +247,9 @@ function HomeProductShowcase() {
 
                   <div className="mt-8 grid gap-4 md:grid-cols-3">
                     {[
-                      ['5.43K', 'Customer actions'],
-                      ['125s', 'Avg response'],
-                      ['432', 'Completed tasks'],
+                      ['5.43K', 'Invoices processed this month'],
+                      ['2.1 min', 'Avg. time per invoice'],
+                      ['432', 'Follow-ups completed'],
                     ].map(([value, label]) => (
                       <div className="rounded-md bg-white p-5 shadow-sm shadow-slate-950/5" key={label}>
                         <p className="text-3xl font-black tracking-normal">{value}</p>
@@ -262,8 +262,8 @@ function HomeProductShowcase() {
                     <div className="rounded-md bg-white p-5 shadow-sm shadow-slate-950/5">
                       <div className="mb-5 flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-black">Data activity</h3>
-                          <p className="mt-1 text-sm text-slate-500">Viewing daily business movement</p>
+                          <h3 className="text-lg font-black">Revenue trend</h3>
+                          <p className="mt-1 text-sm text-slate-500">This week vs. last week</p>
                         </div>
                         <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">4 New</span>
                       </div>
@@ -278,12 +278,12 @@ function HomeProductShowcase() {
                         </div>
                         <div className="grid content-center gap-6">
                           <div>
-                            <p className="text-3xl font-black">5,432</p>
-                            <p className="mt-1 text-sm leading-5 text-slate-500">Business events captured</p>
+                            <p className="text-3xl font-black">Rs. 5.4L</p>
+                            <p className="mt-1 text-sm leading-5 text-slate-500">Collected this week</p>
                           </div>
                           <div>
-                            <p className="text-3xl font-black">7,957</p>
-                            <p className="mt-1 text-sm leading-5 text-slate-500">Actions completed</p>
+                            <p className="text-3xl font-black">Rs. 1.2L</p>
+                            <p className="mt-1 text-sm leading-5 text-slate-500">Pending payments</p>
                           </div>
                         </div>
                       </div>
@@ -292,8 +292,8 @@ function HomeProductShowcase() {
                     <div className="rounded-md bg-white p-5 shadow-sm shadow-slate-950/5">
                       <div className="mb-5 flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-black">Workflow status</h3>
-                          <p className="mt-1 text-sm text-slate-500">Live team progress</p>
+                          <h3 className="text-lg font-black">Team progress</h3>
+                          <p className="mt-1 text-sm text-slate-500">What your team finished today</p>
                         </div>
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 shadow-sm">24 Hours</span>
                       </div>
@@ -319,7 +319,7 @@ function HomeProductShowcase() {
             </div>
 
             <div className="relative mt-10 text-center">
-              <p className="text-base font-semibold text-slate-600 md:text-lg">Trusted by growing teams across daily business work</p>
+              <p className="text-base font-semibold text-slate-600 md:text-lg">Trusted by 120+ businesses across retail, services, and commerce</p>
               <div className="mt-7 grid gap-4 text-slate-400 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 {implementedBrands.slice(0, 6).map((brand) => (
                   <div className="flex items-center justify-center gap-2 text-lg font-black" key={brand}>
@@ -381,13 +381,13 @@ function HomeBrandMarquee() {
           <div className="overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f0f9ff_100%)] py-7">
             <div className="mb-6 flex flex-col justify-between gap-3 px-6 md:flex-row md:items-end">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Implemented brands</p>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Already on board</p>
                 <h2 className="mt-2 text-2xl font-black leading-tight tracking-normal md:text-3xl">
-                  Teams building their business flow with Codexsun.
+                  You're not the first to make the switch.
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-600">
-                A living brand lane for businesses using Codexsun across website, billing, commerce, and operations.
+                These businesses stopped juggling separate tools and moved their website, billing, and daily operations into Codexsun.
               </p>
             </div>
 
@@ -436,63 +436,63 @@ const businessTemplates = [
     icon: ReceiptText,
     visual: 'invoice',
     title: 'GST billing',
-    description: 'Create GST-ready invoices with tax details, customer records, and clean billing history in one place.',
+    description: 'Stop calculating tax manually. Create GST-compliant invoices in under 3 minutes with auto-filled GSTIN, HSN codes, and tax breakdowns.',
   },
   {
     accent: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     icon: PackageCheck,
     visual: 'dispatch',
     title: 'E-way bill flow',
-    description: 'Prepare transport-ready billing information so dispatch and movement work can stay organized.',
+    description: 'Goods stuck at checkpoints? Generate e-way bill details directly from your invoice — no re-entering transporter or destination data.',
   },
   {
     accent: 'border-blue-200 bg-blue-50 text-blue-700',
     icon: FileText,
     visual: 'einvoice',
     title: 'E-invoice ready',
-    description: 'Keep invoice data structured from the beginning, making future e-invoice workflows easier to connect.',
+    description: 'Don\'t scramble when e-invoicing becomes mandatory for your turnover. Your invoices are already structured for IRN generation from day one.',
   },
   {
     accent: 'border-amber-200 bg-amber-50 text-amber-700',
     icon: Layers3,
     visual: 'ledger',
-    title: 'Tally support',
-    description: 'Plan accounting handoff clearly, with business records prepared for accountant-friendly review.',
+    title: 'Tally export',
+    description: 'Your accountant still uses Tally? No problem. Export clean, ledger-ready data they can import without calling you for missing entries.',
   },
   {
     accent: 'border-violet-200 bg-violet-50 text-violet-700',
     icon: UsersRound,
     visual: 'accountant',
-    title: 'Accountant workspace',
-    description: 'Give accountants cleaner access to billing, receipts, reports, and review-ready business data.',
+    title: 'Accountant access',
+    description: 'Give your CA or accountant their own login. They see billing, receipts, and reports — nothing more, nothing less. No WhatsApp file sharing needed.',
   },
   {
     accent: 'border-cyan-200 bg-cyan-50 text-cyan-700',
     icon: ShieldCheck,
     visual: 'checks',
-    title: 'Accuracy checks',
-    description: 'Reduce mistakes with clearer fields, consistent records, and workflows that make missing details easier to spot.',
+    title: 'Error prevention',
+    description: 'Tired of catching mistakes after sending invoices? Built-in validation flags missing GSTINs, mismatched amounts, and incomplete entries before you save.',
   },
   {
     accent: 'border-rose-200 bg-rose-50 text-rose-700',
     icon: CheckCircle2,
     visual: 'tasks',
     title: 'Task manager',
-    description: 'Turn daily follow-ups into trackable work so teams know what is pending, assigned, and completed.',
+    description: 'Follow-ups slipping through? Assign tasks to team members with deadlines and status tracking — so nothing stays "I\'ll do it later" forever.',
   },
   {
     accent: 'border-teal-200 bg-teal-50 text-teal-700',
     icon: Zap,
     visual: 'automation',
-    title: 'Automation',
-    description: 'Automate repeated business steps gradually, without hiding the status or the next action from the team.',
+    title: 'Workflow automation',
+    description: 'Sending the same reminder emails? Updating the same fields? Let Codexsun handle the repetitive steps while you focus on decisions that matter.',
   },
   {
     accent: 'border-orange-200 bg-orange-50 text-orange-700',
     icon: Clock3,
     visual: 'reminders',
     title: 'Smart reminders',
-    description: 'Keep payments, renewals, follow-ups, and customer actions visible before they become urgent.',
+    description: 'Never miss a payment due date or renewal again. Get notified before deadlines hit — not after the customer complains.',
   },
 ]
 
@@ -503,13 +503,13 @@ function HomeBusinessTemplates() {
         <ScrollReveal direction="bottom" distance={26}>
           <div className="mb-10 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Ready workflows</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Everything your business needs</p>
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-normal md:text-4xl">
-                Clear workflows clients understand before they start.
+                Built for the problems you deal with every day.
               </h2>
             </div>
             <p className="max-w-2xl text-base leading-7 text-slate-600 lg:justify-self-end">
-              Codexsun can present each business area as a simple template: what it does, why it matters, and how it helps daily work stay accountable.
+              GST invoices, payment follow-ups, accountant coordination, team tasks — each module solves a real headache so your team stops firefighting and starts finishing.
             </p>
           </div>
         </ScrollReveal>
@@ -546,14 +546,69 @@ function BusinessTemplateCard({ template }: { template: typeof businessTemplates
 }
 
 function BusinessTemplateVisual({ type }: { type: string }) {
-  if (type === 'invoice' || type === 'einvoice') {
+  if (type === 'invoice') {
     return (
-      <div className="h-32 bg-white/90 p-4 shadow-sm">
-        <div className="h-3 w-16 rounded-full bg-sky-500" />
-        <div className="mt-4 grid gap-2">
-          <span className="h-2 rounded-full bg-slate-200" />
-          <span className="h-2 w-4/5 rounded-full bg-slate-200" />
-          <span className="mt-2 h-5 w-20 rounded-md bg-slate-900" />
+      <div className="h-36 bg-gradient-to-b from-sky-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-sky-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-sky-600">Tax Invoice</span>
+            <span className="rounded bg-sky-100 px-2 py-0.5 text-[8px] font-bold text-sky-700">INV-2026-0847</span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+            <div className="flex items-center gap-1">
+              <span className="size-1 rounded-full bg-sky-400" />
+              <span className="text-[8px] text-slate-500">GSTIN: 27AAB...</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="size-1 rounded-full bg-sky-400" />
+              <span className="text-[8px] text-slate-500">HSN: 8471</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="size-1 rounded-full bg-emerald-400" />
+              <span className="text-[8px] text-slate-500">CGST 9%: ₹1,260</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="size-1 rounded-full bg-emerald-400" />
+              <span className="text-[8px] text-slate-500">SGST 9%: ₹1,260</span>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-dashed border-slate-200 pt-1.5">
+            <span className="text-[9px] font-bold text-slate-700">Total</span>
+            <span className="text-sm font-black text-slate-900">₹15,520</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'einvoice') {
+    return (
+      <div className="h-36 bg-gradient-to-b from-blue-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-blue-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-blue-600">E-Invoice</span>
+            <span className="flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[8px] font-bold text-emerald-700">
+              <CheckCircle2 className="size-2.5" /> IRN Generated
+            </span>
+          </div>
+          <div className="mt-2.5 grid gap-1.5">
+            <div className="flex items-center justify-between rounded bg-slate-50 px-2 py-1">
+              <span className="text-[8px] text-slate-500">IRN Number</span>
+              <span className="text-[8px] font-bold text-slate-700">a1b2c3d4...f8g9</span>
+            </div>
+            <div className="flex items-center justify-between rounded bg-slate-50 px-2 py-1">
+              <span className="text-[8px] text-slate-500">Ack. No.</span>
+              <span className="text-[8px] font-bold text-slate-700">1320260847291</span>
+            </div>
+            <div className="flex items-center justify-between rounded bg-blue-50 px-2 py-1">
+              <span className="text-[8px] text-blue-600">QR Code</span>
+              <div className="grid size-5 grid-cols-3 gap-px">
+                {[1,0,1,0,1,0,1,0,1].map((v, i) => (
+                  <span className={`${v ? 'bg-slate-800' : 'bg-white'}`} key={i} />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -561,13 +616,32 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'dispatch') {
     return (
-      <div className="grid h-32 grid-cols-[1fr_52px] gap-3 bg-emerald-50 p-4 shadow-sm">
-        <div className="rounded-md bg-white p-3">
-          <span className="block h-3 w-20 rounded-full bg-emerald-500" />
-          <span className="mt-4 block h-12 rounded-md bg-emerald-100" />
-        </div>
-        <div className="grid place-items-center rounded-md bg-emerald-600 text-white">
-          <PackageCheck className="size-6" />
+      <div className="h-36 bg-gradient-to-b from-emerald-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-emerald-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600">E-Way Bill</span>
+            <span className="rounded bg-amber-100 px-2 py-0.5 text-[8px] font-bold text-amber-700">In Transit</span>
+          </div>
+          <div className="mt-2.5 grid gap-1.5">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="size-3 text-emerald-500" />
+              <span className="text-[8px] text-slate-600">EWB: 3614 2587 9201</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="size-3 text-center text-[7px] font-black text-slate-400">🚚</span>
+              <span className="text-[8px] text-slate-600">Vehicle: MH-12-AB-1234</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded bg-emerald-50 px-2 py-1">
+                <span className="text-[7px] text-slate-400">From</span>
+                <p className="text-[8px] font-bold text-slate-700">Mumbai, MH</p>
+              </div>
+              <div className="rounded bg-emerald-50 px-2 py-1">
+                <span className="text-[7px] text-slate-400">To</span>
+                <p className="text-[8px] font-bold text-slate-700">Pune, MH</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -575,17 +649,27 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'ledger') {
     return (
-      <div className="h-32 bg-amber-50 p-4 shadow-sm">
-        <div className="grid h-full grid-cols-[0.8fr_1fr] gap-2">
-          <div className="rounded-md bg-white p-3">
-            <span className="block h-3 w-14 rounded-full bg-amber-400" />
-            <span className="mt-3 block h-2 rounded-full bg-slate-200" />
-            <span className="mt-2 block h-2 w-2/3 rounded-full bg-slate-200" />
+      <div className="h-36 bg-gradient-to-b from-amber-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-amber-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-amber-600">Tally Export</span>
+            <span className="rounded bg-emerald-100 px-2 py-0.5 text-[8px] font-bold text-emerald-700">Ready</span>
           </div>
-          <div className="grid gap-1.5">
-            <span className="rounded-sm bg-white" />
-            <span className="rounded-sm bg-amber-200" />
-            <span className="rounded-sm bg-white" />
+          <div className="mt-2">
+            <div className="grid grid-cols-[1fr_50px_50px] gap-1 border-b border-slate-200 pb-1 text-[7px] font-bold uppercase text-slate-400">
+              <span>Ledger</span><span className="text-right">Debit</span><span className="text-right">Credit</span>
+            </div>
+            {[
+              ['Sales A/c', '', '₹14,000'],
+              ['CGST Output', '', '₹1,260'],
+              ['Sundry Debtor', '₹15,520', ''],
+            ].map(([name, dr, cr]) => (
+              <div className="grid grid-cols-[1fr_50px_50px] gap-1 border-b border-dashed border-slate-100 py-1 text-[8px]" key={name}>
+                <span className="text-slate-700">{name}</span>
+                <span className="text-right font-bold text-rose-600">{dr}</span>
+                <span className="text-right font-bold text-emerald-600">{cr}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -594,15 +678,28 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'accountant') {
     return (
-      <div className="h-32 bg-violet-50 p-4 shadow-sm">
-        <div className="flex h-full items-center gap-3">
-          <div className="grid size-12 place-items-center rounded-full bg-violet-500 text-white">
-            <UsersRound className="size-6" />
+      <div className="h-36 bg-gradient-to-b from-violet-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-violet-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-violet-600">Team Access</span>
+            <span className="rounded bg-violet-100 px-2 py-0.5 text-[8px] font-bold text-violet-700">2 Active</span>
           </div>
-          <div className="flex-1">
-            <span className="block h-3 w-24 rounded-full bg-violet-300" />
-            <span className="mt-3 block h-2 rounded-full bg-white" />
-            <span className="mt-2 block h-2 w-4/5 rounded-full bg-white" />
+          <div className="mt-2 grid gap-1.5">
+            {[
+              { name: 'Rajesh (CA)', role: 'Accountant', access: 'Billing, Reports', color: 'bg-violet-500' },
+              { name: 'Priya S.', role: 'Staff', access: 'Invoices only', color: 'bg-sky-500' },
+            ].map((user) => (
+              <div className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1.5" key={user.name}>
+                <div className={`grid size-6 place-items-center rounded-full text-[7px] font-black text-white ${user.color}`}>
+                  {user.name[0]}
+                </div>
+                <div className="flex-1">
+                  <p className="text-[8px] font-bold text-slate-800">{user.name} <span className="font-normal text-slate-400">· {user.role}</span></p>
+                  <p className="text-[7px] text-slate-500">Access: {user.access}</p>
+                </div>
+                <ShieldCheck className="size-3 text-emerald-500" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -611,27 +708,53 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'checks') {
     return (
-      <div className="grid h-32 gap-2 bg-cyan-50 p-4 shadow-sm">
-        {['GSTIN matched', 'Tax rows clear', 'Amount verified'].map((label) => (
-          <div className="flex items-center gap-2 rounded-sm bg-white px-3 text-[10px] font-black uppercase tracking-wide text-cyan-800" key={label}>
-            <CheckCircle2 className="size-3 text-cyan-500" />
-            {label}
+      <div className="h-36 bg-gradient-to-b from-cyan-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-cyan-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-cyan-600">Pre-Save Check</span>
+            <span className="text-[8px] font-bold text-emerald-600">3/3 Passed</span>
           </div>
-        ))}
+          <div className="mt-2 grid gap-1.5">
+            {[
+              { label: 'GSTIN format valid', status: 'pass' },
+              { label: 'Tax amount matches line items', status: 'pass' },
+              { label: 'Customer address complete', status: 'pass' },
+            ].map((check) => (
+              <div className="flex items-center gap-2 rounded bg-emerald-50/80 px-2 py-1.5" key={check.label}>
+                <CheckCircle2 className="size-3 shrink-0 text-emerald-500" />
+                <span className="flex-1 text-[8px] text-slate-700">{check.label}</span>
+                <span className="text-[7px] font-bold uppercase text-emerald-600">OK</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   if (type === 'tasks') {
     return (
-      <div className="h-32 bg-rose-50 p-4 shadow-sm">
-        <div className="grid h-full gap-2">
-          {['Call customer', 'Send quote', 'Collect payment'].map((label, index) => (
-            <div className="grid grid-cols-[14px_1fr] items-center gap-2 rounded-sm bg-white px-2" key={label}>
-              <span className={`size-3 rounded-full ${index === 0 ? 'bg-rose-500' : index === 1 ? 'bg-amber-300' : 'bg-emerald-400'}`} />
-              <span className="h-2 rounded-full bg-slate-200" />
-            </div>
-          ))}
+      <div className="h-36 bg-gradient-to-b from-rose-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-rose-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-rose-600">Today's Tasks</span>
+            <span className="text-[8px] font-bold text-slate-500">2 of 3 done</span>
+          </div>
+          <div className="mt-2 grid gap-1.5">
+            {[
+              { task: 'Call Sharma Electronics re: payment', done: true, assignee: 'RS' },
+              { task: 'Send revised quote to BluePeak', done: true, assignee: 'AP' },
+              { task: 'Follow up on pending PO #412', done: false, assignee: 'RS' },
+            ].map((item) => (
+              <div className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1.5" key={item.task}>
+                <span className={`grid size-3.5 shrink-0 place-items-center rounded border text-[7px] ${item.done ? 'border-emerald-400 bg-emerald-100 text-emerald-600' : 'border-slate-300 bg-white'}`}>
+                  {item.done ? '✓' : ''}
+                </span>
+                <span className={`flex-1 text-[8px] ${item.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{item.task}</span>
+                <span className="grid size-4 place-items-center rounded-full bg-rose-100 text-[6px] font-black text-rose-600">{item.assignee}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -639,17 +762,31 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'automation') {
     return (
-      <div className="grid h-32 grid-cols-[40px_1fr_40px] items-center gap-3 bg-teal-50 p-4 shadow-sm">
-        <div className="grid size-9 place-items-center rounded-full bg-teal-500 text-white">
-          <Zap className="size-5" />
-        </div>
-        <div className="grid gap-2">
-          <span className="h-2 rounded-full bg-teal-200" />
-          <span className="h-2 rounded-full bg-teal-300" />
-          <span className="h-2 rounded-full bg-teal-200" />
-        </div>
-        <div className="grid size-9 place-items-center rounded-full bg-white text-teal-600">
-          <ArrowRight className="size-5" />
+      <div className="h-36 bg-gradient-to-b from-teal-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-teal-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-teal-600">Active Rule</span>
+            <span className="flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[8px] font-bold text-emerald-700">
+              <Zap className="size-2.5" /> Running
+            </span>
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="rounded border border-teal-200 bg-teal-50 px-2 py-1.5 text-center">
+              <span className="text-[7px] text-teal-500">WHEN</span>
+              <p className="text-[8px] font-bold text-teal-800">Invoice overdue 7d</p>
+            </div>
+            <ArrowRight className="size-3 shrink-0 text-teal-400" />
+            <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-center">
+              <span className="text-[7px] text-amber-500">THEN</span>
+              <p className="text-[8px] font-bold text-amber-800">Send reminder email</p>
+            </div>
+            <ArrowRight className="size-3 shrink-0 text-teal-400" />
+            <div className="rounded border border-blue-200 bg-blue-50 px-2 py-1.5 text-center">
+              <span className="text-[7px] text-blue-500">AND</span>
+              <p className="text-[8px] font-bold text-blue-800">Create task</p>
+            </div>
+          </div>
+          <p className="mt-2 text-[7px] text-slate-400">Last triggered: 2 hours ago · 14 emails sent this month</p>
         </div>
       </div>
     )
@@ -657,21 +794,32 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 
   if (type === 'reminders') {
     return (
-      <div className="h-32 bg-orange-50 p-4 shadow-sm">
-        <div className="flex h-full items-end gap-2">
-          {[48, 76, 58, 88].map((height, index) => (
-            <div className="flex flex-1 flex-col items-center gap-1" key={height}>
-              <span className="w-full rounded-t-md bg-orange-300" style={{ height: `${height}%` }} />
-              <span className={`size-1.5 rounded-full ${index === 3 ? 'bg-orange-600' : 'bg-orange-200'}`} />
-            </div>
-          ))}
+      <div className="h-36 bg-gradient-to-b from-orange-50 to-white p-4 shadow-sm">
+        <div className="h-full rounded-md border border-orange-200 bg-white p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-black uppercase tracking-wider text-orange-600">Upcoming</span>
+            <span className="rounded bg-orange-100 px-2 py-0.5 text-[8px] font-bold text-orange-700">3 this week</span>
+          </div>
+          <div className="mt-2 grid gap-1.5">
+            {[
+              { text: 'Payment due: Sharma Electronics', date: 'Tomorrow', urgent: true },
+              { text: 'GST filing deadline', date: 'Jun 20', urgent: false },
+              { text: 'Domain renewal: mysite.in', date: 'Jun 28', urgent: false },
+            ].map((item) => (
+              <div className="flex items-center gap-2 rounded bg-slate-50 px-2 py-1.5" key={item.text}>
+                <Clock3 className={`size-3 shrink-0 ${item.urgent ? 'text-orange-500' : 'text-slate-400'}`} />
+                <span className="flex-1 text-[8px] text-slate-700">{item.text}</span>
+                <span className={`text-[7px] font-bold ${item.urgent ? 'text-orange-600' : 'text-slate-400'}`}>{item.date}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="grid h-32 grid-cols-3 gap-2 bg-slate-50 p-4 shadow-sm">
+    <div className="grid h-36 grid-cols-3 gap-2 bg-slate-50 p-4 shadow-sm">
       {[36, 68, 52].map((height, index) => (
         <div className="flex items-end rounded-md bg-white p-2" key={height}>
           <span className={`w-full rounded-t-md ${index === 0 ? 'bg-amber-300' : index === 1 ? 'bg-teal-400' : 'bg-sky-400'}`} style={{ height: `${height}%` }} />
@@ -684,20 +832,20 @@ function BusinessTemplateVisual({ type }: { type: string }) {
 const whyItems = [
   {
     icon: Sparkles,
-    title: 'Simple from day one',
-    description: 'Clean screens, clear actions, and less setup noise help teams start without a long learning curve.',
+    title: 'Set up in minutes, not weeks',
+    description: 'No training manuals, no onboarding calls. Your team opens Codexsun and starts working — because the screens explain themselves.',
     stat: '01',
   },
   {
     icon: Clock3,
-    title: 'Less switching, more finishing',
-    description: 'Website, billing, users, and business tools stay close together, so daily work moves with fewer breaks.',
+    title: 'One tab instead of four',
+    description: 'Stop copying invoice numbers from one app, pasting into another, then checking a third for payment status. Everything lives in one place.',
     stat: '02',
   },
   {
     icon: UsersRound,
-    title: 'Built for real teams',
-    description: 'Codexsun keeps roles, access, and shared work organized as your business adds people and process.',
+    title: 'Grow without the growing pains',
+    description: 'Hired your first employee? Third? Tenth? Codexsun scales with you — add users, set roles, and keep control without rebuilding anything.',
     stat: '03',
   },
 ]
@@ -709,12 +857,12 @@ function HomeWhySection() {
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <ScrollReveal direction="left" distance={32}>
             <div className="max-w-2xl">
-              <p className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-cyan-200">Why Codexsun</p>
+              <p className="mb-3 text-sm font-black uppercase tracking-[0.16em] text-cyan-200">Why businesses choose Codexsun</p>
               <h2 className="text-3xl font-black leading-tight tracking-normal md:text-4xl">
-                Software that feels lighter, even when the work gets bigger.
+                Because your business deserves better than duct-taped tools.
               </h2>
               <p className="mt-4 text-base leading-7 text-cyan-50/80">
-                Codexsun is shaped for businesses that want practical tools, clear screens, and a workspace that can grow without becoming confusing.
+                You've tried free invoicing apps, separate CRMs, a WordPress site, and a WhatsApp group for task tracking. It worked — until it didn't. Codexsun puts it all under one roof.
               </p>
             </div>
           </ScrollReveal>
@@ -751,61 +899,89 @@ function WhyRow({ item }: { item: typeof whyItems[number] }) {
 
 const pricingPlans = [
   {
-    button: 'Get started',
-    description: 'For small teams that need a polished website and a clear business base.',
-    features: ['Website pages and sliders', 'Basic business dashboard', 'Company profile setup'],
+    button: 'Start for free',
+    description: 'Establish your online presence. Get a professional website to show customers you mean business.',
+    features: ['Professional public website', 'Custom company profile page', 'Basic analytics dashboard'],
+    featuresHeader: 'Included features:',
     name: 'Personal',
-    price: 'Free',
+    priceMonthly: 'Free',
+    priceAnnual: 'Free',
   },
   {
-    button: 'Choose plan',
-    description: 'For growing teams ready to connect billing, products, and customer work.',
-    features: ['Billing and receipt workspace', 'Products and customer records', 'Team access controls'],
+    button: 'Start 14-day free trial',
+    description: 'Move away from manual spreadsheets. Invoice customers, track payments, and manage client files in one place.',
+    features: ['GST-compliant billing & invoices', 'Customer database & history', 'Up to 3 team member accounts'],
+    featuresHeader: 'Everything in Personal, plus:',
     name: 'Startup',
-    price: 'Rs. 4,999',
-    suffix: '/month',
+    priceMonthly: 'Rs. 999',
+    priceAnnual: 'Rs. 9,588',
+    suffixMonthly: '/month',
+    suffixAnnual: '/year',
+    billedAnnually: 'Billed Rs. 799/month',
+    savedAnnually: 'Save Rs. 200/month',
   },
   {
-    button: 'Choose plan',
-    description: 'For established teams that want daily workflows, reporting, and automation together.',
-    features: ['Everything in Startup', 'Task manager and reminders', 'Priority setup support'],
+    button: 'Start 14-day free trial',
+    description: 'For businesses running complex operations. Automate your follow-ups, sync dispatch & billing, and let the system run your backend.',
+    features: ['Automated payment reminders', 'E-way bill & dispatch tracking', 'Priority 1-on-1 setup support'],
+    featuresHeader: 'Everything in Startup, plus:',
     highlighted: true,
     name: 'Company',
-    price: 'Rs. 8,999',
-    suffix: '/month',
+    priceMonthly: 'Rs. 2,999',
+    priceAnnual: 'Rs. 28,788',
+    suffixMonthly: '/month',
+    suffixAnnual: '/year',
+    billedAnnually: 'Billed Rs. 2,399/month',
+    savedAnnually: 'Save Rs. 600/month',
   },
   {
-    button: 'Contact sales',
-    description: 'For multi-team businesses that need tailored modules and implementation support.',
-    features: ['Custom workflows and modules', 'Advanced data and reports', 'Dedicated rollout planning'],
+    button: 'Book a consultation',
+    description: 'For custom operations. If you need bespoke workflows, legacy data migration, or specialized business modules.',
+    features: ['Custom module development', 'Dedicated implementation manager', 'Unlimited team seats & custom roles'],
+    featuresHeader: 'Custom requirements:',
     name: 'Enterprise',
-    price: 'Custom',
+    priceMonthly: 'Custom',
+    priceAnnual: 'Custom',
   },
 ]
 
 function HomePricingSection() {
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly')
+
   return (
     <section className="bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-4 py-16 text-slate-950 md:py-20">
       <div className="cx-container">
         <ScrollReveal direction="bottom" distance={28}>
           <div className="mb-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Simple pricing</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-emerald-700">Transparent pricing</p>
               <h2 className="mt-3 max-w-2xl text-4xl font-black leading-tight tracking-normal md:text-6xl">
-                Choose the plan that fits your business.
+                Fair pricing that scales with your growth.
               </h2>
             </div>
             <div className="grid gap-5 lg:justify-items-end">
               <div className="relative inline-flex w-fit items-center gap-1 rounded-full bg-white p-1 shadow-xl shadow-slate-950/8">
-                <span className="rounded-full bg-slate-100 px-5 py-3 text-sm font-bold">Monthly</span>
-                <span className="px-5 py-3 text-sm font-bold text-slate-600">Annual</span>
+                <button
+                  onClick={() => setBillingPeriod('monthly')}
+                  className={`rounded-full px-5 py-3 text-sm font-bold transition-all ${billingPeriod === 'monthly' ? 'bg-slate-100 text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+                  type="button"
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingPeriod('annual')}
+                  className={`rounded-full px-5 py-3 text-sm font-bold transition-all ${billingPeriod === 'annual' ? 'bg-slate-100 text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+                  type="button"
+                >
+                  Annual
+                </button>
                 <span className="rounded-full bg-slate-950 px-4 py-3 text-xs font-black text-white">Save 20%</span>
                 <span className="absolute -right-4 -top-6 rotate-[-10deg] rounded-full bg-orange-600 px-3 py-1 text-[10px] font-black uppercase text-white">
                   Big deal
                 </span>
               </div>
               <p className="max-w-lg text-base leading-7 text-slate-600">
-                Start light, then move into billing, task management, ecommerce, and tailored operations as the business grows.
+                No hidden fees. Start with what you need today, and upgrade as your team grows. All paid plans include a 14-day free trial.
               </p>
             </div>
           </div>
@@ -814,7 +990,7 @@ function HomePricingSection() {
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {pricingPlans.map((plan, index) => (
             <ScrollReveal delay={index * 0.05} direction="bottom" distance={24} key={plan.name}>
-              <PricingCard plan={plan} />
+              <PricingCard billingPeriod={billingPeriod} plan={plan} />
             </ScrollReveal>
           ))}
         </div>
@@ -823,8 +999,11 @@ function HomePricingSection() {
   )
 }
 
-function PricingCard({ plan }: { plan: typeof pricingPlans[number] }) {
+function PricingCard({ plan, billingPeriod }: { plan: typeof pricingPlans[number]; billingPeriod: 'monthly' | 'annual' }) {
   const highlighted = plan.highlighted
+  const isPaid = plan.name !== 'Personal' && plan.name !== 'Enterprise'
+  const price = billingPeriod === 'monthly' ? plan.priceMonthly : plan.priceAnnual
+  const suffix = billingPeriod === 'monthly' ? plan.suffixMonthly : plan.suffixAnnual
 
   return (
     <article className={`flex min-h-[490px] flex-col rounded-md border p-6 shadow-sm ${highlighted ? 'border-emerald-900 bg-[linear-gradient(160deg,#065f46_0%,#047857_100%)] text-white shadow-emerald-950/20' : 'border-slate-200 bg-white text-slate-950 shadow-slate-950/5'}`}>
@@ -833,14 +1012,26 @@ function PricingCard({ plan }: { plan: typeof pricingPlans[number] }) {
           <h3 className="text-2xl font-black tracking-normal">{plan.name}</h3>
           {highlighted ? <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">Recommended</span> : null}
         </div>
-        <p className={`mt-5 text-sm leading-6 ${highlighted ? 'text-emerald-50/82' : 'text-slate-600'}`}>{plan.description}</p>
+        <p className={`mt-5 text-sm leading-6 ${highlighted ? 'text-emerald-50/80' : 'text-slate-600'}`}>{plan.description}</p>
       </div>
 
       <div className={`mt-7 border-y py-7 ${highlighted ? 'border-white/12' : 'border-slate-200'}`}>
-        <p className="flex items-end gap-1 text-5xl font-black leading-none tracking-normal">
-          {plan.price}
-          {plan.suffix ? <span className={`pb-1 text-base font-bold ${highlighted ? 'text-emerald-50' : 'text-slate-600'}`}>{plan.suffix}</span> : null}
+        <p className="flex items-end gap-1 text-4xl font-black leading-none tracking-normal">
+          {price}
+          {suffix && price !== 'Free' && price !== 'Custom' ? <span className={`pb-1 text-base font-bold ${highlighted ? 'text-emerald-50' : 'text-slate-600'}`}>{suffix}</span> : null}
         </p>
+        {billingPeriod === 'annual' && isPaid ? (
+          <div className="mt-2 flex flex-col gap-0.5">
+            <p className={`text-xs font-bold ${highlighted ? 'text-emerald-200/95' : 'text-slate-500'}`}>
+              {plan.billedAnnually}
+            </p>
+            <p className={`text-sm font-black ${highlighted ? 'text-lime-300' : 'text-emerald-700'}`}>
+              {plan.savedAnnually}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2 h-10" />
+        )}
       </div>
 
       <button className={`mt-7 inline-flex h-14 items-center justify-center rounded-md border px-5 text-base font-black transition ${highlighted ? 'border-white bg-white text-slate-950 hover:bg-emerald-50' : 'border-slate-950 bg-white text-slate-950 hover:bg-slate-950 hover:text-white'}`} type="button">
@@ -848,7 +1039,7 @@ function PricingCard({ plan }: { plan: typeof pricingPlans[number] }) {
       </button>
 
       <div className="mt-7">
-        <p className={`text-sm font-black ${highlighted ? 'text-white' : 'text-slate-950'}`}>Everything on Basic plan, plus</p>
+        <p className={`text-sm font-black ${highlighted ? 'text-white' : 'text-slate-950'}`}>{plan.featuresHeader}</p>
         <ul className="mt-4 grid gap-3">
           {plan.features.map((feature) => (
             <li className={`flex gap-3 text-sm leading-6 ${highlighted ? 'text-emerald-50' : 'text-slate-700'}`} key={feature}>
@@ -864,28 +1055,28 @@ function PricingCard({ plan }: { plan: typeof pricingPlans[number] }) {
 
 const faqItems = [
   {
-    answer: 'Codexsun brings public website content, billing, products, customers, team access, dashboards, and everyday follow-up into one connected business workspace.',
-    question: 'What features does Codexsun offer?',
+    answer: 'Absolutely. You don\'t have to start from scratch. Our team will help you import your existing customer lists, pending invoices, and active product files from CSV spreadsheets or your current software so you can transition without any downtime.',
+    question: 'Can I migrate my existing client and invoice data into Codexsun?',
   },
   {
-    answer: 'It helps teams reduce scattered work by keeping customer activity, invoices, payments, tasks, and reporting close together in one operating flow.',
-    question: 'How can Codexsun benefit my organization?',
+    answer: 'No. Codexsun is designed with clean, straightforward screens. There are no complicated accounting codes or confusing jargon. Your sales team can create invoices and your accountant can export clean, ledger-ready data for Tally instantly from day one.',
+    question: 'Does my team or accountant need prior training to use Codexsun?',
   },
   {
-    answer: 'Yes. Smaller teams can begin with a website and billing foundation, while larger teams can expand into role access, automation, reports, and tailored workflows.',
-    question: 'Is Codexsun suitable for small businesses or larger teams?',
+    answer: 'Yes. You can start simple with just a public website or basic invoicing. As your operations scale, you can easily turn on other modules like dispatch tracking, e-way bills, client lead management, and automated payment reminders.',
+    question: 'Can we start with just one feature and expand later?',
   },
   {
-    answer: 'Codexsun is built around modules, so the workspace can be shaped around billing, ecommerce, task management, audit support, or other business needs.',
-    question: 'Is Codexsun customizable to fit our specific needs?',
+    answer: 'When an invoice is overdue, Codexsun automatically sends a gentle, professional email reminder to the client on your behalf. You can customize the frequency (e.g., 3 days before due date, 7 days after) and check the status right on your dashboard without having to write manual emails.',
+    question: 'How do automatic payment reminders work?',
   },
   {
-    answer: 'Business information is organized around tenant-aware access, controlled workspaces, and practical permission boundaries for day-to-day use.',
-    question: 'How secure is the data stored on Codexsun?',
+    answer: 'For established businesses and Company/Enterprise plans, we offer custom module development. If you have unique dispatch processes, specialized reporting needs, or legacy integrations, our development team will build and deploy those features directly into your tenant workspace.',
+    question: 'What if I need a custom feature specific to my business?',
   },
   {
-    answer: 'Codexsun keeps team access, business records, and operational screens structured clearly so ownership and control stay visible as the company grows.',
-    question: 'How secure is Codexsun?',
+    answer: 'None. Even on our free Personal plan, you get a fully hosted public website. On our paid Startup and Company plans, you can generate unlimited invoices, manage unlimited customer records, and track unlimited transactions without worrying about hidden caps.',
+    question: 'Is there a limit on how many invoices or websites we can build?',
   },
 ]
 
@@ -935,9 +1126,9 @@ function HomeFaqSection() {
 
         <ScrollReveal direction="bottom" distance={24}>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 text-center sm:flex-row">
-            <p className="text-base text-slate-700">Still confused? No need to worry, just contact us.</p>
+            <p className="text-base text-slate-700">Have a custom workflow requirement or more questions?</p>
             <button className="inline-flex items-center justify-center rounded-md bg-slate-950 px-6 py-4 text-sm font-black text-white transition hover:bg-slate-800" type="button">
-              Contact our support
+              Get in touch with us
             </button>
           </div>
         </ScrollReveal>
@@ -975,10 +1166,10 @@ function HomeStorySection() {
                 <BriefcaseBusiness className="size-8" />
               </div>
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.16em] text-blue-700">What teams say</p>
-                <h2 className="mt-3 text-4xl font-normal leading-tight tracking-normal">Codexsun for growing businesses</h2>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-blue-700">Real stories</p>
+                <h2 className="mt-3 text-4xl font-normal leading-tight tracking-normal">Real outcomes.</h2>
                 <p className="mt-4 max-w-lg text-lg leading-8 text-slate-600">
-                  Teams use Codexsun to connect their website, billing, customer work, and everyday operations from one clearer place.
+                  From independent retail chains to regional logistics companies, business owners switched to Codexsun to reclaim hours wasted on manual tracking.
                 </p>
               </div>
             </div>
@@ -1000,24 +1191,24 @@ function HomeStorySection() {
 
 const testimonials = [
   {
-    initials: 'CS',
-    name: 'Codexsun product team',
-    quote: 'Codexsun keeps the public website and daily business tools moving together, so teams can work with fewer gaps and clearer ownership.',
-    role: 'Business software for practical growth',
+    initials: 'AS',
+    name: 'Aditya Sharma',
+    quote: 'We used to copy billing data into three different spreadsheets. With Codexsun, we generate GST invoices, automate payment follow-ups, and track our service dispatch all under one roof.',
+    role: 'Founder, Sharma Logistics & Supply',
     tone: 'bg-blue-100 text-blue-900',
   },
   {
-    initials: 'SR',
-    name: 'Sunmart Retail',
-    quote: 'Our billing, products, and follow-ups now feel connected. The team can see what is pending without asking across separate tools.',
-    role: 'Retail operations team',
+    initials: 'VK',
+    name: 'Vikas Khanna',
+    quote: 'Our accounts department and dispatch desk are finally on the same page. The moment dispatch marks an item ready, the system drafts the invoice. No missed bills, no delayed dispatches.',
+    role: 'Operations Director, Khanna Retail Group',
     tone: 'bg-emerald-100 text-emerald-900',
   },
   {
-    initials: 'BL',
-    name: 'BluePeak Services',
-    quote: 'The website gives customers a clear front door, while the workspace helps us continue the same conversation inside the business.',
-    role: 'Service business owner',
+    initials: 'PT',
+    name: 'Priya Thakur',
+    quote: 'Clients love the professional client portal and public website, and our team loves not having to jump between Trello, WhatsApp, and Excel just to see who paid us.',
+    role: 'Managing Partner, Peak Consulting Group',
     tone: 'bg-amber-100 text-amber-900',
   },
 ]
@@ -1097,23 +1288,23 @@ function TestimonialSlider({
 const valueItems = [
   {
     icon: Clock3,
-    title: 'Long-term clarity',
-    description: 'We keep the product language simple and the screens focused, so teams can keep using it as the business grows.',
+    title: 'Software that actually fits',
+    description: 'No bloat, no clutter. We keep screens focused and language simple, so your team can use Codexsun daily without getting lost in tabs.',
   },
   {
     icon: LifeBuoy,
-    title: 'Customer-first workflows',
-    description: 'Every section starts from the work a real team needs to complete: publish, bill, follow up, and report.',
+    title: 'Built around actual work',
+    description: 'Every feature matches a task you already do: launch a website, send a GST invoice, notify a customer, or export to Tally.',
   },
   {
     icon: ShieldCheck,
-    title: 'Privacy and control',
-    description: 'Codexsun is prepared around clear access, business-owned content, and practical control over the workspace.',
+    title: 'Your data, your control',
+    description: 'No shared keys or security loopholes. Codexsun is structured with tenant-isolated workspaces, so your customer records remain completely secure.',
   },
   {
     icon: Zap,
-    title: 'Useful automation',
-    description: 'Automation should remove repeated effort without hiding what happened or making the next step hard to find.',
+    title: 'Automation with guardrails',
+    description: 'We automate repetitive tasks (like sending payment reminders) without locking you out. You always see what went out and can step in anytime.',
   },
 ]
 
@@ -1125,7 +1316,7 @@ function HomeValuesSection() {
           <div>
             <div className="mx-auto max-w-3xl text-center">
               <h2 className="text-4xl font-normal leading-tight tracking-normal md:text-5xl">
-                The values that shape Codexsun
+                The principles behind our software
               </h2>
               <div className="mx-auto mt-6 flex w-fit gap-2">
                 <span className="h-1 w-8 rounded-full bg-sky-500" />
@@ -1165,28 +1356,28 @@ function ValueItem({ item }: { item: typeof valueItems[number] }) {
 
 const blogPosts = [
   {
-    author: 'Codexsun',
-    category: 'Software Development',
+    author: 'Codexsun Team',
+    category: 'Business Growth',
     date: '16 Nov 2026',
-    description: 'A practical look at how connected screens help teams reduce repeated entry, missed follow-ups, and scattered records.',
+    description: 'A detailed look at how copying data between billing, dispatch, and Excel drains hours from your team and leads to costly manual errors.',
     image: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=80',
-    title: 'How connected business software keeps daily work clearer',
+    title: 'The true cost of duplicate data entry in growing businesses',
   },
   {
-    author: 'Admin',
-    category: 'Web Development',
+    author: 'Codexsun Team',
+    category: 'Customer Experience',
     date: '20 Dec 2026',
-    description: 'Your public website can do more than explain the brand. It can become the starting point for customer and billing workflows.',
+    description: 'Stop using your website as just a digital brochure. Learn how letting clients view active quotes and download invoices on your site saves hours of support calls.',
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80',
-    title: 'Why your website should connect to the workspace behind it',
+    title: 'Turning your public website into a customer-first portal',
   },
   {
-    author: 'Support',
-    category: 'IT Services',
+    author: 'Codexsun Team',
+    category: 'Operational Efficiency',
     date: '22 Dec 2026',
-    description: 'From invoices to reminders, the right operating layer helps owners see what needs attention before the day gets crowded.',
+    description: 'Forget complex accounting reports. Here are the 5 critical numbers—from pending payments to dispatch bottlenecks—you need to monitor daily.',
     image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=900&q=80',
-    title: 'Simple dashboards that help growing teams move faster',
+    title: '5 metrics every business owner should see first thing in the morning',
   },
 ]
 
@@ -1267,20 +1458,20 @@ function HomeFinalCta() {
         <ScrollReveal direction="bottom" distance={30}>
           <div className="grid overflow-hidden rounded-md border border-slate-200 bg-[linear-gradient(135deg,rgba(245,158,11,0.12)_0_1px,transparent_1px_34px),linear-gradient(120deg,#ecfeff_0%,#ffffff_48%,#fefce8_100%)] shadow-xl shadow-slate-950/5 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="p-8 md:p-12">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Ready for the next section of growth</p>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">Simplify your operations</p>
               <h2 className="mt-4 text-4xl font-black leading-tight tracking-normal md:text-5xl">
-                Build your website, run your work, and keep the brand experience consistent.
+                Stop juggling tools. Start growing your business.
               </h2>
               <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
-                Start with a polished public page and extend into billing, products, customer work, dashboards, and team operations when you are ready.
+                Reclaim your time. Move your website, billing, client files, and daily team workflows into one fast, integrated workspace. All paid plans include a 14-day free trial.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-6 py-3 text-sm font-black uppercase tracking-wide text-white transition hover:bg-sky-700" type="button">
-                  Start with Codexsun
+                  Start your free trial
                   <ArrowRight className="size-4" />
                 </button>
                 <button className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-black uppercase tracking-wide text-slate-800 transition hover:border-slate-500" type="button">
-                  See features
+                  Schedule a demo
                   <ArrowRight className="size-4" />
                 </button>
               </div>
@@ -1300,30 +1491,30 @@ function HomeFinalCta() {
 const ctaConcepts = [
   {
     accent: 'border-sky-200 bg-sky-50 text-sky-700',
-    description: 'Publish a clean front page, sliders, service blocks, and lead sections that tell customers exactly what you do.',
+    description: 'Publish professional web pages, sliders, and lead forms so new customers find you and see you are established.',
     icon: Globe2,
-    title: 'Brand website launch',
+    title: 'Public brand website',
     visual: 'website',
   },
   {
     accent: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    description: 'Show products, offers, enquiry paths, and customer actions from the same business identity.',
+    description: 'Showcase your products, active catalog offers, and enquiry sheets from a single, clean online store.',
     icon: Store,
-    title: 'Storefront experience',
+    title: 'Digital storefront',
     visual: 'store',
   },
   {
     accent: 'border-rose-200 bg-rose-50 text-rose-700',
-    description: 'Move from customer intent to invoice, receipt, payment follow-up, and accountant-ready records.',
+    description: 'Generate GST invoices and record customer receipts while automated workflows remind clients when bills are due.',
     icon: ReceiptText,
-    title: 'Billing desk',
+    title: 'Invoices & payment tracking',
     visual: 'billing',
   },
   {
     accent: 'border-amber-200 bg-amber-50 text-amber-700',
-    description: 'See daily totals, pending tasks, reminders, and team status before small gaps become bigger problems.',
+    description: 'Track daily task lists, pending payment follow-ups, and customer feedback without hopping between apps.',
     icon: BarChart3,
-    title: 'Growth cockpit',
+    title: 'Team operations desk',
     visual: 'dashboard',
   },
 ]
@@ -1419,12 +1610,12 @@ function StaticHomeHero({ tenantName }: { tenantName: string }) {
   return (
     <div className="flex h-[calc(100svh-10rem)] min-h-[420px] items-center bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.14),transparent_32%),linear-gradient(135deg,#0f172a,#111827_48%,#172554)] text-white">
       <div className="cx-container max-w-5xl">
-        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-blue-200">Workspace ready</p>
+        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-blue-200">Stop juggling. Start building.</p>
         <h1 className="max-w-4xl text-4xl font-black leading-tight md:text-6xl">
-          Welcome to the {tenantName} workspace.
+          {tenantName} — one workspace for your entire business.
         </h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-200 md:text-xl">
-          Every app your team needs comes together in one calm, connected place, so the work feels clear from the first click.
+          No more switching between five different tools. Your website, billing, customers, and daily operations live together — so nothing falls through the cracks.
         </p>
       </div>
     </div>

@@ -24,7 +24,9 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
+import { toast } from 'sonner'
+import { apiBaseUrl } from 'src/lib/api-base-url'
 
 import { BrandLogo } from 'src/components/blocks/branding/brand-logo'
 import { ThemeToggle } from 'src/components/blocks/theme/theme-toggle'
@@ -42,6 +44,9 @@ import { APP_NAME } from 'src/lib/branding'
 import { isSiteDeveloperMode } from './developer/developer-mode'
 import { SiteSection } from './developer/site-section'
 import { HomePage } from './home/home'
+import { PublicAboutPage } from './about/about-page'
+import { PublicContactPage } from './contact/public-contact-page'
+import { PublicBlogPage } from './blog/public-blog-page'
 import type { HealthStatus, SiteContent, TenantStaticSiteContent } from './domain/site-content'
 
 interface PublicSitePageProps {
@@ -370,7 +375,21 @@ export function PublicSitePage({
         ) : null}
       </SiteSection>
 
-      <HomePage developerMode={developerMode} tenantSite={tenantSite} />
+      {activePage === 'home' && (
+        <HomePage developerMode={developerMode} tenantSite={tenantSite} />
+      )}
+      {activePage === 'about' && (
+        <PublicAboutPage content={content} tenantSite={tenantSite} />
+      )}
+      {activePage === 'contact' && (
+        <PublicContactPage content={content} tenantSite={tenantSite} />
+      )}
+      {activePage === 'blog' && (
+        <PublicBlogPage content={content} tenantSite={tenantSite} />
+      )}
+      {activePage !== 'home' && activePage !== 'about' && activePage !== 'contact' && activePage !== 'blog' && (
+        <PublicSubPage activePage={activePage} content={content} tenantSite={tenantSite} />
+      )}
 
       <SiteSection as="footer" className="border-t border-slate-800 bg-slate-950 px-4 py-0 text-white" developerMode={developerMode} name="footer">
         <div className="cx-container">
@@ -618,5 +637,201 @@ function FooterColumn({ items, title }: { items: string[]; title: string }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function PublicSubPage({
+  activePage,
+  content,
+  tenantSite,
+}: {
+  activePage: string
+  content: SiteContent
+  tenantSite: TenantStaticSiteContent | null
+}) {
+  const page = content.pages.find((p) => p.slug === activePage)
+
+  if (!page) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-20 text-center">
+        <h1 className="text-4xl font-black text-slate-900">404 - Page Not Found</h1>
+        <p className="mt-4 text-slate-600">The page you are looking for does not exist.</p>
+      </div>
+    )
+  }
+
+  return (
+    <main className="min-h-[70vh]">
+      {/* Hero Header */}
+      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.14),transparent_32%),linear-gradient(135deg,#0f172a,#111827_48%,#172554)] py-20 text-white md:py-28">
+        <div className="cx-container relative z-10 max-w-4xl text-center">
+          {page.eyebrow ? (
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-200">
+              {page.eyebrow}
+            </p>
+          ) : null}
+          <h1 className="mt-4 text-4xl font-black leading-tight tracking-normal sm:text-5xl md:text-6xl">
+            {page.title}
+          </h1>
+          {page.summary ? (
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-200 md:text-xl">
+              {page.summary}
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      {/* Main Body Content */}
+      <section className="bg-slate-50 py-16 text-slate-950 md:py-24">
+        <div className="cx-container max-w-4xl">
+          <div className="rounded-md border border-slate-200 bg-white p-8 shadow-sm md:p-12">
+            <p className="text-lg leading-8 text-slate-700 whitespace-pre-line">
+              {page.body}
+            </p>
+
+            {/* Custom Content based on slug */}
+            {activePage === 'services' && content.services && content.services.length > 0 ? (
+              <div className="mt-12 border-t border-slate-200 pt-12">
+                <h2 className="text-2xl font-black text-slate-950">Included Modules & Solutions</h2>
+                <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {content.services.map((service) => (
+                    <article className="rounded-md border border-slate-200 bg-slate-50 p-5 shadow-sm" key={service.id}>
+                      <h3 className="text-lg font-black text-slate-950">{service.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{service.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {activePage === 'blog' && content.posts && content.posts.length > 0 ? (
+              <div className="mt-12 border-t border-slate-200 pt-12">
+                <h2 className="text-2xl font-black text-slate-950">Latest Updates</h2>
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+                  {content.posts.map((post) => (
+                    <article className="rounded-md border border-slate-200 bg-slate-50 p-6 shadow-sm" key={post.id}>
+                      <span className="text-xs font-bold text-sky-700">{post.published_at}</span>
+                      <h3 className="mt-2 text-xl font-black text-slate-950">{post.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{post.excerpt}</p>
+                      <button className="mt-4 inline-flex items-center gap-1 text-sm font-black text-sky-700 hover:text-sky-800" type="button">
+                        Read more <ArrowRight className="size-4" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {activePage === 'contact' ? (
+              <div className="mt-12 border-t border-slate-200 pt-12">
+                <h2 className="text-2xl font-black text-slate-950">Send us a message</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Fill out the form below and our team will get back to you shortly.
+                </p>
+                <ContactForm domain={tenantSite?.tenant?.slug || ''} />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
+
+function ContactForm({ domain }: { domain: string }) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const trimName = name.trim()
+    const trimEmail = email.trim()
+    const trimMessage = message.trim()
+
+    if (!trimName || !trimEmail || !trimMessage) {
+      toast.error('All fields are required.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/site/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: trimName,
+          email: trimEmail,
+          message: trimMessage,
+          domain,
+        }),
+      })
+
+      const data = await response.json()
+      if (response.ok && data.ok) {
+        toast.success('Your message has been sent successfully!')
+        setName('')
+        setEmail('')
+        setMessage('')
+      } else {
+        toast.error(data.error || 'Failed to send message.')
+      }
+    } catch (err) {
+      toast.error('An error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+      <div className="grid gap-2">
+        <label className="text-sm font-bold text-slate-700" htmlFor="contact-name">Name</label>
+        <input
+          className="w-full rounded-md border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none"
+          id="contact-name"
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your name"
+          required
+          type="text"
+          value={name}
+        />
+      </div>
+      <div className="grid gap-2">
+        <label className="text-sm font-bold text-slate-700" htmlFor="contact-email">Email</label>
+        <input
+          className="w-full rounded-md border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none"
+          id="contact-email"
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          required
+          type="email"
+          value={email}
+        />
+      </div>
+      <div className="grid gap-2">
+        <label className="text-sm font-bold text-slate-700" htmlFor="contact-message">Message</label>
+        <textarea
+          className="w-full rounded-md border border-slate-200 bg-slate-50 p-3 text-sm focus:border-sky-500 focus:bg-white focus:outline-none"
+          id="contact-message"
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Enter your message"
+          required
+          rows={5}
+          value={message}
+        />
+      </div>
+      <button
+        className="inline-flex h-12 w-fit items-center justify-center rounded-md bg-slate-950 px-6 font-black text-white hover:bg-slate-800 disabled:opacity-50"
+        disabled={loading}
+        type="submit"
+      >
+        {loading ? 'Sending...' : 'Send Message'}
+      </button>
+    </form>
   )
 }
