@@ -4,6 +4,17 @@ import { EditorContent, useEditor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import { ArrowLeft, Bold, Check, CheckCircle2, ChevronDown, ClipboardCheck, History, Italic, Link2, List, ListChecks, ListOrdered, Plus, RefreshCw, RotateCcw, RotateCw, Save, Tags, Trash2, UserRound } from "lucide-react"
 import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "src/components/ui/alert-dialog"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
@@ -18,22 +29,38 @@ import {
   MasterListEmptyState,
   MasterListPageFrame,
   MasterListPaginationCard,
+  MasterListRowActions,
   MasterListTableCard,
   MasterListToolbarCard,
   buildMasterListShowingLabel,
 } from "src/components/blocks/lists/master-list"
 import type { AuthSession } from "src/features/auth/auth-client"
+import { fileToBase64, linkMediaAsset, uploadMediaAsset } from "src/features/media/media-client"
 import type { MasterDataRecord, MasterDataUpsertInput } from "src/features/master-data/domain/master-data"
 import { listMasterDataRecords, upsertMasterDataRecord } from "src/features/master-data/infrastructure/master-data-client"
 import { listTenantUsers, type TenantUserRecord } from "src/features/user-manager/user-manager-client"
 import { cn } from "src/lib/utils"
 import { PriorityAutocomplete, PriorityBadge } from "./priority-autocomplete"
 import {
+  addTaskManagerComment,
+  addTaskManagerAttachment,
   changeTaskManagerStatus,
+  deleteTaskManagerSubtask,
   deleteTaskManagerTask,
   emptyTaskManagerTask,
+  forceDeleteTaskManagerTask,
+  getTaskManagerSettings,
+  listTaskManagerCategories,
   listTaskManagerTasks,
+  listTaskManagerTags,
+  upsertTaskManagerCategory,
+  upsertTaskManagerTag,
+  type TaskManagerLookupRecord,
+  type TaskManagerScope,
+  type TaskManagerSettings,
+  type TaskManagerSubtask,
   upsertTaskManagerTask,
+  upsertTaskManagerSubtask,
   type TaskManagerStatus,
   type TaskManagerTask,
   type TaskManagerTaskInput,
@@ -50,36 +77,84 @@ const statusOptions: Array<{ label: string; value: TaskManagerStatus }> = [
   { label: "Cancelled", value: "cancelled" },
 ]
 const moduleOptions = ["sales", "purchase", "receipt", "payment", "stock-ledger", "purchase-receipt", "delivery-note", "contact", "company", "product", "auditor", "general"]
+const taskTypeOptions = ["simple_task", "record_checklist", "collection_confirmation", "compliance_reminder", "data_cleanup", "approval_review"]
 
-export function TaskManagerPage({ session }: { session: AuthSession }) {
+function taskDefaultsFromSettings(settings: TaskManagerSettings | null): TaskManagerTaskInput {
+  return {
+    ...emptyTaskManagerTask(),
+    assigned_to: settings?.default_assignee ?? "",
+    priority: settings?.default_priority ?? "normal",
+    requires_confirmation: settings ? Boolean(settings.require_completion_confirmation) : false,
+    reviewer: settings?.default_reviewer ?? "",
+    task_type: settings?.default_task_type ?? "simple_task",
+  }
+}
+
+export function TaskManagerPage({ scope = "all", session }: { scope?: TaskManagerScope; session: AuthSession }) {
   const [view, setView] = useState<TaskManagerView>({ mode: "list" })
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(100)
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
-  const query = useQuery({ queryKey: ["task-manager", session.selectedTenant.slug], queryFn: () => listTaskManagerTasks(session) })
+  const [forceDeleteTask, setForceDeleteTask] = useState<TaskManagerTask | null>(null)
+  const query = useQuery({ queryKey: ["task-manager", session.selectedTenant.slug, scope], queryFn: () => listTaskManagerTasks(session, scope) })
   const tenantUsersQuery = useQuery({ queryKey: ["task-manager-users", session.selectedTenant.id, session.selectedTenant.slug], queryFn: () => listTenantUsers(session, session.selectedTenant.id) })
   const prioritiesQuery = useQuery({ queryKey: ["task-manager-priorities", session.selectedTenant.slug], queryFn: () => listMasterDataRecords(session, "priorities") })
+  const categoriesQuery = useQuery({ queryKey: ["task-manager-categories", session.selectedTenant.slug], queryFn: () => listTaskManagerCategories(session) })
+  const tagsQuery = useQuery({ queryKey: ["task-manager-tags", session.selectedTenant.slug], queryFn: () => listTaskManagerTags(session) })
+  const settingsQuery = useQuery({ queryKey: ["task-manager-settings", session.selectedTenant.slug], queryFn: () => getTaskManagerSettings(session) })
   const upsertMutation = useMutation({ mutationFn: (input: TaskManagerTaskInput) => upsertTaskManagerTask(session, input) })
   const priorityMutation = useMutation({ mutationFn: (input: MasterDataUpsertInput) => upsertMasterDataRecord(session, "priorities", input) })
+  const categoryMutation = useMutation({ mutationFn: (input: Partial<TaskManagerLookupRecord>) => upsertTaskManagerCategory(session, input) })
+  const tagMutation = useMutation({ mutationFn: (input: Partial<TaskManagerLookupRecord>) => upsertTaskManagerTag(session, input) })
   const statusMutation = useMutation({ mutationFn: ({ task, status }: { task: TaskManagerTask; status: TaskManagerStatus }) => changeTaskManagerStatus(session, task, status) })
   const deleteMutation = useMutation({ mutationFn: (task: TaskManagerTask) => deleteTaskManagerTask(session, task) })
+  const forceDeleteMutation = useMutation({ mutationFn: (task: TaskManagerTask) => forceDeleteTaskManagerTask(session, task) })
+  const commentMutation = useMutation({ mutationFn: ({ body, task }: { body: string; task: TaskManagerTask }) => addTaskManagerComment(session, task, { body }) })
+  const subtaskMutation = useMutation({ mutationFn: ({ input, task }: { input: Partial<TaskManagerSubtask>; task: TaskManagerTask }) => upsertTaskManagerSubtask(session, task, input) })
+  const subtaskDeleteMutation = useMutation({ mutationFn: ({ subtask, task }: { subtask: TaskManagerSubtask; task: TaskManagerTask }) => deleteTaskManagerSubtask(session, task, subtask) })
+  const attachmentMutation = useMutation({
+    mutationFn: async ({ file, task }: { file: File; task: TaskManagerTask }) => {
+      const base64 = await fileToBase64(file)
+      const asset = await uploadMediaAsset(session, {
+        base64,
+        fileName: file.name,
+        folder: settingsQuery.data?.media_folder || "task/files",
+        mimeType: file.type || "application/octet-stream",
+        visibility: settingsQuery.data?.media_visibility === "public" ? "public" : "private",
+        tags: ["task", task.task_no],
+      })
+      await linkMediaAsset(session, asset, { linkedModule: "task-manager", linkedRecordId: task.uuid, purpose: "attachment" })
+      return addTaskManagerAttachment(session, task, {
+        storage_key: asset.uuid,
+        file_name: asset.original_name || asset.file_name,
+        mime_type: asset.mime_type,
+        file_size: asset.size_bytes,
+        attachment_type: file.type.startsWith("image/") ? "image" : "file",
+      })
+    },
+  })
   const tasks = query.data ?? []
   const filteredTasks = useMemo(() => {
     const term = searchValue.trim().toLowerCase()
     return tasks.filter((task) => {
       const matchesStatus = statusFilter === "all" || task.status === statusFilter
       const priority = findPriority(prioritiesQuery.data ?? [], task.priority)
-      const matchesSearch = !term || [task.task_no, task.title, task.subject, task.description, task.assigned_to, task.assigned_to_name, task.module_key, task.linked_record_label, task.status, task.priority, priority?.name].some((value) => String(value ?? "").toLowerCase().includes(term))
+      const matchesSearch = !term || [task.task_no, task.title, task.subject, task.description, task.assigned_to, task.assigned_to_name, task.module_key, task.linked_record_label, task.category_name, task.task_type, task.status, task.priority, priority?.name, ...(task.tags ?? []).map((tag) => tag.name)].some((value) => String(value ?? "").toLowerCase().includes(term))
       return matchesStatus && matchesSearch
     })
   }, [prioritiesQuery.data, searchValue, statusFilter, tasks])
   const totalPages = Math.max(1, Math.ceil(filteredTasks.length / rowsPerPage))
   const pageTasks = filteredTasks.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
+  useEffect(() => {
+    setView({ mode: "list" })
+    setCurrentPage(1)
+  }, [scope])
+
   async function refresh() {
-    await Promise.all([query.refetch(), prioritiesQuery.refetch()])
+    await Promise.all([query.refetch(), prioritiesQuery.refetch(), categoriesQuery.refetch(), tagsQuery.refetch(), settingsQuery.refetch()])
   }
 
   async function createPriority(input: MasterDataUpsertInput) {
@@ -87,6 +162,20 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
     toast.success("Priority created", { description: String(priority.name ?? priority.tag ?? "") })
     await prioritiesQuery.refetch()
     return priority
+  }
+
+  async function createCategory(name: string) {
+    const category = await categoryMutation.mutateAsync({ name, slug: toSlug(name), color: randomLookupColour(), is_active: true })
+    toast.success("Category created", { description: category.name })
+    await categoriesQuery.refetch()
+    return category
+  }
+
+  async function createTag(name: string) {
+    const tag = await tagMutation.mutateAsync({ name, slug: toSlug(name), color: randomLookupColour(), is_active: true })
+    toast.success("Tag created", { description: tag.name })
+    await tagsQuery.refetch()
+    return tag
   }
 
   async function save(input: TaskManagerTaskInput) {
@@ -110,19 +199,64 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
     setView({ mode: "list" })
   }
 
+  async function forceDestroy(task: TaskManagerTask) {
+    try {
+      await forceDeleteMutation.mutateAsync(task)
+      toast.error("Task force deleted", { description: task.task_no })
+      setForceDeleteTask(null)
+      await refresh()
+      setView({ mode: "list" })
+    } catch (error) {
+      toast.error("Task force delete failed", { description: error instanceof Error ? error.message : "Unable to force delete task." })
+    }
+  }
+
+  async function addComment(task: TaskManagerTask, body: string) {
+    const updated = await commentMutation.mutateAsync({ task, body })
+    toast.success("Comment added")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function saveSubtask(task: TaskManagerTask, input: Partial<TaskManagerSubtask>) {
+    const updated = await subtaskMutation.mutateAsync({ task, input })
+    toast.success(input.uuid ? "Sub-task updated" : "Sub-task added")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function removeSubtask(task: TaskManagerTask, subtask: TaskManagerSubtask) {
+    const updated = await subtaskDeleteMutation.mutateAsync({ task, subtask })
+    toast.success("Sub-task removed")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function attachFile(task: TaskManagerTask, file: File) {
+    const updated = await attachmentMutation.mutateAsync({ task, file })
+    toast.success("Attachment added", { description: file.name })
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
   if (view.mode === "upsert") {
-    return <TaskUpsertPage isCreatingPriority={priorityMutation.isPending} isSaving={upsertMutation.isPending} priorities={prioritiesQuery.data ?? []} task={view.task} onBack={() => setView(view.task ? { mode: "show", task: view.task } : { mode: "list" })} onCreatePriority={createPriority} onSubmit={save} />
+    return <TaskUpsertPage categories={categoriesQuery.data ?? []} isCreatingCategory={categoryMutation.isPending} isCreatingPriority={priorityMutation.isPending} isCreatingTag={tagMutation.isPending} isSaving={upsertMutation.isPending} priorities={prioritiesQuery.data ?? []} settings={settingsQuery.data ?? null} tags={tagsQuery.data ?? []} task={view.task} onBack={() => setView(view.task ? { mode: "show", task: view.task } : { mode: "list" })} onCreateCategory={createCategory} onCreatePriority={createPriority} onCreateTag={createTag} onSubmit={save} />
   }
 
   if (view.mode === "show") {
     const task = tasks.find((item) => item.uuid === view.task.uuid) ?? view.task
-    return <TaskShowPage isWorking={statusMutation.isPending || deleteMutation.isPending} priorities={prioritiesQuery.data ?? []} task={task} onBack={() => setView({ mode: "list" })} onDelete={() => void destroy(task)} onEdit={() => setView({ mode: "upsert", task })} onStatus={(status) => void changeStatus(task, status)} />
+    return (
+      <>
+        <TaskShowPage isWorking={statusMutation.isPending || deleteMutation.isPending || forceDeleteMutation.isPending || commentMutation.isPending || subtaskMutation.isPending || subtaskDeleteMutation.isPending || attachmentMutation.isPending} mediaFolder={settingsQuery.data?.media_folder ?? "task/files"} mediaVisibility={settingsQuery.data?.media_visibility === "public" ? "public" : "private"} priorities={prioritiesQuery.data ?? []} task={task} onAttachFile={(file) => attachFile(task, file)} onBack={() => setView({ mode: "list" })} onComment={(body) => addComment(task, body)} onDelete={() => void destroy(task)} onEdit={() => setView({ mode: "upsert", task })} onForceDelete={() => setForceDeleteTask(task)} onRemoveSubtask={(subtask) => removeSubtask(task, subtask)} onStatus={(status) => void changeStatus(task, status)} onSubtask={(input) => saveSubtask(task, input)} />
+        <ForceDeleteTaskDialog isDeleting={forceDeleteMutation.isPending} task={forceDeleteTask} onClose={() => setForceDeleteTask(null)} onConfirm={(selectedTask) => void forceDestroy(selectedTask)} />
+      </>
+    )
   }
 
   return (
     <MasterListPageFrame
-      title="Task Manager"
-      description="Assign work, verify invoices, follow auditor actions, and track staff performance."
+      title={taskScopeTitle(scope)}
+      description={taskScopeDescription(scope)}
       technicalName="page.task-manager.list"
       action={
         <div className="flex items-center gap-2">
@@ -133,11 +267,18 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
     >
       <NewTaskDialog
         isCreatingPriority={priorityMutation.isPending}
+        isCreatingCategory={categoryMutation.isPending}
+        isCreatingTag={tagMutation.isPending}
         isSaving={upsertMutation.isPending}
         open={isNewDialogOpen}
+        categories={categoriesQuery.data ?? []}
         priorities={prioritiesQuery.data ?? []}
+        settings={settingsQuery.data ?? null}
+        tags={tagsQuery.data ?? []}
         tenantUsers={tenantUsersQuery.data ?? []}
+        onCreateCategory={createCategory}
         onCreatePriority={createPriority}
+        onCreateTag={createTag}
         onOpenChange={setIsNewDialogOpen}
         onSubmit={async (input) => {
           await save(input)
@@ -162,7 +303,7 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead className="bg-muted/50">
-              <tr><Header>Task</Header><Header>Module</Header><Header>Assigned</Header><Header>Status</Header><Header>Priority</Header><Header>Due</Header><Header className="text-right">Score</Header></tr>
+              <tr><Header>Task</Header><Header>Module</Header><Header>Category</Header><Header>Assigned</Header><Header>Status</Header><Header>Priority</Header><Header>Due</Header><Header className="text-right">Score</Header><Header className="text-right">Action</Header></tr>
             </thead>
             <tbody>
               {pageTasks.map((task) => (
@@ -172,11 +313,13 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
                     <div className="text-xs text-muted-foreground">{[task.task_no, richTextToPlainText(task.subject)].filter(Boolean).join(" - ")}</div>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground"><div>{task.module_key ?? "general"}</div><div className="text-xs">{task.linked_record_label ?? task.linked_record_id ?? "-"}</div></td>
+                  <td className="px-3 py-2"><div>{task.category_name ?? "Uncategorized"}</div><div className="mt-1 flex flex-wrap gap-1">{task.tags?.slice(0, 2).map((tag) => <LookupBadge key={tag.uuid} record={tag} />)}</div></td>
                   <td className="px-3 py-2">{task.assigned_to_name || task.assigned_to || "Unassigned"}</td>
                   <td className="px-3 py-2"><TaskStatusBadge status={task.status} /></td>
                   <td className="px-3 py-2"><PriorityBadge priorities={prioritiesQuery.data ?? []} value={task.priority} /></td>
                   <td className="px-3 py-2">{formatDate(task.due_date)}</td>
                   <td className="px-3 py-2 text-right font-semibold">{task.score}</td>
+                  <td className="px-3 py-2 text-right"><MasterListRowActions title={task.title} deleteLabel="Suspend" onDelete={() => void destroy(task)} onEdit={() => setView({ mode: "upsert", task })} onView={() => setView({ mode: "show", task })} /></td>
                 </tr>
               ))}
             </tbody>
@@ -203,11 +346,47 @@ export function TaskManagerPage({ session }: { session: AuthSession }) {
   )
 }
 
-function NewTaskDialog({ isCreatingPriority, isSaving, onCreatePriority, onOpenChange, onSubmit, open, priorities, tenantUsers }: { isCreatingPriority: boolean; isSaving: boolean; onCreatePriority(input: MasterDataUpsertInput): Promise<MasterDataRecord>; onOpenChange(open: boolean): void; onSubmit(input: TaskManagerTaskInput): void; open: boolean; priorities: MasterDataRecord[]; tenantUsers: TenantUserRecord[] }) {
-  const [draft, setDraft] = useState<TaskManagerTaskInput>(() => emptyTaskManagerTask())
+function NewTaskDialog({
+  categories,
+  isCreatingCategory,
+  isCreatingPriority,
+  isCreatingTag,
+  isSaving,
+  onCreateCategory,
+  onCreatePriority,
+  onCreateTag,
+  onOpenChange,
+  onSubmit,
+  open,
+  priorities,
+  settings,
+  tags,
+  tenantUsers,
+}: {
+  categories: TaskManagerLookupRecord[]
+  isCreatingCategory: boolean
+  isCreatingPriority: boolean
+  isCreatingTag: boolean
+  isSaving: boolean
+  onCreateCategory(name: string): Promise<TaskManagerLookupRecord>
+  onCreatePriority(input: MasterDataUpsertInput): Promise<MasterDataRecord>
+  onCreateTag(name: string): Promise<TaskManagerLookupRecord>
+  onOpenChange(open: boolean): void
+  onSubmit(input: TaskManagerTaskInput): void
+  open: boolean
+  priorities: MasterDataRecord[]
+  settings: TaskManagerSettings | null
+  tags: TaskManagerLookupRecord[]
+  tenantUsers: TenantUserRecord[]
+}) {
+  const [draft, setDraft] = useState<TaskManagerTaskInput>(() => taskDefaultsFromSettings(settings))
+
+  useEffect(() => {
+    if (open) setDraft((current) => ({ ...taskDefaultsFromSettings(settings), ...current }))
+  }, [open, settings])
 
   function resetAndClose(openState: boolean) {
-    if (!openState) setDraft(emptyTaskManagerTask())
+    if (!openState) setDraft(taskDefaultsFromSettings(settings))
     onOpenChange(openState)
   }
 
@@ -234,6 +413,10 @@ function NewTaskDialog({ isCreatingPriority, isSaving, onCreatePriority, onOpenC
             <PriorityAutocomplete isCreating={isCreatingPriority} label="Priority" priorities={priorities} value={draft.priority ?? "normal"} onChange={(value) => setDraft((current) => ({ ...current, priority: value }))} onCreate={onCreatePriority} />
             <AssigneeAutocomplete label="Assign to" users={tenantUsers} value={draft.assigned_to_name || draft.assigned_to || ""} onChange={assignToUser} />
           </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <TaskLookupAutocomplete isCreating={isCreatingCategory} label="Category" records={categories} value={draft.category_id ?? null} onChange={(record) => setDraft((current) => ({ ...current, category_id: record?.id ?? null }))} onCreate={onCreateCategory} />
+            <TaskTagPicker isCreating={isCreatingTag} label="Tags" records={tags} value={draft.tag_ids ?? []} onChange={(tagIds) => setDraft((current) => ({ ...current, tag_ids: tagIds }))} onCreate={onCreateTag} />
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="rounded-md" onClick={() => resetAndClose(false)}>Cancel</Button>
@@ -244,8 +427,38 @@ function NewTaskDialog({ isCreatingPriority, isSaving, onCreatePriority, onOpenC
   )
 }
 
-function TaskUpsertPage({ isCreatingPriority, isSaving, onBack, onCreatePriority, onSubmit, priorities, task }: { isCreatingPriority: boolean; isSaving: boolean; onBack(): void; onCreatePriority(input: MasterDataUpsertInput): Promise<MasterDataRecord>; onSubmit(input: TaskManagerTaskInput): void; priorities: MasterDataRecord[]; task: TaskManagerTask | null }) {
-  const [draft, setDraft] = useState<TaskManagerTaskInput>(() => task ? { ...task } : emptyTaskManagerTask())
+function TaskUpsertPage({
+  categories,
+  isCreatingCategory,
+  isCreatingPriority,
+  isCreatingTag,
+  isSaving,
+  onBack,
+  onCreateCategory,
+  onCreatePriority,
+  onCreateTag,
+  onSubmit,
+  priorities,
+  settings,
+  tags,
+  task,
+}: {
+  categories: TaskManagerLookupRecord[]
+  isCreatingCategory: boolean
+  isCreatingPriority: boolean
+  isCreatingTag: boolean
+  isSaving: boolean
+  onBack(): void
+  onCreateCategory(name: string): Promise<TaskManagerLookupRecord>
+  onCreatePriority(input: MasterDataUpsertInput): Promise<MasterDataRecord>
+  onCreateTag(name: string): Promise<TaskManagerLookupRecord>
+  onSubmit(input: TaskManagerTaskInput): void
+  priorities: MasterDataRecord[]
+  settings: TaskManagerSettings | null
+  tags: TaskManagerLookupRecord[]
+  task: TaskManagerTask | null
+}) {
+  const [draft, setDraft] = useState<TaskManagerTaskInput>(() => task ? { ...task, tag_ids: task.tags?.map((tag) => tag.id) ?? [] } : taskDefaultsFromSettings(settings))
 
   function setField<Key extends keyof TaskManagerTaskInput>(key: Key, value: TaskManagerTaskInput[Key]) {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -269,12 +482,22 @@ function TaskUpsertPage({ isCreatingPriority, isSaving, onBack, onCreatePriority
             <PriorityAutocomplete isCreating={isCreatingPriority} label="Priority" priorities={priorities} value={draft.priority ?? "normal"} onChange={(value) => setField("priority", value)} onCreate={onCreatePriority} />
             <SelectField label="Status" value={draft.status ?? "new"} options={statusOptions} onChange={(value) => setField("status", value as TaskManagerStatus)} />
           </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <TaskLookupAutocomplete isCreating={isCreatingCategory} label="Category" records={categories} value={draft.category_id ?? null} onChange={(record) => setField("category_id", record?.id ?? null)} onCreate={onCreateCategory} />
+            <SelectField label="Task type" value={draft.task_type ?? "simple_task"} options={taskTypeOptions.map((value) => ({ label: value.replace(/_/g, " "), value }))} onChange={(value) => setField("task_type", value)} />
+            <TaskTagPicker isCreating={isCreatingTag} label="Tags" records={tags} value={draft.tag_ids ?? []} onChange={(tagIds) => setField("tag_ids", tagIds)} onCreate={onCreateTag} />
+          </div>
           <TextField label="Work instructions" value={draft.description ?? ""} onChange={(value) => setField("description", value)} />
           <div className="grid gap-4 md:grid-cols-4">
             <SelectField label="Module" value={draft.module_key ?? "general"} options={moduleOptions.map((value) => ({ label: value, value }))} onChange={(value) => setField("module_key", value)} />
             <Field label="Record id / invoice no" value={draft.linked_record_id ?? ""} onChange={(value) => setField("linked_record_id", value)} />
             <Field label="Record label" value={draft.linked_record_label ?? ""} onChange={(value) => setField("linked_record_label", value)} />
             <Field label="Due date" type="date" value={draft.due_date ?? ""} onChange={(value) => setField("due_date", value)} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Reminder at" type="datetime-local" value={toDateTimeInputValue(draft.reminder_at)} onChange={(value) => setField("reminder_at", value)} />
+            <Field label="Period key" value={draft.period_key ?? ""} onChange={(value) => setField("period_key", value)} />
+            <Field label="Reviewer email" value={draft.reviewer ?? ""} onChange={(value) => setField("reviewer", value)} />
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Assign to email" value={draft.assigned_to ?? ""} onChange={(value) => setField("assigned_to", value)} />
@@ -284,6 +507,7 @@ function TaskUpsertPage({ isCreatingPriority, isSaving, onBack, onCreatePriority
           <div className="grid gap-3 md:grid-cols-2">
             <SwitchRow checked={Boolean(draft.verification_required)} label="Verification required" onCheckedChange={(checked) => setField("verification_required", checked)} />
             <SwitchRow checked={Boolean(draft.auditor_followup_required)} label="Auditor follow-up required" onCheckedChange={(checked) => setField("auditor_followup_required", checked)} />
+            <SwitchRow checked={Boolean(draft.requires_confirmation)} label="Confirmation required" onCheckedChange={(checked) => setField("requires_confirmation", checked)} />
           </div>
           <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
             <Button type="button" variant="outline" className="rounded-md" onClick={onBack}>Back</Button>
@@ -295,7 +519,39 @@ function TaskUpsertPage({ isCreatingPriority, isSaving, onBack, onCreatePriority
   )
 }
 
-function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, priorities, task }: { isWorking: boolean; onBack(): void; onDelete(): void; onEdit(): void; onStatus(status: TaskManagerStatus): void; priorities: MasterDataRecord[]; task: TaskManagerTask }) {
+function TaskShowPage({
+  isWorking,
+  mediaFolder,
+  mediaVisibility,
+  onAttachFile,
+  onBack,
+  onComment,
+  onDelete,
+  onEdit,
+  onForceDelete,
+  onRemoveSubtask,
+  onStatus,
+  onSubtask,
+  priorities,
+  task,
+}: {
+  isWorking: boolean
+  mediaFolder: string
+  mediaVisibility: "private" | "public"
+  onAttachFile(file: File): Promise<void>
+  onBack(): void
+  onComment(body: string): Promise<void>
+  onDelete(): void
+  onEdit(): void
+  onForceDelete(): void
+  onRemoveSubtask(subtask: TaskManagerSubtask): Promise<void>
+  onStatus(status: TaskManagerStatus): void
+  onSubtask(input: Partial<TaskManagerSubtask>): Promise<void>
+  priorities: MasterDataRecord[]
+  task: TaskManagerTask
+}) {
+  const [comment, setComment] = useState("")
+  const [subtaskTitle, setSubtaskTitle] = useState("")
   const detailContent = (
     <div className="grid gap-4">
       <Card className="rounded-md">
@@ -315,6 +571,8 @@ function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, prioritie
             <Info label="Due date" value={formatDate(task.due_date)} />
             <Info label="Performance score" value={String(task.score)} />
             <Info label="Priority" valueNode={<PriorityBadge priorities={priorities} value={task.priority} />} />
+            <Info label="Category" value={task.category_name || "Uncategorized"} />
+            <Info label="Tags" valueNode={<div className="flex flex-wrap gap-1">{task.tags?.length ? task.tags.map((tag) => <LookupBadge key={tag.uuid} record={tag} />) : "No tags"}</div>} />
           </CardContent>
         </Card>
         <Card className="rounded-md">
@@ -324,6 +582,8 @@ function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, prioritie
             <Info label="Record id / invoice no" value={task.linked_record_id || "Not linked"} />
             <Info label="Record label" value={task.linked_record_label || "Not set"} />
             <Info label="Task number" value={task.task_no} />
+            <Info label="Task type" value={(task.task_type || "simple_task").replace(/_/g, " ")} />
+            <Info label="Period key" value={task.period_key || "Not set"} />
           </CardContent>
         </Card>
       </div>
@@ -334,6 +594,7 @@ function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, prioritie
             <Info label="Current status" valueNode={<TaskStatusBadge status={task.status} />} />
             <Info label="Verification required" value={task.verification_required ? "Yes" : "No"} />
             <Info label="Auditor follow-up required" value={task.auditor_followup_required ? "Yes" : "No"} />
+            <Info label="Confirmation required" value={task.requires_confirmation ? "Yes" : "No"} />
             <Info label="Completed by" value={task.completed_by || "Not completed"} />
           </div>
           <div className="flex flex-wrap gap-2 border-t border-border/70 pt-4">
@@ -350,6 +611,94 @@ function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, prioritie
           <Info label="Updated at" value={formatDateTime(task.updated_at)} />
           <Info label="Started at" value={formatDateTime(task.started_at)} />
           <Info label="Completed at" value={formatDateTime(task.completed_at)} />
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  const workContent = (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <Card className="rounded-md">
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Sub-tasks</CardTitle></CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="flex gap-2">
+            <Input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} placeholder="Add sub-task" className="h-10 rounded-md" />
+            <Button disabled={isWorking || !subtaskTitle.trim()} type="button" className="h-10 rounded-md" onClick={() => void onSubtask({ title: subtaskTitle.trim(), status: "todo", sort_order: task.subtasks.length + 1 }).then(() => setSubtaskTitle(""))}><Plus className="size-4" />Add</Button>
+          </div>
+          <div className="grid gap-2">
+            {task.subtasks.map((subtask) => (
+              <div key={subtask.uuid} className="flex items-center gap-3 rounded-md border border-border/70 p-3">
+                <button
+                  aria-label={subtask.status === "completed" ? "Mark pending" : "Mark completed"}
+                  className={cn("flex size-8 shrink-0 items-center justify-center rounded-md border", subtask.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-border bg-background text-muted-foreground")}
+                  disabled={isWorking}
+                  type="button"
+                  onClick={() => void onSubtask({ ...subtask, status: subtask.status === "completed" ? "todo" : "completed" })}
+                >
+                  <Check className="size-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className={cn("font-medium", subtask.status === "completed" && "text-muted-foreground line-through")}>{subtask.title}</div>
+                  <div className="text-xs text-muted-foreground">{[subtask.assigned_to, formatDate(subtask.due_date)].filter((value) => value && value !== "Not set").join(" - ") || "No assignee or due date"}</div>
+                </div>
+                <Button disabled={isWorking} variant="ghost" size="icon" className="size-8 rounded-md text-muted-foreground hover:text-destructive" type="button" onClick={() => void onRemoveSubtask(subtask)}><Trash2 className="size-4" /></Button>
+              </div>
+            ))}
+            {!task.subtasks.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No sub-tasks yet.</div> : null}
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="rounded-md">
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Comments</CardTitle></CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="grid gap-2">
+            <Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Type a comment or work note" className="min-h-24 rounded-md" />
+            <div className="flex justify-end">
+              <Button disabled={isWorking || !comment.trim()} type="button" className="h-10 rounded-md" onClick={() => void onComment(comment.trim()).then(() => setComment(""))}><Save className="size-4" />Add comment</Button>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            {task.comments.map((item) => (
+              <div key={item.uuid} className="rounded-md border border-border/70 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{item.actor_email}</div>
+                  <div className="text-xs text-muted-foreground">{formatDateTime(item.created_at)}</div>
+                </div>
+                <div className="mt-2 whitespace-pre-wrap text-sm leading-6">{item.body}</div>
+              </div>
+            ))}
+            {!task.comments.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No comments yet.</div> : null}
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="rounded-md lg:col-span-2">
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Link2 className="size-4" />Attachments</CardTitle></CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="max-w-md rounded-md"
+              disabled={isWorking}
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.currentTarget.value = ""
+                if (file) void onAttachFile(file)
+              }}
+            />
+            <span className="text-xs text-muted-foreground">Files are stored in {mediaVisibility} media under {mediaFolder}.</span>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {task.attachments.map((attachment) => (
+              <div key={attachment.uuid} className="flex items-center gap-3 rounded-md border border-border/70 p-3">
+                <Link2 className="size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{attachment.file_name}</div>
+                  <div className="text-xs text-muted-foreground">{[attachment.mime_type, formatFileSize(attachment.file_size), attachment.uploaded_by].filter(Boolean).join(" - ")}</div>
+                </div>
+              </div>
+            ))}
+            {!task.attachments.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground md:col-span-2">No attachments yet.</div> : null}
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -390,9 +739,37 @@ function TaskShowPage({ isWorking, onBack, onDelete, onEdit, onStatus, prioritie
       </div>
       <AnimatedTabs tabs={[
         { value: "details", label: <span className="flex items-center gap-2"><ClipboardCheck className="size-4" />Details</span>, content: detailContent },
+        { value: "work", label: <span className="flex items-center gap-2"><ListChecks className="size-4" />Work <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.subtasks.length + task.comments.length}</Badge></span>, content: workContent },
         { value: "activity", label: <span className="flex items-center gap-2"><ListChecks className="size-4" />Activity <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.activities.length}</Badge></span>, content: activityContent },
       ]} />
+      <div className="flex justify-end border-t border-border/70 pt-4">
+        <Button disabled={isWorking} type="button" variant="destructive" className="rounded-md" onClick={onForceDelete}><Trash2 className="size-4" />Force delete task</Button>
+      </div>
     </main>
+  )
+}
+
+function ForceDeleteTaskDialog({ isDeleting, onClose, onConfirm, task }: { isDeleting: boolean; onClose(): void; onConfirm(task: TaskManagerTask): void; task: TaskManagerTask | null }) {
+  return (
+    <AlertDialog open={Boolean(task)} onOpenChange={(open) => { if (!open) onClose() }}>
+      <AlertDialogContent className="max-w-lg sm:max-w-lg">
+        <AlertDialogHeader className="text-left sm:place-items-start">
+          <AlertDialogMedia className="bg-destructive/10 text-destructive">
+            <Trash2 className="size-5" />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Force delete task?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {task ? `Force delete ${task.task_no}? This will permanently delete the task, comments, replies, subtasks, attachments, reminders, tag links, and activities.` : ""}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={isDeleting || !task} variant="destructive" onClick={(event) => { event.preventDefault(); if (task) onConfirm(task) }}>
+            Force delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -460,6 +837,179 @@ function TaskRichTextEditor({ label, onChange, value }: { label: string; onChang
         </div>
         <EditorContent editor={editor} />
       </div>
+    </div>
+  )
+}
+
+function TaskLookupAutocomplete({
+  isCreating,
+  label,
+  onChange,
+  onCreate,
+  records,
+  value,
+}: {
+  isCreating: boolean
+  label: string
+  onChange(record: TaskManagerLookupRecord | null): void
+  onCreate(name: string): Promise<TaskManagerLookupRecord>
+  records: TaskManagerLookupRecord[]
+  value: number | null
+}) {
+  const selected = records.find((record) => record.id === value) ?? null
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState(selected?.name ?? "")
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredRecords = records.filter((record) => `${record.name} ${record.slug}`.toLowerCase().includes(normalizedQuery))
+  const exactRecord = records.find((record) => record.name.toLowerCase() === normalizedQuery || record.slug === toSlug(query))
+  const canCreate = Boolean(normalizedQuery && !exactRecord && !isCreating)
+
+  useEffect(() => {
+    if (!isOpen) setQuery(selected?.name ?? "")
+  }, [isOpen, selected?.name])
+
+  async function createAndSelect() {
+    if (!canCreate) return
+    const created = await onCreate(query.trim())
+    onChange(created)
+    setQuery(created.name)
+    setIsOpen(false)
+  }
+
+  function select(record: TaskManagerLookupRecord | null) {
+    onChange(record)
+    setQuery(record?.name ?? "")
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="relative grid gap-2">
+      <Label>{label}</Label>
+      <Input
+        className="h-11 rounded-md"
+        disabled={isCreating}
+        placeholder={`Search ${label.toLowerCase()}`}
+        value={query}
+        onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+        onChange={(event) => {
+          const nextQuery = event.target.value
+          setQuery(nextQuery)
+          setIsOpen(true)
+          const exact = records.find((record) => record.name.toLowerCase() === nextQuery.trim().toLowerCase() || record.slug === toSlug(nextQuery))
+          if (exact) onChange(exact)
+        }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return
+          event.preventDefault()
+          if (exactRecord) select(exactRecord)
+          else if (filteredRecords[0]) select(filteredRecords[0])
+          else if (canCreate) void createAndSelect()
+        }}
+      />
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          <button className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-muted" onMouseDown={(event) => { event.preventDefault(); select(null) }} type="button">No category</button>
+          {filteredRecords.map((record) => (
+            <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted" key={record.uuid} onMouseDown={(event) => { event.preventDefault(); select(record) }} type="button">
+              <LookupDot color={record.color} />
+              <span className="min-w-0 flex-1 truncate">{record.name}</span>
+              {record.id === value ? <Check className="size-4 text-primary" /> : null}
+            </button>
+          ))}
+          {canCreate ? (
+            <button className="flex w-full items-center gap-2 rounded-md border-t border-border/70 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted" onMouseDown={(event) => { event.preventDefault(); void createAndSelect() }} type="button">
+              <Plus className="size-4" />
+              Create "{query.trim()}"
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function TaskTagPicker({
+  isCreating,
+  label,
+  onChange,
+  onCreate,
+  records,
+  value,
+}: {
+  isCreating: boolean
+  label: string
+  onChange(value: number[]): void
+  onCreate(name: string): Promise<TaskManagerLookupRecord>
+  records: TaskManagerLookupRecord[]
+  value: number[]
+}) {
+  const [query, setQuery] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedRecords = records.filter((record) => value.includes(record.id))
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredRecords = records.filter((record) => !value.includes(record.id) && `${record.name} ${record.slug}`.toLowerCase().includes(normalizedQuery))
+  const canCreate = Boolean(normalizedQuery && !records.some((record) => record.name.toLowerCase() === normalizedQuery || record.slug === toSlug(query)) && !isCreating)
+
+  async function createAndAdd() {
+    if (!canCreate) return
+    const created = await onCreate(query.trim())
+    onChange([...value, created.id])
+    setQuery("")
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="relative grid gap-2">
+      <Label>{label}</Label>
+      <div className="flex min-h-11 flex-wrap items-center gap-1 rounded-md border border-input px-2 py-1">
+        {selectedRecords.map((record) => (
+          <button key={record.uuid} className="inline-flex h-7 items-center gap-1 rounded-md border border-border/70 bg-muted px-2 text-xs" type="button" onClick={() => onChange(value.filter((tagId) => tagId !== record.id))}>
+            <LookupDot color={record.color} />
+            {record.name}
+            <span className="text-muted-foreground">x</span>
+          </button>
+        ))}
+        <input
+          className="h-8 min-w-24 flex-1 bg-transparent text-sm outline-none"
+          disabled={isCreating}
+          placeholder={selectedRecords.length ? "Add tag" : "Search or create tag"}
+          value={query}
+          onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return
+            event.preventDefault()
+            if (filteredRecords[0]) {
+              onChange([...value, filteredRecords[0].id])
+              setQuery("")
+            } else if (canCreate) {
+              void createAndAdd()
+            }
+          }}
+        />
+      </div>
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
+          {filteredRecords.map((record) => (
+            <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted" key={record.uuid} onMouseDown={(event) => { event.preventDefault(); onChange([...value, record.id]); setQuery("") }} type="button">
+              <LookupDot color={record.color} />
+              <span className="min-w-0 flex-1 truncate">{record.name}</span>
+            </button>
+          ))}
+          {canCreate ? (
+            <button className="flex w-full items-center gap-2 rounded-md border-t border-border/70 px-3 py-2 text-left text-sm font-medium text-primary hover:bg-muted" onMouseDown={(event) => { event.preventDefault(); void createAndAdd() }} type="button">
+              <Plus className="size-4" />
+              Create "{query.trim()}"
+            </button>
+          ) : null}
+          {!filteredRecords.length && !canCreate ? <div className="px-3 py-2 text-sm text-muted-foreground">No tags found.</div> : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -553,4 +1103,55 @@ function formatDate(value?: string | null) {
 function formatDateTime(value?: string | null) {
   if (!value) return "Not set"
   return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+}
+
+function LookupBadge({ record }: { record: TaskManagerLookupRecord }) {
+  return (
+    <span className="inline-flex h-6 items-center gap-1 rounded-md border border-border/70 bg-card px-2 text-[11px] font-medium">
+      <LookupDot color={record.color} />
+      {record.name}
+    </span>
+  )
+}
+
+function LookupDot({ color }: { color?: string | null }) {
+  return <span className="size-2 shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: color || "#64748b" }} />
+}
+
+function taskScopeTitle(scope: TaskManagerScope) {
+  if (scope === "my") return "My Tasks"
+  if (scope === "assigned-to-me") return "Assigned To Me"
+  if (scope === "open") return "Open Tasks"
+  return "All Tasks"
+}
+
+function taskScopeDescription(scope: TaskManagerScope) {
+  if (scope === "my") return "Tasks assigned to me, created by me, or assigned by me for follow-up."
+  if (scope === "assigned-to-me") return "Pending work assigned to the current user."
+  if (scope === "open") return "Unassigned work visible to authorized users as a shared queue."
+  return "Manager view for all tenant tasks, filters, reminders, categories, and tags."
+}
+
+function toSlug(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
+function randomLookupColour() {
+  const colours = ["#0891b2", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a", "#ca8a04", "#475569"]
+  return colours[Math.floor(Math.random() * colours.length)]
+}
+
+function toDateTimeInputValue(value: unknown) {
+  if (!value) return ""
+  const date = new Date(String(value))
+  if (!Number.isFinite(date.getTime())) return String(value)
+  const offset = date.getTimezoneOffset() * 60000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function formatFileSize(value: number) {
+  if (!value) return "0 B"
+  if (value < 1024) return `${value} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`
 }

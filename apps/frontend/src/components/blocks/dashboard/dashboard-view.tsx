@@ -138,6 +138,9 @@ const MailDeskPage = lazy(() =>
 const TaskManagerPage = lazy(() =>
   import('src/features/task-manager/task-manager-page').then((module) => ({ default: module.TaskManagerPage })),
 )
+const TaskManagerAutomationPage = lazy(() =>
+  import('src/features/task-manager/task-manager-automation-page').then((module) => ({ default: module.TaskManagerAutomationPage })),
+)
 const SiteSliderPage = lazy(() =>
   import('src/features/site/slider/site-slider-page').then((module) => ({ default: module.SiteSliderPage })),
 )
@@ -678,8 +681,28 @@ export function DashboardView({
             <MailDeskPage session={session} view="settings" />
           ) : visiblePage === "app-sites-sliders" ? (
             <SiteSliderPage session={session} />
-          ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-tasks" || visiblePage === "app-taskmanager-gst-verification" || visiblePage === "app-taskmanager-auditor-follow-up" ? (
-            <TaskManagerPage session={session} />
+          ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-my-tasks" ? (
+            <TaskManagerPage scope="my" session={session} />
+          ) : visiblePage === "app-taskmanager-assigned-to-me" ? (
+            <TaskManagerPage scope="assigned-to-me" session={session} />
+          ) : visiblePage === "app-taskmanager-open-tasks" ? (
+            <TaskManagerPage scope="open" session={session} />
+          ) : visiblePage === "app-taskmanager-all-tasks" || visiblePage === "app-taskmanager-tasks" || visiblePage === "app-taskmanager-gst-verification" || visiblePage === "app-taskmanager-auditor-follow-up" ? (
+            <TaskManagerPage scope="all" session={session} />
+          ) : visiblePage === "app-taskmanager-templates" ? (
+            <TaskManagerAutomationPage session={session} view="templates" />
+          ) : visiblePage === "app-taskmanager-campaigns" ? (
+            <TaskManagerAutomationPage session={session} view="campaigns" />
+          ) : visiblePage === "app-taskmanager-reminders" ? (
+            <TaskManagerAutomationPage session={session} view="reminders" />
+          ) : visiblePage === "app-taskmanager-performance" ? (
+            <TaskManagerAutomationPage session={session} view="performance" />
+          ) : visiblePage === "app-taskmanager-categories" ? (
+            <TaskManagerAutomationPage session={session} view="categories" />
+          ) : visiblePage === "app-taskmanager-task-tags" ? (
+            <TaskManagerAutomationPage session={session} view="tags" />
+          ) : visiblePage === "app-taskmanager-settings" ? (
+            <TaskManagerAutomationPage session={session} view="settings" />
           ) : visiblePage === "app-billing-settings" ? (
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (

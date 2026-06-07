@@ -215,9 +215,10 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-cyan-700 text-white",
     icon: ClipboardCheck,
     menuGroups: [
-      { title: "Work", icon: ListChecks, items: [item("taskmanager", "tasks", "Tasks", ClipboardCheck), item("taskmanager", "performance", "Performance", BarChart3)] },
-      { title: "Follow-up", icon: FileText, items: [item("taskmanager", "gst-verification", "GST Verification", FileText), item("taskmanager", "auditor-follow-up", "Auditor Follow-up", FileText)] },
-      { title: "Settings", icon: Settings, items: [item("taskmanager", "settings", "Task Settings", Settings)] },
+      { title: "Task Desk", icon: ListChecks, items: [item("taskmanager", "my-tasks", "My Tasks", ClipboardCheck), item("taskmanager", "assigned-to-me", "Assigned To Me", UserRoundCog), item("taskmanager", "open-tasks", "Open Tasks", ListChecks), item("taskmanager", "all-tasks", "All Tasks", ClipboardList)] },
+      { title: "Automation", icon: FileText, items: [item("taskmanager", "templates", "Templates", FileText), item("taskmanager", "campaigns", "Campaigns", Megaphone), item("taskmanager", "reminders", "Reminders", Clock3)] },
+      { title: "Insights", icon: BarChart3, items: [item("taskmanager", "performance", "Performance", BarChart3)] },
+      { title: "Settings", icon: Settings, items: [item("taskmanager", "categories", "Categories", Tags), item("taskmanager", "task-tags", "Tags", Tags), item("taskmanager", "settings", "Task Settings", Settings)] },
     ],
   }),
   withMenu({
