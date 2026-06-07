@@ -2,13 +2,24 @@
 
 ## Version State
 
-- **Current version:** `1.0.84`
-- **Release tag:** `v-1.0.84`
-- **Changelog label:** `v 1.0.84`
+- **Current version:** `1.0.85`
+- **Release tag:** `v-1.0.85`
+- **Changelog label:** `v 1.0.85`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.85
+
+### [v 1.0.85] 2026-06-06 9:47 pm - Auditor client workspace and inline credential editing
+
+- Bumped workspace version to 1.0.85
+- Added the Auditor app desk, breadcrumb routing, side menu, and full Auditor Client backend/frontend module.
+- Added animated Client, Contact, Address, and Credentials tab groups to Auditor Client show and upsert pages.
+- Added searchable State, City, and Pincode master autocomplete lookups with dependent filtering and persisted lookup IDs.
+- Added client contact, address, GST, E-Invoice, E-Way, API, and email account credential fields.
+- Added independent inline editing and saving for every credential row on the Client show page.
 
 ## v-1.0.84
 

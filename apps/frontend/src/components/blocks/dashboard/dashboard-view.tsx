@@ -81,6 +81,12 @@ const MasterDataPage = lazy(() =>
 const ContactPage = lazy(() =>
   import('src/features/contact/contact-page').then((module) => ({ default: module.ContactPage })),
 )
+const AuditorContactDetailPage = lazy(() =>
+  import('src/features/auditor/contact-detail/auditor-contact-detail-page').then((module) => ({ default: module.AuditorContactDetailPage })),
+)
+const AuditorGstFilingPage = lazy(() =>
+  import('src/features/auditor/gst-filing/auditor-gst-filing-page').then((module) => ({ default: module.AuditorGstFilingPage })),
+)
 const ProductPage = lazy(() =>
   import('src/features/product/product-page').then((module) => ({ default: module.ProductPage })),
 )
@@ -250,6 +256,13 @@ function prefetchAppModules(appId: DashboardAppId) {
       void import('src/features/payment/payment-page')
       void import('src/features/report/billing-statement-page')
       void import('src/features/accounts/accounts-book-page')
+      return
+    }
+
+    if (appId === "auditor") {
+      void import('src/features/contact/contact-page')
+      void import('src/features/auditor/contact-detail/auditor-contact-detail-page')
+      void import('src/features/auditor/gst-filing/auditor-gst-filing-page')
       return
     }
 
@@ -675,6 +688,10 @@ export function DashboardView({
             <GstSandboxPage allowEnvironmentSelect preferredEnvironment="production" session={session} />
           ) : visiblePage === "app-inventory-document-settings" ? (
             <InventoryDocumentSettingsPage session={session} />
+          ) : visiblePage === "app-auditor-contact-details" ? (
+            <AuditorContactDetailPage session={session} />
+          ) : visiblePage === "app-auditor-gst-filing" ? (
+            <AuditorGstFilingPage session={session} />
           ) : moduleKey === "contacts" ? (
             <ContactPage session={session} />
           ) : moduleKey === "products" ? (

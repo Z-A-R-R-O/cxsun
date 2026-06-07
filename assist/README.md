@@ -1,6 +1,6 @@
 # AI Agent Assist System
 
-**Project version:** 1.0.84
+**Project version:** 1.0.85
 
 This directory is the working guide for AI agents on `cxsun`. It records project rules, current architecture, session plans, task tracking, and release notes.
 
@@ -53,6 +53,8 @@ Current backend boundary layout:
 - `apps/server/src/modules/common/<group>/<module>`: standalone common tenant modules.
 - `apps/server/src/modules/master/<module>`: standalone master modules (`company`, `contact`, `product`, `order`).
 - `apps/server/src/modules/entries/<module>`: tenant-isolated transaction modules including sales, export sales, purchase, receipt, and payment.
+- `apps/server/src/modules/auditor/contact-credential`: tenant-isolated credentials attached separately to Contact master records.
+- `apps/server/src/modules/auditor/gst-filing`: tenant-isolated monthly GSTR-1/GSTR-3B filing tracker for Contact master records.
 - `apps/server/src/modules/gst/gst-compliance`: tenant GST credentials, global GSP provider credentials, token state, and compliance operations.
 - `apps/server/src/modules/mail`: tenant SMTP settings, queued messages, attachment metadata, events, and delivery.
 - `apps/server/src/modules/settings`: company software settings and document numbering.
@@ -73,6 +75,8 @@ Current important API surfaces:
 - `GET/POST /api/v1/common/<moduleKey>`
 - `GET/POST /api/v1/entries/sales`
 - `GET/POST /api/v1/entries/export-sales`
+- `GET/POST /api/v1/auditor/contact-credentials`
+- `GET/POST /api/v1/auditor/gst-filings`
 - `GET/PATCH /api/v1/company-settings/<key>`
 - `GET/PATCH/POST /api/v1/gst-compliance/*`
 - `GET/PATCH/POST /api/v1/mail/*`

@@ -32,6 +32,7 @@ export const pageModuleMap: Partial<Record<DashboardPage, string>> = {
   "app-billing-month": "months",
   "app-billing-stock-rejection-type": "stockRejectionTypes",
   "app-billing-contact": "contacts",
+  "app-auditor-contact": "contacts",
   "app-billing-product": "products",
   "app-billing-order": "orders",
   "app-inventory-category": "productCategories",

@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   ContactRound,
   CircleDollarSign,
+  ClipboardList,
   CreditCard,
   Clock3,
   Edit3,
@@ -50,7 +51,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "accounts" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites"
+export type DashboardAppId = "application" | "accounts" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -165,6 +166,19 @@ export const dashboardApps: DashboardAppDefinition[] = [
     menuGroups: [
       { title: "Library", icon: Image, items: [item("media", "library", "Media Library", Image)] },
       { title: "Management", icon: Settings, items: [item("media", "links", "Links", Link2), item("media", "sharing", "Sharing", Globe2)] },
+    ],
+  }),
+  withMenu({
+    id: "auditor",
+    name: "Auditor",
+    shortName: "Auditor",
+    description: "Auditor office workspace for managing contacts, credentials, compliance, and filing activity.",
+    status: "active",
+    accent: "bg-fuchsia-700 text-white",
+    icon: ClipboardList,
+    menuGroups: [
+      { title: "Master", icon: UsersRound, items: [item("auditor", "contact", "Contact", UsersRound), item("auditor", "contact-details", "Contact Details", ContactRound)] },
+      { title: "Compliance", icon: ClipboardList, items: [item("auditor", "gst-filing", "GST Filing", FileText)] },
     ],
   }),
   withMenu({

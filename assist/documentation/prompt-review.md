@@ -2141,3 +2141,60 @@ in irn is auto creating or showing UUID of sales remove this and make this hide 
 ## 2026-06-06 - Changelog update
 
 create log in changelog
+
+## 2026-06-06 - Auditor app and client module
+
+create new app module for auditor and wire it in breadcrumb and make new side menu desk for Auditor
+
+it is for auditor office to manage their clients details so prepare workspace and wire it and create first module in this as client
+
+client have details of
+
+id
+name
+group
+is active
+
+make this as full backend and frontend as like before with list + show +upsert pages like contact
+
+## 2026-06-06 - Auditor client additional details
+
+add sub items for additional details as client details as look in image
+
+top client details with master auto complete lookup to quick select , and left is contact details and right is address area
+
+and new card with crediential for all gst, e-invoice, e-way, API, and e-mail account user/password details
+
+## 2026-06-06 - Auditor client animated tab groups
+
+in client make each in animated tab groups
+
+## 2026-06-06 - Auditor client location master lookups
+
+make city state pincode as same as in contact master auto complete lookup
+
+## 2026-06-06 - Inline credential editing and version update
+
+make show page with inline edit option for credentials for each items separately edit on spot and save and create log in chagelog with version update
+
+## 2026-06-06 - Show credential passwords
+
+don't hide passwords show it
+
+## 2026-06-06 - Credential clipboard copy fix
+
+read previous and fix copy is now working for clipboard in credentials
+
+## 2026-06-06 - Auditor GST Filing module
+
+extend with new modules for gst filing in auditor app with similar in image
+
+upsert as pop up dialog and list with top selecting on month and year as master autocomplete and list with status
+
+## 2026-06-06 - Auditor contact-based credentials and GST filing
+
+in this major update remove client and connect contact with this , add previous we build contact to side menu with contact page untouched and add extra credential to it as additional exact same and add gst filing details for individual contact for each month as like report and upsert as for individual
+
+and and in GST Filing it is for all contact in one place can edit and update this make this possible as two way entering one from contact gst filing another is on single page for all client for a particular month
+
+keep in mind do not disturb old contact only creating new table and extending for Credential and attach it separately

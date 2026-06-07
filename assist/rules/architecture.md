@@ -113,6 +113,7 @@ Avoid direct cross-module imports. Use explicit public module exports, applicati
 - Put every common business module under `apps/server/src/modules/common/<group>/<module>`.
 - Put standalone master modules under `apps/server/src/modules/master/<module>`.
 - Put tenant transaction/entry modules under `apps/server/src/modules/entries/<module>`.
+- Put auditor-office modules under `apps/server/src/modules/auditor/<module>`; current contact-based modules include contact credentials and GST Filing.
 - Keep internal folder moves API-stable unless the user explicitly requests a route change.
 
 ## Tenant Feature Visibility

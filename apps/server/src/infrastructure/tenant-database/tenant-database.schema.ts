@@ -912,6 +912,87 @@ export interface TenantMastersOrdersTable {
   deleted_at: Date | null
 }
 
+export interface TenantMastersAuditorClientsTable {
+  id: Generated<number>
+  uuid: string
+  name: string
+  group_name: string | null
+  contact_person: string | null
+  mobile: string | null
+  whatsapp: string | null
+  email: string | null
+  gstin: string | null
+  address_line_1: string | null
+  address_line_2: string | null
+  city_id: string | null
+  city: string | null
+  state_id: string | null
+  state: string | null
+  pincode_id: string | null
+  pincode: string | null
+  gst_user: string | null
+  gst_pass: string | null
+  einvoice_user: string | null
+  einvoice_pass: string | null
+  eway_user: string | null
+  eway_pass: string | null
+  einvoice_api_user: string | null
+  einvoice_api_pass: string | null
+  eway_api_user: string | null
+  eway_api_pass: string | null
+  email_account_user: string | null
+  email_account_pass: string | null
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantAuditorGstFilingsTable {
+  id: Generated<number>
+  uuid: string
+  contact_id: number
+  contact_name: string
+  client_id: number | null
+  client_name: string | null
+  month_id: string | null
+  month_name: string
+  accounting_year_id: string | null
+  accounting_year_name: string
+  gstr1_arn: string | null
+  gstr1_date: string | null
+  gstr3b_arn: string | null
+  gstr3b_date: string | null
+  status: string
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantAuditorContactCredentialsTable {
+  id: Generated<number>
+  uuid: string
+  contact_id: number
+  contact_name: string
+  gst_user: string | null
+  gst_pass: string | null
+  einvoice_user: string | null
+  einvoice_pass: string | null
+  eway_user: string | null
+  eway_pass: string | null
+  einvoice_api_user: string | null
+  einvoice_api_pass: string | null
+  eway_api_user: string | null
+  eway_api_pass: string | null
+  email_account_user: string | null
+  email_account_pass: string | null
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
 export interface TenantDatabaseSchema {
   companies: TenantCompaniesTable
   accounting_years: TenantAccountingYearsTable
@@ -977,4 +1058,7 @@ export interface TenantDatabaseSchema {
   masters_contacts: TenantMastersContactsTable
   masters_products: TenantMastersProductsTable
   masters_orders: TenantMastersOrdersTable
+  masters_auditor_clients: TenantMastersAuditorClientsTable
+  auditor_contact_credentials: TenantAuditorContactCredentialsTable
+  auditor_gst_filings: TenantAuditorGstFilingsTable
 }

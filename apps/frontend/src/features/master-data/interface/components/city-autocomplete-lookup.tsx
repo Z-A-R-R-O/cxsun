@@ -10,6 +10,7 @@ export interface CityAutocompleteLookupProps {
   onOptionsChange?(records: MasterDataRecord[]): void
   placeholder?: string
   districtId?: unknown
+  stateId?: unknown
   session: AuthSession
   value: unknown
 }
@@ -22,6 +23,7 @@ export function CityAutocompleteLookup({
   onOptionsChange,
   placeholder = "Search city name",
   districtId,
+  stateId,
   session,
   value,
 }: CityAutocompleteLookupProps) {
@@ -35,7 +37,7 @@ export function CityAutocompleteLookup({
       moduleKey="cities"
       onChange={onChange}
       onOptionsChange={onOptionsChange}
-      optionFilter={(record) => matchesReference(record.district_id, districtId)}
+      optionFilter={(record) => matchesReference(record.district_id, districtId) && matchesReference(record.state_id, stateId)}
       placeholder={placeholder}
       session={session}
       value={value}

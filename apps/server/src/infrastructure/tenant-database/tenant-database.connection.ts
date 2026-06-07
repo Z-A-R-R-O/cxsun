@@ -23,6 +23,8 @@ import { migrateGstComplianceTables } from '../../modules/gst/gst-compliance/ind
 import { migrateMediaTables } from '../../modules/media/index.js'
 import { migrateMailTables } from '../../modules/mail/index.js'
 import { migrateTaskManagerTables } from '../../modules/task-manager/index.js'
+import { migrateAuditorContactCredentialTables } from '../../modules/auditor/contact-credential/index.js'
+import { migrateAuditorGstFilingTables } from '../../modules/auditor/gst-filing/index.js'
 import { migrateSiteSliderTables, seedDefaultSiteSliders } from '../../modules/site/slider/database/site-slider.migration.js'
 import { migrateContactMasterTable } from '../../modules/master/contact/index.js'
 import { migrateProductMasterTable } from '../../modules/master/product/index.js'
@@ -133,6 +135,8 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateMediaTables(database as never)
   await migrateMailTables(database)
   await migrateTaskManagerTables(database as never)
+  await migrateAuditorContactCredentialTables(database)
+  await migrateAuditorGstFilingTables(database)
   await migrateSiteSliderTables(database as never)
   await migrateContactMasterTable(database)
   await migrateProductMasterTable(database)
