@@ -61,6 +61,7 @@ export interface TaskManagerTask {
   comments: TaskManagerComment[]
   subtasks: TaskManagerSubtask[]
   attachments: TaskManagerAttachment[]
+  events: TaskManagerEvent[]
 }
 
 export interface TaskManagerActivity {
@@ -132,6 +133,40 @@ export interface TaskManagerAttachmentInput {
   mime_type?: string | null
   file_size?: number
   attachment_type?: string
+}
+
+export interface TaskManagerEvent {
+  id: number
+  uuid: string
+  task_id: number
+  title: string
+  starts_at: Date
+  ends_at: Date | null
+  is_all_day: boolean
+  attendees: string | null
+  visibility: string
+  location: string | null
+  description: string | null
+  status: string
+  created_by: string
+  updated_by: string | null
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+}
+
+export interface TaskManagerEventInput {
+  id?: number
+  uuid?: string
+  title?: string
+  starts_at?: string
+  ends_at?: string | null
+  is_all_day?: boolean
+  attendees?: unknown
+  visibility?: string
+  location?: string | null
+  description?: string | null
+  status?: string
 }
 
 export interface TaskManagerSettings {

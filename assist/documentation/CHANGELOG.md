@@ -2,13 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.85`
-- **Release tag:** `v-1.0.85`
-- **Changelog label:** `v 1.0.85`
+- **Current version:** `1.0.86`
+- **Release tag:** `v-1.0.86`
+- **Changelog label:** `v 1.0.86`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.86
+
+### [v 1.0.86] 2026-06-07 9:35 pm - CRM pipelines and Task Manager workspace updates
+
+- Bumped workspace version to 1.0.86
+- Added a tenant-global CRM backend module with pipelines, pipeline stages, leads, and deals.
+- Added CRM tenant migrations, default sales pipeline/stage creation, and API routes for list, upsert, and delete workflows.
+- Wired CRM Leads, Deals, and Pipeline pages into the dashboard side menu with list dialogs, deal tables, and a pipeline board.
+- Extended Task Manager show pages with Events, Attachments, Comments, Sub Tasks, and Activity tab refinements.
+- Added Task Manager event scheduling, image attachment preview, serial numbering across work tabs, and authenticated private-media previews.
+- Verified the active server and frontend TypeScript surfaces after the CRM and Task Manager updates.
 
 ## v-1.0.85
 

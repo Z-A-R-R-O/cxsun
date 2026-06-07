@@ -3,7 +3,7 @@ import { Controller, Get, Post } from '../../core/decorators/controller.js'
 import { Inject } from '../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../core/tenant/tenant-context.service.js'
 import { TaskManagerService } from './task-manager.service.js'
-import type { TaskManagerAttachmentInput, TaskManagerCampaignInput, TaskManagerCampaignItemInput, TaskManagerCampaignItemTaskInput, TaskManagerCommentInput, TaskManagerContactCleanupCampaignInput, TaskManagerLookupInput, TaskManagerReminderInput, TaskManagerSalesVerificationCampaignInput, TaskManagerScope, TaskManagerSettingsInput, TaskManagerStatus, TaskManagerSubtaskInput, TaskManagerTaskInput, TaskManagerTemplateInput } from './task-manager.types.js'
+import type { TaskManagerAttachmentInput, TaskManagerCampaignInput, TaskManagerCampaignItemInput, TaskManagerCampaignItemTaskInput, TaskManagerCommentInput, TaskManagerContactCleanupCampaignInput, TaskManagerEventInput, TaskManagerLookupInput, TaskManagerReminderInput, TaskManagerSalesVerificationCampaignInput, TaskManagerScope, TaskManagerSettingsInput, TaskManagerStatus, TaskManagerSubtaskInput, TaskManagerTaskInput, TaskManagerTemplateInput } from './task-manager.types.js'
 
 @Controller('api/v1/task-manager')
 export class TaskManagerController {
@@ -134,6 +134,25 @@ export class TaskManagerController {
     return this.tasks.comment(headers, idOrUuid, body)
   }
 
+  @Post(':idOrUuid/comments/:commentIdOrUuid/update')
+  updateComment(
+    @Headers() headers: TenantRequestHeaders,
+    @Param('idOrUuid') idOrUuid: string,
+    @Param('commentIdOrUuid') commentIdOrUuid: string,
+    @Body() body: TaskManagerCommentInput,
+  ) {
+    return this.tasks.updateComment(headers, idOrUuid, commentIdOrUuid, body)
+  }
+
+  @Post(':idOrUuid/comments/:commentIdOrUuid/delete')
+  deleteComment(
+    @Headers() headers: TenantRequestHeaders,
+    @Param('idOrUuid') idOrUuid: string,
+    @Param('commentIdOrUuid') commentIdOrUuid: string,
+  ) {
+    return this.tasks.deleteComment(headers, idOrUuid, commentIdOrUuid)
+  }
+
   @Post(':idOrUuid/subtasks/upsert')
   upsertSubtask(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: TaskManagerSubtaskInput) {
     return this.tasks.upsertSubtask(headers, idOrUuid, body)
@@ -151,6 +170,29 @@ export class TaskManagerController {
   @Post(':idOrUuid/attachments')
   attachment(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: TaskManagerAttachmentInput) {
     return this.tasks.addAttachment(headers, idOrUuid, body)
+  }
+
+  @Post(':idOrUuid/attachments/:attachmentIdOrUuid/delete')
+  deleteAttachment(
+    @Headers() headers: TenantRequestHeaders,
+    @Param('idOrUuid') idOrUuid: string,
+    @Param('attachmentIdOrUuid') attachmentIdOrUuid: string,
+  ) {
+    return this.tasks.deleteAttachment(headers, idOrUuid, attachmentIdOrUuid)
+  }
+
+  @Post(':idOrUuid/events/upsert')
+  upsertEvent(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: TaskManagerEventInput) {
+    return this.tasks.upsertEvent(headers, idOrUuid, body)
+  }
+
+  @Post(':idOrUuid/events/:eventIdOrUuid/delete')
+  deleteEvent(
+    @Headers() headers: TenantRequestHeaders,
+    @Param('idOrUuid') idOrUuid: string,
+    @Param('eventIdOrUuid') eventIdOrUuid: string,
+  ) {
+    return this.tasks.deleteEvent(headers, idOrUuid, eventIdOrUuid)
   }
 
   @Post(':idOrUuid/force-delete')

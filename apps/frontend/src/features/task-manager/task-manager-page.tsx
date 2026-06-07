@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { EditorContent, useEditor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
-import { ArrowLeft, Bold, Check, CheckCircle2, ChevronDown, ClipboardCheck, History, Italic, Link2, List, ListChecks, ListOrdered, Plus, RefreshCw, RotateCcw, RotateCw, Save, Tags, Trash2, UserRound } from "lucide-react"
+import { ArrowLeft, Bold, CalendarDays, Check, CheckCircle2, ChevronDown, ClipboardCheck, Eye, FileText, History, Italic, Link2, List, ListChecks, ListOrdered, MessageCircle, MoreHorizontal, Paperclip, Pencil, Plus, RefreshCw, RotateCcw, RotateCw, Save, Tags, Trash2, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "src/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "src/components/ui/dropdown-menu"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
@@ -34,7 +35,7 @@ import {
   MasterListToolbarCard,
   buildMasterListShowingLabel,
 } from "src/components/blocks/lists/master-list"
-import type { AuthSession } from "src/features/auth/auth-client"
+import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import { fileToBase64, linkMediaAsset, uploadMediaAsset } from "src/features/media/media-client"
 import type { MasterDataRecord, MasterDataUpsertInput } from "src/features/master-data/domain/master-data"
 import { listMasterDataRecords, upsertMasterDataRecord } from "src/features/master-data/infrastructure/master-data-client"
@@ -45,7 +46,10 @@ import {
   addTaskManagerComment,
   addTaskManagerAttachment,
   changeTaskManagerStatus,
+  deleteTaskManagerComment,
+  deleteTaskManagerEvent,
   deleteTaskManagerSubtask,
+  deleteTaskManagerAttachment,
   deleteTaskManagerTask,
   emptyTaskManagerTask,
   forceDeleteTaskManagerTask,
@@ -53,12 +57,17 @@ import {
   listTaskManagerCategories,
   listTaskManagerTasks,
   listTaskManagerTags,
+  updateTaskManagerComment,
   upsertTaskManagerCategory,
   upsertTaskManagerTag,
   type TaskManagerLookupRecord,
   type TaskManagerScope,
   type TaskManagerSettings,
+  type TaskManagerAttachment,
+  type TaskManagerComment,
+  type TaskManagerEvent,
   type TaskManagerSubtask,
+  upsertTaskManagerEvent,
   upsertTaskManagerTask,
   upsertTaskManagerSubtask,
   type TaskManagerStatus,
@@ -111,9 +120,14 @@ export function TaskManagerPage({ scope = "all", session }: { scope?: TaskManage
   const statusMutation = useMutation({ mutationFn: ({ task, status }: { task: TaskManagerTask; status: TaskManagerStatus }) => changeTaskManagerStatus(session, task, status) })
   const deleteMutation = useMutation({ mutationFn: (task: TaskManagerTask) => deleteTaskManagerTask(session, task) })
   const forceDeleteMutation = useMutation({ mutationFn: (task: TaskManagerTask) => forceDeleteTaskManagerTask(session, task) })
-  const commentMutation = useMutation({ mutationFn: ({ body, task }: { body: string; task: TaskManagerTask }) => addTaskManagerComment(session, task, { body }) })
+  const commentMutation = useMutation({ mutationFn: ({ body, parentCommentId, task }: { body: string; parentCommentId?: number | null; task: TaskManagerTask }) => addTaskManagerComment(session, task, { body, parent_comment_id: parentCommentId }) })
+  const commentUpdateMutation = useMutation({ mutationFn: ({ body, comment, task }: { body: string; comment: TaskManagerComment; task: TaskManagerTask }) => updateTaskManagerComment(session, task, comment, { body }) })
+  const commentDeleteMutation = useMutation({ mutationFn: ({ comment, task }: { comment: TaskManagerComment; task: TaskManagerTask }) => deleteTaskManagerComment(session, task, comment) })
   const subtaskMutation = useMutation({ mutationFn: ({ input, task }: { input: Partial<TaskManagerSubtask>; task: TaskManagerTask }) => upsertTaskManagerSubtask(session, task, input) })
   const subtaskDeleteMutation = useMutation({ mutationFn: ({ subtask, task }: { subtask: TaskManagerSubtask; task: TaskManagerTask }) => deleteTaskManagerSubtask(session, task, subtask) })
+  const attachmentDeleteMutation = useMutation({ mutationFn: ({ attachment, task }: { attachment: TaskManagerAttachment; task: TaskManagerTask }) => deleteTaskManagerAttachment(session, task, attachment) })
+  const eventMutation = useMutation({ mutationFn: ({ event, task }: { event: Partial<TaskManagerEvent>; task: TaskManagerTask }) => upsertTaskManagerEvent(session, task, event) })
+  const eventDeleteMutation = useMutation({ mutationFn: ({ event, task }: { event: TaskManagerEvent; task: TaskManagerTask }) => deleteTaskManagerEvent(session, task, event) })
   const attachmentMutation = useMutation({
     mutationFn: async ({ file, task }: { file: File; task: TaskManagerTask }) => {
       const base64 = await fileToBase64(file)
@@ -211,9 +225,23 @@ export function TaskManagerPage({ scope = "all", session }: { scope?: TaskManage
     }
   }
 
-  async function addComment(task: TaskManagerTask, body: string) {
-    const updated = await commentMutation.mutateAsync({ task, body })
+  async function addComment(task: TaskManagerTask, body: string, parentCommentId?: number | null) {
+    const updated = await commentMutation.mutateAsync({ task, body, parentCommentId })
     toast.success("Comment added")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function updateComment(task: TaskManagerTask, comment: TaskManagerComment, body: string) {
+    const updated = await commentUpdateMutation.mutateAsync({ task, comment, body })
+    toast.success("Comment updated")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function deleteComment(task: TaskManagerTask, comment: TaskManagerComment) {
+    const updated = await commentDeleteMutation.mutateAsync({ task, comment })
+    toast.error("Comment deleted")
     await refresh()
     setView({ mode: "show", task: updated })
   }
@@ -239,6 +267,27 @@ export function TaskManagerPage({ scope = "all", session }: { scope?: TaskManage
     setView({ mode: "show", task: updated })
   }
 
+  async function removeAttachment(task: TaskManagerTask, attachment: TaskManagerAttachment) {
+    const updated = await attachmentDeleteMutation.mutateAsync({ attachment, task })
+    toast.error("Attachment removed", { description: attachment.file_name })
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function saveEvent(task: TaskManagerTask, event: Partial<TaskManagerEvent>) {
+    const updated = await eventMutation.mutateAsync({ event, task })
+    toast.success(event.uuid ? "Event updated" : "Event scheduled")
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
+  async function removeEvent(task: TaskManagerTask, event: TaskManagerEvent) {
+    const updated = await eventDeleteMutation.mutateAsync({ event, task })
+    toast.error("Event removed", { description: event.title })
+    await refresh()
+    setView({ mode: "show", task: updated })
+  }
+
   if (view.mode === "upsert") {
     return <TaskUpsertPage categories={categoriesQuery.data ?? []} isCreatingCategory={categoryMutation.isPending} isCreatingPriority={priorityMutation.isPending} isCreatingTag={tagMutation.isPending} isSaving={upsertMutation.isPending} priorities={prioritiesQuery.data ?? []} settings={settingsQuery.data ?? null} tags={tagsQuery.data ?? []} task={view.task} onBack={() => setView(view.task ? { mode: "show", task: view.task } : { mode: "list" })} onCreateCategory={createCategory} onCreatePriority={createPriority} onCreateTag={createTag} onSubmit={save} />
   }
@@ -247,7 +296,7 @@ export function TaskManagerPage({ scope = "all", session }: { scope?: TaskManage
     const task = tasks.find((item) => item.uuid === view.task.uuid) ?? view.task
     return (
       <>
-        <TaskShowPage isWorking={statusMutation.isPending || deleteMutation.isPending || forceDeleteMutation.isPending || commentMutation.isPending || subtaskMutation.isPending || subtaskDeleteMutation.isPending || attachmentMutation.isPending} mediaFolder={settingsQuery.data?.media_folder ?? "task/files"} mediaVisibility={settingsQuery.data?.media_visibility === "public" ? "public" : "private"} priorities={prioritiesQuery.data ?? []} task={task} onAttachFile={(file) => attachFile(task, file)} onBack={() => setView({ mode: "list" })} onComment={(body) => addComment(task, body)} onDelete={() => void destroy(task)} onEdit={() => setView({ mode: "upsert", task })} onForceDelete={() => setForceDeleteTask(task)} onRemoveSubtask={(subtask) => removeSubtask(task, subtask)} onStatus={(status) => void changeStatus(task, status)} onSubtask={(input) => saveSubtask(task, input)} />
+        <TaskShowPage isWorking={statusMutation.isPending || deleteMutation.isPending || forceDeleteMutation.isPending || commentMutation.isPending || commentUpdateMutation.isPending || commentDeleteMutation.isPending || subtaskMutation.isPending || subtaskDeleteMutation.isPending || attachmentMutation.isPending || attachmentDeleteMutation.isPending || eventMutation.isPending || eventDeleteMutation.isPending} mediaFolder={settingsQuery.data?.media_folder ?? "task/files"} mediaVisibility={settingsQuery.data?.media_visibility === "public" ? "public" : "private"} priorities={prioritiesQuery.data ?? []} session={session} task={task} onAttachFile={(file) => attachFile(task, file)} onBack={() => setView({ mode: "list" })} onComment={(body, parentCommentId) => addComment(task, body, parentCommentId)} onDelete={() => void destroy(task)} onDeleteComment={(comment) => deleteComment(task, comment)} onEdit={() => setView({ mode: "upsert", task })} onEvent={(event) => saveEvent(task, event)} onForceDelete={() => setForceDeleteTask(task)} onRemoveAttachment={(attachment) => removeAttachment(task, attachment)} onRemoveEvent={(event) => removeEvent(task, event)} onRemoveSubtask={(subtask) => removeSubtask(task, subtask)} onStatus={(status) => void changeStatus(task, status)} onSubtask={(input) => saveSubtask(task, input)} onUpdateComment={(comment, body) => updateComment(task, comment, body)} />
         <ForceDeleteTaskDialog isDeleting={forceDeleteMutation.isPending} task={forceDeleteTask} onClose={() => setForceDeleteTask(null)} onConfirm={(selectedTask) => void forceDestroy(selectedTask)} />
       </>
     )
@@ -527,12 +576,18 @@ function TaskShowPage({
   onBack,
   onComment,
   onDelete,
+  onDeleteComment,
   onEdit,
+  onEvent,
   onForceDelete,
+  onRemoveAttachment,
+  onRemoveEvent,
   onRemoveSubtask,
   onStatus,
   onSubtask,
+  onUpdateComment,
   priorities,
+  session,
   task,
 }: {
   isWorking: boolean
@@ -540,18 +595,29 @@ function TaskShowPage({
   mediaVisibility: "private" | "public"
   onAttachFile(file: File): Promise<void>
   onBack(): void
-  onComment(body: string): Promise<void>
+  onComment(body: string, parentCommentId?: number | null): Promise<void>
   onDelete(): void
+  onDeleteComment(comment: TaskManagerComment): Promise<void>
   onEdit(): void
+  onEvent(event: Partial<TaskManagerEvent>): Promise<void>
   onForceDelete(): void
+  onRemoveAttachment(attachment: TaskManagerAttachment): Promise<void>
+  onRemoveEvent(event: TaskManagerEvent): Promise<void>
   onRemoveSubtask(subtask: TaskManagerSubtask): Promise<void>
   onStatus(status: TaskManagerStatus): void
   onSubtask(input: Partial<TaskManagerSubtask>): Promise<void>
+  onUpdateComment(comment: TaskManagerComment, body: string): Promise<void>
   priorities: MasterDataRecord[]
+  session: AuthSession
   task: TaskManagerTask
 }) {
   const [comment, setComment] = useState("")
   const [subtaskTitle, setSubtaskTitle] = useState("")
+  const [isSubtaskFormOpen, setIsSubtaskFormOpen] = useState(false)
+  const [isCommentFormOpen, setIsCommentFormOpen] = useState(false)
+  const [eventDialog, setEventDialog] = useState<TaskManagerEvent | null | "new">(null)
+  const [editingSubtaskUuid, setEditingSubtaskUuid] = useState("")
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState("")
   const detailContent = (
     <div className="grid gap-4">
       <Card className="rounded-md">
@@ -616,67 +682,135 @@ function TaskShowPage({
     </div>
   )
 
-  const workContent = (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <Card className="rounded-md">
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Sub-tasks</CardTitle></CardHeader>
-        <CardContent className="grid gap-3">
+  const tasksContent = (
+    <Card className="rounded-md">
+      <CardContent className="grid gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Sub Tasks</h2>
+          <Button className="rounded-md bg-foreground text-background hover:bg-foreground/90" type="button" onClick={() => setIsSubtaskFormOpen(true)}><Plus className="size-4" />New Sub Task</Button>
+        </div>
+        {isSubtaskFormOpen ? (
           <div className="flex gap-2">
-            <Input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} placeholder="Add sub-task" className="h-10 rounded-md" />
-            <Button disabled={isWorking || !subtaskTitle.trim()} type="button" className="h-10 rounded-md" onClick={() => void onSubtask({ title: subtaskTitle.trim(), status: "todo", sort_order: task.subtasks.length + 1 }).then(() => setSubtaskTitle(""))}><Plus className="size-4" />Add</Button>
+            <Input value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} placeholder="Add sub task" className="h-10 rounded-md" />
+            <Button disabled={isWorking || !subtaskTitle.trim()} type="button" className="h-10 rounded-md" onClick={() => void onSubtask({ title: subtaskTitle.trim(), status: "todo", sort_order: task.subtasks.length + 1 }).then(() => { setSubtaskTitle(""); setIsSubtaskFormOpen(false) })}>Add</Button>
+            <Button type="button" variant="outline" className="h-10 rounded-md" onClick={() => setIsSubtaskFormOpen(false)}>Cancel</Button>
           </div>
-          <div className="grid gap-2">
-            {task.subtasks.map((subtask) => (
-              <div key={subtask.uuid} className="flex items-center gap-3 rounded-md border border-border/70 p-3">
-                <button
-                  aria-label={subtask.status === "completed" ? "Mark pending" : "Mark completed"}
-                  className={cn("flex size-8 shrink-0 items-center justify-center rounded-md border", subtask.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-border bg-background text-muted-foreground")}
-                  disabled={isWorking}
-                  type="button"
-                  onClick={() => void onSubtask({ ...subtask, status: subtask.status === "completed" ? "todo" : "completed" })}
-                >
-                  <Check className="size-4" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <div className={cn("font-medium", subtask.status === "completed" && "text-muted-foreground line-through")}>{subtask.title}</div>
-                  <div className="text-xs text-muted-foreground">{[subtask.assigned_to, formatDate(subtask.due_date)].filter((value) => value && value !== "Not set").join(" - ") || "No assignee or due date"}</div>
-                </div>
-                <Button disabled={isWorking} variant="ghost" size="icon" className="size-8 rounded-md text-muted-foreground hover:text-destructive" type="button" onClick={() => void onRemoveSubtask(subtask)}><Trash2 className="size-4" /></Button>
+        ) : null}
+        <div className="grid gap-1">
+          {task.subtasks.map((subtask, index) => (
+            <div key={subtask.uuid} className="flex items-center gap-3 border-b border-border/70 px-2 py-3 last:border-b-0">
+              <button aria-label={subtask.status === "completed" ? "Mark pending" : "Mark completed"} className={cn("size-4 rounded-full border", subtask.status === "completed" ? "border-emerald-500 bg-emerald-500" : "border-muted-foreground/40")} disabled={isWorking} type="button" onClick={() => void onSubtask({ ...subtask, status: subtask.status === "completed" ? "todo" : "completed" })} />
+              <div className="w-8 shrink-0 text-right text-xs font-medium tabular-nums text-muted-foreground">{index + 1}.</div>
+              <div className="min-w-0 flex-1">
+                {editingSubtaskUuid === subtask.uuid ? (
+                  <div className="flex max-w-xl gap-2">
+                    <Input className="h-9 rounded-md" value={editingSubtaskTitle} onChange={(event) => setEditingSubtaskTitle(event.target.value)} />
+                    <Button className="h-9 rounded-md" disabled={isWorking || !editingSubtaskTitle.trim()} type="button" onClick={() => void onSubtask({ ...subtask, title: editingSubtaskTitle.trim() }).then(() => { setEditingSubtaskUuid(""); setEditingSubtaskTitle("") })}>Save</Button>
+                    <Button className="h-9 rounded-md" type="button" variant="outline" onClick={() => { setEditingSubtaskUuid(""); setEditingSubtaskTitle("") }}>Cancel</Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className={cn("truncate text-sm font-medium", subtask.status === "completed" && "text-emerald-700 line-through decoration-emerald-600 decoration-2")}>{subtask.title}</div>
+                    {[subtask.assigned_to, formatDate(subtask.due_date)].filter((value) => value && value !== "Not set" && value !== "Unassigned").length ? <div className={cn("text-xs text-muted-foreground", subtask.status === "completed" && "text-emerald-700/80 line-through decoration-emerald-600")}>{[subtask.assigned_to, formatDate(subtask.due_date)].filter((value) => value && value !== "Not set" && value !== "Unassigned").join(" - ")}</div> : null}
+                  </>
+                )}
               </div>
-            ))}
-            {!task.subtasks.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No sub-tasks yet.</div> : null}
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="rounded-md">
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Comments</CardTitle></CardHeader>
-        <CardContent className="grid gap-3">
-          <div className="grid gap-2">
-            <Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Type a comment or work note" className="min-h-24 rounded-md" />
-            <div className="flex justify-end">
-              <Button disabled={isWorking || !comment.trim()} type="button" className="h-10 rounded-md" onClick={() => void onComment(comment.trim()).then(() => setComment(""))}><Save className="size-4" />Add comment</Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={isWorking} variant="ghost" size="icon" className="size-8 rounded-md text-muted-foreground" type="button"><MoreHorizontal className="size-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36 rounded-md">
+                  <DropdownMenuItem className="cursor-pointer" onSelect={() => { setEditingSubtaskUuid(subtask.uuid); setEditingSubtaskTitle(subtask.title) }}>Edit</DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onSelect={() => void onRemoveSubtask(subtask)}>Delete</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </div>
-          <div className="grid gap-2">
-            {task.comments.map((item) => (
-              <div key={item.uuid} className="rounded-md border border-border/70 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold">{item.actor_email}</div>
-                  <div className="text-xs text-muted-foreground">{formatDateTime(item.created_at)}</div>
-                </div>
-                <div className="mt-2 whitespace-pre-wrap text-sm leading-6">{item.body}</div>
+          ))}
+          {!task.subtasks.length ? <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">No sub tasks yet.</div> : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const commentsContent = (
+    <Card className="rounded-md">
+      <CardContent className="grid min-h-[520px] grid-rows-[auto_1fr_auto] gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Comments</h2>
+          <Button className="rounded-md bg-foreground text-background hover:bg-foreground/90" type="button" onClick={() => setIsCommentFormOpen(true)}><Plus className="size-4" />New Comment</Button>
+        </div>
+        <CommentThread comments={task.comments} disabled={isWorking} onDelete={onDeleteComment} onReply={(item, body) => onComment(body, item.id)} onUpdate={onUpdateComment} />
+        <div className="border-t border-border/70 pt-3">
+          {isCommentFormOpen || !task.comments.length ? (
+            <div className="grid gap-2">
+              <Textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Type a comment" className="min-h-20 rounded-md border-0 px-0 shadow-none focus-visible:ring-0" />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" className="rounded-md" onClick={() => setIsCommentFormOpen(false)}>Cancel</Button>
+                <Button disabled={isWorking || !comment.trim()} type="button" className="rounded-md" onClick={() => void onComment(comment.trim()).then(() => { setComment(""); setIsCommentFormOpen(false) })}>Comment</Button>
               </div>
-            ))}
-            {!task.comments.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No comments yet.</div> : null}
+            </div>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const eventsContent = (
+    <Card className="rounded-md">
+      <CardContent className="grid min-h-[520px] content-start gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Events</h2>
+          <Button className="rounded-md bg-foreground text-background hover:bg-foreground/90" disabled={isWorking} type="button" onClick={() => setEventDialog("new")}><CalendarDays className="size-4" />Schedule an event</Button>
+        </div>
+        <div className="grid gap-1">
+          {(task.events ?? []).map((event, index) => (
+            <div key={event.uuid} className="flex items-center gap-3 border-b border-border/70 px-2 py-3 last:border-b-0">
+              <div className="w-8 shrink-0 text-right text-xs font-medium tabular-nums text-muted-foreground">{index + 1}.</div>
+              <CalendarDays className="size-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{event.title}</div>
+                <div className="truncate text-xs text-muted-foreground">{[formatDateTime(event.starts_at), event.ends_at ? `to ${formatDateTime(event.ends_at)}` : "", event.location].filter(Boolean).join(" - ")}</div>
+                {event.description ? <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">{event.description}</div> : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Badge variant="outline" className="h-6 rounded-md px-2 text-[11px]">{event.visibility}</Badge>
+                <Button aria-label="Edit event" disabled={isWorking} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground" title="Edit event" type="button" onClick={() => setEventDialog(event)}><Pencil className="size-4" /></Button>
+                <Button aria-label="Delete event" disabled={isWorking} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground hover:text-destructive" title="Delete event" type="button" onClick={() => void onRemoveEvent(event)}><Trash2 className="size-4" /></Button>
+              </div>
+            </div>
+          ))}
+          {!task.events?.length ? (
+            <div className="grid place-items-center py-24 text-center text-muted-foreground">
+              <CalendarDays className="mb-3 size-10" />
+              <div className="text-lg">No Events Scheduled</div>
+              <Button className="mt-3 rounded-md" size="sm" type="button" variant="secondary" onClick={() => setEventDialog("new")}>Schedule an Event</Button>
+            </div>
+          ) : null}
+        </div>
+        <ScheduleEventDialog
+          disabled={isWorking}
+          event={eventDialog === "new" ? null : eventDialog}
+          open={Boolean(eventDialog)}
+          onClose={() => setEventDialog(null)}
+          onSubmit={(event) => onEvent(event).then(() => setEventDialog(null))}
+        />
+      </CardContent>
+    </Card>
+  )
+
+  const attachmentsContent = (
+    <Card className="rounded-md">
+      <CardContent className="grid gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Attachments</h2>
+            <p className="text-xs text-muted-foreground">Files are stored in {mediaVisibility} media under {mediaFolder}.</p>
           </div>
-        </CardContent>
-      </Card>
-      <Card className="rounded-md lg:col-span-2">
-        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Link2 className="size-4" />Attachments</CardTitle></CardHeader>
-        <CardContent className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/90">
+            <Plus className="size-4" />
+            Upload Attachment
             <Input
-              className="max-w-md rounded-md"
+              className="sr-only"
               disabled={isWorking}
               type="file"
               onChange={(event) => {
@@ -685,41 +819,40 @@ function TaskShowPage({
                 if (file) void onAttachFile(file)
               }}
             />
-            <span className="text-xs text-muted-foreground">Files are stored in {mediaVisibility} media under {mediaFolder}.</span>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2">
-            {task.attachments.map((attachment) => (
-              <div key={attachment.uuid} className="flex items-center gap-3 rounded-md border border-border/70 p-3">
-                <Link2 className="size-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{attachment.file_name}</div>
-                  <div className="text-xs text-muted-foreground">{[attachment.mime_type, formatFileSize(attachment.file_size), attachment.uploaded_by].filter(Boolean).join(" - ")}</div>
-                </div>
-              </div>
-            ))}
-            {!task.attachments.length ? <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground md:col-span-2">No attachments yet.</div> : null}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </label>
+        </div>
+        <div className="grid gap-1">
+          {task.attachments.map((attachment, index) => (
+            <AttachmentListRow attachment={attachment} disabled={isWorking} key={attachment.uuid} serial={index + 1} session={session} onDelete={() => void onRemoveAttachment(attachment)} />
+          ))}
+          {!task.attachments.length ? <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">No attachments yet.</div> : null}
+        </div>
+      </CardContent>
+    </Card>
   )
 
   const activityContent = (
-    <Card className="rounded-md">
-      <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Activity history</CardTitle></CardHeader>
-      <CardContent className="grid gap-3">
-        {task.activities.map((activity) => (
-          <div key={activity.uuid} className="flex gap-3 rounded-md border border-border/70 p-4 text-sm">
-            <span className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-            <div className="min-w-0">
-              <div className="font-medium">{activity.message}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{activity.actor_email} - {formatDateTime(activity.created_at)}</div>
+    <div className="grid gap-4">
+      <Card className="rounded-md">
+        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ListChecks className="size-4" />Activity history</CardTitle></CardHeader>
+        <CardContent className="grid gap-3">
+          {task.activities.map((activity, index) => (
+            <div key={activity.uuid} className="flex gap-3 rounded-md border border-border/70 p-4 text-sm">
+              <div className="w-8 shrink-0 text-right text-xs font-medium tabular-nums text-muted-foreground">{task.activities.length - index}.</div>
+              <span className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
+              <div className="min-w-0">
+                <div className="font-medium">{activity.message}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{activity.actor_email} - {formatDateTime(activity.created_at)}</div>
+              </div>
             </div>
-          </div>
-        ))}
-        {!task.activities.length ? <div className="py-8 text-center text-sm text-muted-foreground">No activity yet.</div> : null}
-      </CardContent>
-    </Card>
+          ))}
+          {!task.activities.length ? <div className="py-8 text-center text-sm text-muted-foreground">No activity yet.</div> : null}
+        </CardContent>
+      </Card>
+      <div className="flex justify-end border-t border-border/70 pt-4">
+        <Button disabled={isWorking} type="button" variant="destructive" className="rounded-md" onClick={onForceDelete}><Trash2 className="size-4" />Force delete task</Button>
+      </div>
+    </div>
   )
 
   return (
@@ -739,13 +872,54 @@ function TaskShowPage({
       </div>
       <AnimatedTabs tabs={[
         { value: "details", label: <span className="flex items-center gap-2"><ClipboardCheck className="size-4" />Details</span>, content: detailContent },
-        { value: "work", label: <span className="flex items-center gap-2"><ListChecks className="size-4" />Work <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.subtasks.length + task.comments.length}</Badge></span>, content: workContent },
+        { value: "tasks", label: <span className="flex items-center gap-2"><CheckCircle2 className="size-4" />Sub Tasks <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.subtasks.length}</Badge></span>, content: tasksContent },
+        { value: "comments", label: <span className="flex items-center gap-2"><MessageCircle className="size-4" />Comments <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.comments.length}</Badge></span>, content: commentsContent },
+        { value: "events", label: <span className="flex items-center gap-2"><CalendarDays className="size-4" />Events <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.events?.length ?? 0}</Badge></span>, content: eventsContent },
+        { value: "attachments", label: <span className="flex items-center gap-2"><Paperclip className="size-4" />Attachments <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.attachments.length}</Badge></span>, content: attachmentsContent },
         { value: "activity", label: <span className="flex items-center gap-2"><ListChecks className="size-4" />Activity <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px]">{task.activities.length}</Badge></span>, content: activityContent },
       ]} />
-      <div className="flex justify-end border-t border-border/70 pt-4">
-        <Button disabled={isWorking} type="button" variant="destructive" className="rounded-md" onClick={onForceDelete}><Trash2 className="size-4" />Force delete task</Button>
-      </div>
     </main>
+  )
+}
+
+function ScheduleEventDialog({ disabled, event, onClose, onSubmit, open }: { disabled: boolean; event: TaskManagerEvent | null; onClose(): void; onSubmit(event: Partial<TaskManagerEvent>): Promise<void>; open: boolean }) {
+  const [draft, setDraft] = useState<Partial<TaskManagerEvent>>(() => eventToDraft(event))
+
+  useEffect(() => {
+    if (open) setDraft(eventToDraft(event))
+  }, [event, open])
+
+  function setField<Key extends keyof TaskManagerEvent>(key: Key, value: TaskManagerEvent[Key]) {
+    setDraft((current) => ({ ...current, [key]: value }))
+  }
+
+  const canSave = Boolean(draft.title?.trim() && draft.starts_at)
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
+      <DialogContent className="max-w-xl rounded-md">
+        <DialogHeader>
+          <DialogTitle>{event ? "Edit event" : "Create an event"}</DialogTitle>
+          <DialogDescription>Schedule work linked to this task.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <Field label="Title" value={draft.title ?? ""} onChange={(value) => setField("title", value)} />
+          <SwitchRow checked={Boolean(draft.is_all_day)} label="All day" onCheckedChange={(checked) => setField("is_all_day", checked)} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Start date & time" type="datetime-local" value={toDateTimeInputValue(draft.starts_at)} onChange={(value) => setField("starts_at", value)} />
+            <Field label="End date & time" type="datetime-local" value={toDateTimeInputValue(draft.ends_at)} onChange={(value) => setField("ends_at", value)} />
+          </div>
+          <Field label="Attendees" value={attendeesToText(draft.attendees)} onChange={(value) => setField("attendees", value)} />
+          <SelectField label="Visibility" value={draft.visibility ?? "private"} options={[{ label: "Private", value: "private" }, { label: "Public", value: "public" }, { label: "Authorized", value: "authorized" }]} onChange={(value) => setField("visibility", value)} />
+          <Field label="Location" value={draft.location ?? ""} onChange={(value) => setField("location", value)} />
+          <TextField label="Description" value={draft.description ?? ""} onChange={(value) => setField("description", value)} />
+        </div>
+        <DialogFooter>
+          <Button className="rounded-md" disabled={disabled} type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button className="rounded-md" disabled={disabled || !canSave} type="button" onClick={() => void onSubmit(normalizeEventDraft(draft))}>{event ? "Save event" : "Schedule event"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -759,7 +933,7 @@ function ForceDeleteTaskDialog({ isDeleting, onClose, onConfirm, task }: { isDel
           </AlertDialogMedia>
           <AlertDialogTitle>Force delete task?</AlertDialogTitle>
           <AlertDialogDescription>
-            {task ? `Force delete ${task.task_no}? This will permanently delete the task, comments, replies, subtasks, attachments, reminders, tag links, and activities.` : ""}
+            {task ? `Force delete ${task.task_no}? This will permanently delete the task, comments, replies, subtasks, events, attachments, reminders, tag links, and activities.` : ""}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -770,6 +944,188 @@ function ForceDeleteTaskDialog({ isDeleting, onClose, onConfirm, task }: { isDel
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  )
+}
+
+function AttachmentListRow({ attachment, disabled, onDelete, serial, session }: { attachment: TaskManagerAttachment; disabled: boolean; onDelete(): void; serial: number; session: AuthSession }) {
+  const isImage = attachment.mime_type?.startsWith("image/")
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState("")
+
+  useEffect(() => {
+    let active = true
+    let objectUrl = ""
+    if (!isImage || !attachment.storage_key) {
+      setPreviewUrl("")
+      return
+    }
+    void fetch(`${apiBaseUrl}/api/v1/media/${encodeURIComponent(attachment.storage_key)}/content`, { cache: "no-store", headers: authHeaders(session) })
+      .then((response) => response.ok ? response.blob() : null)
+      .then((blob) => {
+        if (!blob) return
+        objectUrl = URL.createObjectURL(blob)
+        if (active) setPreviewUrl(objectUrl)
+      })
+      .catch(() => {
+        if (active) setPreviewUrl("")
+      })
+    return () => {
+      active = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [attachment.storage_key, isImage, session])
+
+  return (
+    <>
+      <div className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40">
+        <div className="w-8 shrink-0 text-right text-xs font-medium tabular-nums text-muted-foreground">{serial}.</div>
+        <button className={cn("relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground", isImage && "cursor-pointer ring-offset-background hover:ring-2 hover:ring-ring hover:ring-offset-2")} disabled={!isImage || !previewUrl} onClick={() => setIsPreviewOpen(true)} type="button">
+          <FileText className="size-6" />
+          {isImage ? (
+            <img alt={attachment.file_name} className="absolute inset-0 size-full object-cover" src={previewUrl} onError={(event) => { event.currentTarget.style.display = "none" }} />
+          ) : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{attachment.file_name}</div>
+          <div className="text-xs text-muted-foreground">{formatFileSize(attachment.file_size)}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden text-xs text-muted-foreground sm:block">{formatDateTime(attachment.created_at)}</div>
+          {isImage && previewUrl ? (
+            <Button aria-label={`Preview ${attachment.file_name}`} className="size-8 rounded-md text-muted-foreground" disabled={disabled} onClick={() => setIsPreviewOpen(true)} size="icon" title="Preview image" type="button" variant="ghost">
+              <Eye className="size-4" />
+            </Button>
+          ) : null}
+          <Button aria-label={`Delete ${attachment.file_name}`} className="size-8 rounded-md text-muted-foreground hover:text-destructive" disabled={disabled} onClick={onDelete} size="icon" type="button" variant="ghost">
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      </div>
+      {isImage && previewUrl ? (
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-4xl rounded-md">
+            <DialogHeader>
+              <DialogTitle className="truncate">{attachment.file_name}</DialogTitle>
+              <DialogDescription>{formatFileSize(attachment.file_size)} - {formatDateTime(attachment.created_at)}</DialogDescription>
+            </DialogHeader>
+            <div className="flex max-h-[70vh] items-center justify-center overflow-auto rounded-md border border-border/70 bg-muted/20 p-2">
+              <img alt={attachment.file_name} className="max-h-[66vh] max-w-full rounded-md object-contain" src={previewUrl} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
+  )
+}
+
+function CommentThread({ comments, disabled, onDelete, onReply, onUpdate }: { comments: TaskManagerComment[]; disabled: boolean; onDelete(comment: TaskManagerComment): Promise<void>; onReply(comment: TaskManagerComment, body: string): Promise<void>; onUpdate(comment: TaskManagerComment, body: string): Promise<void> }) {
+  const roots = comments.filter((comment) => !comment.parent_comment_id)
+  const repliesByParent = comments.reduce<Record<number, TaskManagerComment[]>>((current, comment) => {
+    if (comment.parent_comment_id) current[comment.parent_comment_id] = [...(current[comment.parent_comment_id] ?? []), comment]
+    return current
+  }, {})
+  if (!roots.length) {
+    return (
+      <div className="grid place-items-center py-24 text-center text-muted-foreground">
+        <MessageCircle className="mb-3 size-10" />
+        <div className="text-lg">No Comments</div>
+      </div>
+    )
+  }
+  return (
+    <div className="grid content-start gap-3">
+      {roots.map((comment, index) => (
+        <CommentItem comment={comment} disabled={disabled} key={comment.uuid} onDelete={onDelete} onReply={onReply} onUpdate={onUpdate} replies={repliesByParent[comment.id] ?? []} serial={index + 1} />
+      ))}
+    </div>
+  )
+}
+
+function CommentItem({ comment, disabled, onDelete, onReply, onUpdate, replies, serial }: { comment: TaskManagerComment; disabled: boolean; onDelete(comment: TaskManagerComment): Promise<void>; onReply(comment: TaskManagerComment, body: string): Promise<void>; onUpdate(comment: TaskManagerComment, body: string): Promise<void>; replies: TaskManagerComment[]; serial: number }) {
+  const [mode, setMode] = useState<"idle" | "edit" | "reply">("idle")
+  const [draft, setDraft] = useState(comment.body)
+  const [reply, setReply] = useState("")
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-8 shrink-0 pt-3 text-right text-xs font-medium tabular-nums text-muted-foreground">{serial}.</div>
+      <div className="grid min-w-0 flex-1 gap-2">
+        <div className="rounded-md border border-border/70 p-3">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              {mode === "edit" ? (
+                <div className="grid gap-2">
+                  <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="min-h-20 rounded-md" />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" className="rounded-md" type="button" onClick={() => setMode("idle")}>Cancel</Button>
+                    <Button size="sm" className="rounded-md" disabled={disabled || !draft.trim()} type="button" onClick={() => void onUpdate(comment, draft.trim()).then(() => setMode("idle"))}>Save</Button>
+                  </div>
+                </div>
+              ) : <div className="whitespace-pre-wrap text-sm leading-6">{comment.body}</div>}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+              <div className="leading-tight">
+                <div className="text-sm font-semibold">{comment.actor_email}</div>
+                <div className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</div>
+              </div>
+              <div className="flex gap-1">
+                <Button disabled={disabled} size="sm" variant="ghost" className="h-8 rounded-md" type="button" onClick={() => setMode("reply")}>Reply</Button>
+                <Button aria-label="Edit comment" disabled={disabled} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground" title="Edit comment" type="button" onClick={() => { setDraft(comment.body); setMode("edit") }}><Pencil className="size-4" /></Button>
+                <Button aria-label="Delete comment" disabled={disabled} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground hover:text-destructive" title="Delete comment" type="button" onClick={() => void onDelete(comment)}><Trash2 className="size-4" /></Button>
+              </div>
+            </div>
+          </div>
+          {mode === "reply" ? (
+            <div className="mt-3 grid gap-2">
+              <Textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Write a reply" className="min-h-20 rounded-md" />
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="outline" className="rounded-md" type="button" onClick={() => setMode("idle")}>Cancel</Button>
+                <Button size="sm" className="rounded-md" disabled={disabled || !reply.trim()} type="button" onClick={() => void onReply(comment, reply.trim()).then(() => { setReply(""); setMode("idle") })}>Reply</Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        {replies.length ? (
+          <div className="ml-6 grid gap-2 border-l border-border/70 pl-3">
+            {replies.map((item, index) => <CommentReply comment={item} disabled={disabled} key={item.uuid} onDelete={onDelete} onUpdate={onUpdate} serial={`${serial}.${index + 1}`} />)}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function CommentReply({ comment, disabled, onDelete, onUpdate, serial }: { comment: TaskManagerComment; disabled: boolean; onDelete(comment: TaskManagerComment): Promise<void>; onUpdate(comment: TaskManagerComment, body: string): Promise<void>; serial: string }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(comment.body)
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-10 shrink-0 pt-3 text-right text-xs font-medium tabular-nums text-muted-foreground">{serial}</div>
+      <div className="min-w-0 flex-1 rounded-md border border-border/70 p-3">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            {isEditing ? (
+              <div className="grid gap-2">
+                <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} className="min-h-20 rounded-md" />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" className="rounded-md" type="button" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  <Button size="sm" className="rounded-md" disabled={disabled || !draft.trim()} type="button" onClick={() => void onUpdate(comment, draft.trim()).then(() => setIsEditing(false))}>Save</Button>
+                </div>
+              </div>
+            ) : <div className="whitespace-pre-wrap text-sm leading-6">{comment.body}</div>}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+            <div className="leading-tight">
+              <div className="text-sm font-semibold">{comment.actor_email}</div>
+              <div className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</div>
+            </div>
+            <div className="flex gap-1">
+              <Button aria-label="Edit comment" disabled={disabled} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground" title="Edit comment" type="button" onClick={() => { setDraft(comment.body); setIsEditing(true) }}><Pencil className="size-4" /></Button>
+              <Button aria-label="Delete comment" disabled={disabled} size="icon" variant="ghost" className="size-8 rounded-md text-muted-foreground hover:text-destructive" title="Delete comment" type="button" onClick={() => void onDelete(comment)}><Trash2 className="size-4" /></Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1147,6 +1503,57 @@ function toDateTimeInputValue(value: unknown) {
   if (!Number.isFinite(date.getTime())) return String(value)
   const offset = date.getTimezoneOffset() * 60000
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function eventToDraft(event: TaskManagerEvent | null): Partial<TaskManagerEvent> {
+  if (event) {
+    return {
+      ...event,
+      starts_at: toDateTimeInputValue(event.starts_at),
+      ends_at: toDateTimeInputValue(event.ends_at),
+    }
+  }
+  return {
+    title: "",
+    starts_at: toDateTimeInputValue(new Date()),
+    ends_at: "",
+    is_all_day: false,
+    attendees: "",
+    visibility: "private",
+    location: "",
+    description: "",
+    status: "scheduled",
+  }
+}
+
+function normalizeEventDraft(draft: Partial<TaskManagerEvent>): Partial<TaskManagerEvent> {
+  const attendees = attendeesToArray(draft.attendees)
+  return {
+    ...draft,
+    attendees: attendees.length ? JSON.stringify(attendees) : null,
+    ends_at: draft.ends_at || null,
+    location: draft.location?.trim() || null,
+    description: draft.description?.trim() || null,
+    visibility: draft.visibility || "private",
+    status: draft.status || "scheduled",
+  }
+}
+
+function attendeesToText(value: unknown) {
+  if (!value) return ""
+  if (Array.isArray(value)) return value.join(", ")
+  if (typeof value !== "string") return String(value)
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed) ? parsed.map(String).join(", ") : value
+  } catch {
+    return value
+  }
+}
+
+function attendeesToArray(value: unknown) {
+  const text = attendeesToText(value)
+  return text.split(",").map((item) => item.trim()).filter(Boolean)
 }
 
 function formatFileSize(value: number) {

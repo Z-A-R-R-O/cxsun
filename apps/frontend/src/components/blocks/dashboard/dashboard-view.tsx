@@ -141,6 +141,9 @@ const TaskManagerPage = lazy(() =>
 const TaskManagerAutomationPage = lazy(() =>
   import('src/features/task-manager/task-manager-automation-page').then((module) => ({ default: module.TaskManagerAutomationPage })),
 )
+const CrmPage = lazy(() =>
+  import('src/features/crm/crm-page').then((module) => ({ default: module.CrmPage })),
+)
 const SiteSliderPage = lazy(() =>
   import('src/features/site/slider/site-slider-page').then((module) => ({ default: module.SiteSliderPage })),
 )
@@ -292,8 +295,13 @@ function prefetchAppModules(appId: DashboardAppId) {
       return
     }
 
-    if (appId === "taskmanager" || appId === "crm") {
+    if (appId === "taskmanager") {
       void import('src/features/task-manager/task-manager-page')
+      return
+    }
+
+    if (appId === "crm") {
+      void import('src/features/crm/crm-page')
       return
     }
 
@@ -683,6 +691,12 @@ export function DashboardView({
             <SiteSliderPage session={session} />
           ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-my-tasks" ? (
             <TaskManagerPage scope="my" session={session} />
+          ) : visiblePage === "app-crm-leads" ? (
+            <CrmPage session={session} view="leads" />
+          ) : visiblePage === "app-crm-deals" ? (
+            <CrmPage session={session} view="deals" />
+          ) : visiblePage === "app-crm-pipeline" || visiblePage === "app-crm-stages" ? (
+            <CrmPage session={session} view="pipeline" />
           ) : visiblePage === "app-taskmanager-assigned-to-me" ? (
             <TaskManagerPage scope="assigned-to-me" session={session} />
           ) : visiblePage === "app-taskmanager-open-tasks" ? (

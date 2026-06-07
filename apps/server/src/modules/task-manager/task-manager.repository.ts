@@ -15,6 +15,8 @@ import type {
   TaskManagerContactCleanupCampaignInput,
   TaskManagerCommentInput,
   TaskManagerComment,
+  TaskManagerEvent,
+  TaskManagerEventInput,
   TaskManagerLookupInput,
   TaskManagerPriority,
   TaskManagerReminderInput,
@@ -188,6 +190,7 @@ export class TaskManagerRepository {
     // Detach external references first, then delete owned child rows, then the task.
     await database.updateTable('task_manager_campaign_items').set({ task_id: null, updated_at: new Date() }).where('task_id', '=', taskId).execute()
     await database.deleteFrom('task_manager_reminders').where('task_id', '=', taskId).execute()
+    await database.deleteFrom('task_manager_events').where('task_id', '=', taskId).execute()
     await database.deleteFrom('task_manager_attachments').where('task_id', '=', taskId).execute()
     await database.deleteFrom('task_manager_comments').where('task_id', '=', taskId).execute()
     await database.deleteFrom('task_manager_subtasks').where('task_id', '=', taskId).execute()
@@ -221,6 +224,43 @@ export class TaskManagerRepository {
       .where('id', '=', task.id)
       .execute()
     await this.addActivity(context, task.id, 'comment', parentCommentId ? 'Reply added' : 'Comment added', { parent_comment_id: parentCommentId })
+    return this.find(context, task.id)
+  }
+
+  async updateComment(context: TenantRuntimeContext, idOrUuid: string, commentIdOrUuid: string, input: TaskManagerCommentInput) {
+    const task = await this.find(context, idOrUuid)
+    if (!task) throw new NotFoundException('Task was not found.')
+    const body = input.body?.trim()
+    if (!body) throw new BadRequestException('Comment body is required.')
+    const existing = await this.database(context)
+      .selectFrom('task_manager_comments')
+      .select(['id', 'body'])
+      .where('task_id', '=', task.id)
+      .where(idColumn(String(commentIdOrUuid)), '=', idValue(String(commentIdOrUuid)))
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+    if (!existing) throw new NotFoundException('Comment was not found.')
+    await this.database(context).updateTable('task_manager_comments').set({ body, updated_at: new Date() }).where('id', '=', existing.id).execute()
+    await this.database(context).updateTable('task_manager_tasks').set({ updated_at: new Date(), updated_by: context.user.email }).where('id', '=', task.id).execute()
+    await this.addActivity(context, task.id, 'comment', 'Comment edited', { commentIdOrUuid })
+    return this.find(context, task.id)
+  }
+
+  async deleteComment(context: TenantRuntimeContext, idOrUuid: string, commentIdOrUuid: string) {
+    const task = await this.find(context, idOrUuid)
+    if (!task) throw new NotFoundException('Task was not found.')
+    const existing = await this.database(context)
+      .selectFrom('task_manager_comments')
+      .select(['id', 'body'])
+      .where('task_id', '=', task.id)
+      .where(idColumn(String(commentIdOrUuid)), '=', idValue(String(commentIdOrUuid)))
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+    if (!existing) throw new NotFoundException('Comment was not found.')
+    await this.database(context).deleteFrom('task_manager_comments').where('task_id', '=', task.id).where('parent_comment_id', '=', Number(existing.id)).execute()
+    await this.database(context).deleteFrom('task_manager_comments').where('id', '=', existing.id).execute()
+    await this.database(context).updateTable('task_manager_tasks').set({ updated_at: new Date(), updated_by: context.user.email }).where('id', '=', task.id).execute()
+    await this.addActivity(context, task.id, 'comment', 'Comment deleted', { commentIdOrUuid })
     return this.find(context, task.id)
   }
 
@@ -317,6 +357,79 @@ export class TaskManagerRepository {
       .where('id', '=', task.id)
       .execute()
     await this.addActivity(context, task.id, 'attachment', `Attachment added: ${fileName}`, { storage_key: storageKey })
+    return this.find(context, task.id)
+  }
+
+  async deleteAttachment(context: TenantRuntimeContext, idOrUuid: string, attachmentIdOrUuid: string) {
+    const task = await this.find(context, idOrUuid)
+    if (!task) throw new NotFoundException('Task was not found.')
+    const existing = await this.database(context)
+      .selectFrom('task_manager_attachments')
+      .select(['id', 'file_name'])
+      .where('task_id', '=', task.id)
+      .where(idColumn(String(attachmentIdOrUuid)), '=', idValue(String(attachmentIdOrUuid)))
+      .executeTakeFirst()
+    if (!existing) throw new NotFoundException('Attachment was not found.')
+    await this.database(context).deleteFrom('task_manager_attachments').where('id', '=', existing.id).execute()
+    await this.database(context).updateTable('task_manager_tasks').set({ updated_at: new Date(), updated_by: context.user.email }).where('id', '=', task.id).execute()
+    await this.addActivity(context, task.id, 'attachment', `Attachment removed: ${String(existing.file_name)}`, { attachmentIdOrUuid })
+    return this.find(context, task.id)
+  }
+
+  async upsertEvent(context: TenantRuntimeContext, idOrUuid: string, input: TaskManagerEventInput) {
+    const task = await this.find(context, idOrUuid)
+    if (!task) throw new NotFoundException('Task was not found.')
+    const title = input.title?.trim()
+    if (!title) throw new BadRequestException('Event title is required.')
+    const startsAt = dateOrNull(input.starts_at)
+    if (!startsAt) throw new BadRequestException('Event start date is required.')
+    const patch = {
+      title,
+      starts_at: startsAt,
+      ends_at: dateOrNull(input.ends_at),
+      is_all_day: Boolean(input.is_all_day),
+      attendees: jsonOrNull(input.attendees),
+      visibility: input.visibility?.trim() || 'private',
+      location: emptyAsNull(input.location),
+      description: emptyAsNull(input.description),
+      status: input.status?.trim() || 'scheduled',
+      updated_by: context.user.email,
+      updated_at: new Date(),
+    }
+    const existing = input.uuid || input.id
+      ? await this.database(context)
+        .selectFrom('task_manager_events')
+        .select('id')
+        .where('task_id', '=', task.id)
+        .where(idColumn(String(input.uuid ?? input.id)), '=', idValue(String(input.uuid ?? input.id)))
+        .where('deleted_at', 'is', null)
+        .executeTakeFirst()
+      : null
+    if (existing) {
+      await this.database(context).updateTable('task_manager_events').set(patch).where('id', '=', existing.id).execute()
+      await this.addActivity(context, task.id, 'event-updated', `Event updated: ${title}`, input)
+    } else {
+      await this.database(context).insertInto('task_manager_events').values({ uuid: dispatchPublicUuid(), task_id: task.id, created_by: context.user.email, ...patch }).execute()
+      await this.addActivity(context, task.id, 'event-scheduled', `Event scheduled: ${title}`, input)
+    }
+    await this.database(context).updateTable('task_manager_tasks').set({ updated_at: new Date(), updated_by: context.user.email }).where('id', '=', task.id).execute()
+    return this.find(context, task.id)
+  }
+
+  async deleteEvent(context: TenantRuntimeContext, idOrUuid: string, eventIdOrUuid: string) {
+    const task = await this.find(context, idOrUuid)
+    if (!task) throw new NotFoundException('Task was not found.')
+    const existing = await this.database(context)
+      .selectFrom('task_manager_events')
+      .select(['id', 'title', 'uuid'])
+      .where('task_id', '=', task.id)
+      .where(idColumn(String(eventIdOrUuid)), '=', idValue(String(eventIdOrUuid)))
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+    if (!existing) throw new NotFoundException('Event was not found.')
+    await this.database(context).updateTable('task_manager_events').set({ deleted_at: new Date(), updated_at: new Date(), updated_by: context.user.email }).where('id', '=', existing.id).execute()
+    await this.database(context).updateTable('task_manager_tasks').set({ updated_at: new Date(), updated_by: context.user.email }).where('id', '=', task.id).execute()
+    await this.addActivity(context, task.id, 'event-deleted', `Event deleted: ${String(existing.title)}`, { event_uuid: existing.uuid })
     return this.find(context, task.id)
   }
 
@@ -903,6 +1016,14 @@ export class TaskManagerRepository {
       .where('task_id', '=', Number(row.id))
       .orderBy('id', 'desc')
       .execute()
+    const events = await this.database(context)
+      .selectFrom('task_manager_events')
+      .selectAll()
+      .where('task_id', '=', Number(row.id))
+      .where('deleted_at', 'is', null)
+      .orderBy('starts_at', 'asc')
+      .orderBy('id', 'asc')
+      .execute()
     return {
       id: Number(row.id),
       uuid: String(row.uuid),
@@ -962,6 +1083,7 @@ export class TaskManagerRepository {
       comments: comments.map(toComment),
       subtasks: subtasks.map(toSubtask),
       attachments: attachments.map(toAttachment),
+      events: events.map(toEvent),
     }
   }
 
@@ -1100,6 +1222,28 @@ function toAttachment(row: Record<string, unknown>): TaskManagerAttachment {
     attachment_type: String(row.attachment_type),
     uploaded_by: String(row.uploaded_by),
     created_at: row.created_at as Date,
+  }
+}
+
+function toEvent(row: Record<string, unknown>): TaskManagerEvent {
+  return {
+    id: Number(row.id),
+    uuid: String(row.uuid),
+    task_id: Number(row.task_id),
+    title: String(row.title),
+    starts_at: row.starts_at as Date,
+    ends_at: row.ends_at as Date | null,
+    is_all_day: Boolean(row.is_all_day),
+    attendees: stringOrNull(row.attendees),
+    visibility: String(row.visibility),
+    location: stringOrNull(row.location),
+    description: stringOrNull(row.description),
+    status: String(row.status),
+    created_by: String(row.created_by),
+    updated_by: stringOrNull(row.updated_by),
+    created_at: row.created_at as Date,
+    updated_at: row.updated_at as Date,
+    deleted_at: row.deleted_at as Date | null,
   }
 }
 

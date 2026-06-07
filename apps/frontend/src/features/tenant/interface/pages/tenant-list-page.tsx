@@ -350,11 +350,6 @@ function TenantShowPage({
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={onBack} type="button" variant="outline" className="h-9 rounded-md"><ArrowLeft className="size-4" />Back</Button>
           <Button onClick={onEdit} type="button" className="h-9 rounded-md"><Pencil className="size-4" />Edit</Button>
-          {tenant.status === "suspend" ? (
-            <Button onClick={onRestore} type="button" variant="outline" className="h-9 rounded-md"><RotateCcw className="size-4" />Restore</Button>
-          ) : (
-            <Button onClick={onDestroy} type="button" variant="destructive" className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button>
-          )}
         </div>
       }
     >
@@ -446,6 +441,21 @@ function TenantShowPage({
                         ["Deleted", formatTenantDate(tenant.deletedAt)],
                       ]}
                     />
+                  </TenantShowCard>
+                  <TenantShowCard title="Lifecycle">
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                      <div>
+                        <div className="text-sm font-medium">Tenant lifecycle action</div>
+                        <div className="text-xs text-muted-foreground">
+                          {tenant.status === "suspend" ? "Restore this tenant to active workspace access." : "Suspend this tenant from active workspace selection."}
+                        </div>
+                      </div>
+                      {tenant.status === "suspend" ? (
+                        <Button onClick={onRestore} type="button" variant="outline" className="h-9 rounded-md"><RotateCcw className="size-4" />Restore</Button>
+                      ) : (
+                        <Button onClick={onDestroy} type="button" variant="destructive" className="h-9 rounded-md"><Trash2 className="size-4" />Suspend</Button>
+                      )}
+                    </div>
                   </TenantShowCard>
                 </div>
               </MasterListShowLayout>

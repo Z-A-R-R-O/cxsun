@@ -70,6 +70,26 @@ export interface TaskManagerAttachment {
   created_at: string
 }
 
+export interface TaskManagerEvent {
+  id: number
+  uuid: string
+  task_id: number
+  title: string
+  starts_at: string
+  ends_at: string | null
+  is_all_day: boolean | number
+  attendees: string | null
+  visibility: string
+  location: string | null
+  description: string | null
+  status: string
+  created_by: string
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 export interface TaskManagerTemplate {
   id: number
   uuid: string
@@ -216,6 +236,7 @@ export interface TaskManagerTask {
   comments: TaskManagerComment[]
   subtasks: TaskManagerSubtask[]
   attachments: TaskManagerAttachment[]
+  events: TaskManagerEvent[]
 }
 
 export type TaskManagerTaskInput = Partial<TaskManagerTask> & { tag_ids?: number[] }
@@ -309,6 +330,32 @@ export async function addTaskManagerComment(session: AuthSession, task: TaskMana
   return result.task
 }
 
+export async function updateTaskManagerComment(session: AuthSession, task: TaskManagerTask, comment: TaskManagerComment, input: { body: string }) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/comments/${encodeURIComponent(comment.uuid)}/update`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Task comment update failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
+  if (!result.ok || !result.task) throw new Error(result.error ?? "Task comment update failed.")
+  return result.task
+}
+
+export async function deleteTaskManagerComment(session: AuthSession, task: TaskManagerTask, comment: TaskManagerComment) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/comments/${encodeURIComponent(comment.uuid)}/delete`, {
+    body: "{}",
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Task comment delete failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
+  if (!result.ok || !result.task) throw new Error(result.error ?? "Task comment delete failed.")
+  return result.task
+}
+
 export async function upsertTaskManagerSubtask(session: AuthSession, task: TaskManagerTask, input: Partial<TaskManagerSubtask>) {
   const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/subtasks/upsert`, {
     body: JSON.stringify(input),
@@ -352,6 +399,45 @@ export async function addTaskManagerAttachment(session: AuthSession, task: TaskM
   if (!response.ok) throw new Error(`Task attachment failed with status ${response.status}.`)
   const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
   if (!result.ok || !result.task) throw new Error(result.error ?? "Task attachment failed.")
+  return result.task
+}
+
+export async function deleteTaskManagerAttachment(session: AuthSession, task: TaskManagerTask, attachment: TaskManagerAttachment) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/attachments/${encodeURIComponent(attachment.uuid)}/delete`, {
+    body: "{}",
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Task attachment delete failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
+  if (!result.ok || !result.task) throw new Error(result.error ?? "Task attachment delete failed.")
+  return result.task
+}
+
+export async function upsertTaskManagerEvent(session: AuthSession, task: TaskManagerTask, input: Partial<TaskManagerEvent>) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/events/upsert`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Task event save failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
+  if (!result.ok || !result.task) throw new Error(result.error ?? "Task event save failed.")
+  return result.task
+}
+
+export async function deleteTaskManagerEvent(session: AuthSession, task: TaskManagerTask, event: TaskManagerEvent) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/task-manager/${encodeURIComponent(task.uuid)}/events/${encodeURIComponent(event.uuid)}/delete`, {
+    body: "{}",
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Task event delete failed with status ${response.status}.`)
+  const result = (await response.json()) as { ok: boolean; task?: TaskManagerTask; error?: string }
+  if (!result.ok || !result.task) throw new Error(result.error ?? "Task event delete failed.")
   return result.task
 }
 

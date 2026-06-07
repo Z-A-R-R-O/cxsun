@@ -3,7 +3,7 @@ import { Injectable } from '../../core/decorators/injectable.js'
 import { TenantContextService, type TenantRequestHeaders } from '../../core/tenant/tenant-context.service.js'
 import { MasterQueueService } from '../../infrastructure/queue/master-queue.service.js'
 import { TaskManagerRepository } from './task-manager.repository.js'
-import type { TaskManagerAttachmentInput, TaskManagerCampaignInput, TaskManagerCampaignItemInput, TaskManagerCampaignItemTaskInput, TaskManagerCommentInput, TaskManagerContactCleanupCampaignInput, TaskManagerLookupInput, TaskManagerReminderInput, TaskManagerSalesVerificationCampaignInput, TaskManagerScope, TaskManagerSettingsInput, TaskManagerStatus, TaskManagerSubtaskInput, TaskManagerTaskInput, TaskManagerTemplateInput } from './task-manager.types.js'
+import type { TaskManagerAttachmentInput, TaskManagerCampaignInput, TaskManagerCampaignItemInput, TaskManagerCampaignItemTaskInput, TaskManagerCommentInput, TaskManagerContactCleanupCampaignInput, TaskManagerEventInput, TaskManagerLookupInput, TaskManagerReminderInput, TaskManagerSalesVerificationCampaignInput, TaskManagerScope, TaskManagerSettingsInput, TaskManagerStatus, TaskManagerSubtaskInput, TaskManagerTaskInput, TaskManagerTemplateInput } from './task-manager.types.js'
 
 @Injectable()
 export class TaskManagerService {
@@ -56,6 +56,20 @@ export class TaskManagerService {
     return { ok: true, task }
   }
 
+  async updateComment(headers: TenantRequestHeaders, idOrUuid: string, commentIdOrUuid: string, input: TaskManagerCommentInput) {
+    const context = await this.tenants.resolve(headers, 'company.manage')
+    const task = await this.tasks.updateComment(context, idOrUuid, commentIdOrUuid, input)
+    await this.queue.enqueue({ type: 'task-manager.comment-updated', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
+    return { ok: true, task }
+  }
+
+  async deleteComment(headers: TenantRequestHeaders, idOrUuid: string, commentIdOrUuid: string) {
+    const context = await this.tenants.resolve(headers, 'company.manage')
+    const task = await this.tasks.deleteComment(context, idOrUuid, commentIdOrUuid)
+    await this.queue.enqueue({ type: 'task-manager.comment-deleted', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
+    return { ok: true, task }
+  }
+
   async upsertSubtask(headers: TenantRequestHeaders, idOrUuid: string, input: TaskManagerSubtaskInput) {
     const context = await this.tenants.resolve(headers, 'company.manage')
     const task = await this.tasks.upsertSubtask(context, idOrUuid, input)
@@ -74,6 +88,27 @@ export class TaskManagerService {
     const context = await this.tenants.resolve(headers, 'company.manage')
     const task = await this.tasks.addAttachment(context, idOrUuid, input)
     await this.queue.enqueue({ type: 'task-manager.attachment-added', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
+    return { ok: true, task }
+  }
+
+  async deleteAttachment(headers: TenantRequestHeaders, idOrUuid: string, attachmentIdOrUuid: string) {
+    const context = await this.tenants.resolve(headers, 'company.manage')
+    const task = await this.tasks.deleteAttachment(context, idOrUuid, attachmentIdOrUuid)
+    await this.queue.enqueue({ type: 'task-manager.attachment-deleted', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
+    return { ok: true, task }
+  }
+
+  async upsertEvent(headers: TenantRequestHeaders, idOrUuid: string, input: TaskManagerEventInput) {
+    const context = await this.tenants.resolve(headers, 'company.manage')
+    const task = await this.tasks.upsertEvent(context, idOrUuid, input)
+    await this.queue.enqueue({ type: 'task-manager.event-upserted', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
+    return { ok: true, task }
+  }
+
+  async deleteEvent(headers: TenantRequestHeaders, idOrUuid: string, eventIdOrUuid: string) {
+    const context = await this.tenants.resolve(headers, 'company.manage')
+    const task = await this.tasks.deleteEvent(context, idOrUuid, eventIdOrUuid)
+    await this.queue.enqueue({ type: 'task-manager.event-deleted', payload: { taskUuid: task?.uuid, tenantId: context.tenant.id } })
     return { ok: true, task }
   }
 

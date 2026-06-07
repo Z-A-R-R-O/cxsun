@@ -203,6 +203,30 @@ export async function migrateTaskManagerTables(database: Kysely<DynamicDatabase>
   `).execute(database)
 
   await sql.raw(`
+    CREATE TABLE IF NOT EXISTS task_manager_events (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid CHAR(8) NOT NULL UNIQUE,
+      task_id INT NOT NULL,
+      title VARCHAR(240) NOT NULL,
+      starts_at DATETIME NOT NULL,
+      ends_at DATETIME NULL,
+      is_all_day TINYINT(1) NOT NULL DEFAULT 0,
+      attendees JSON NULL,
+      visibility VARCHAR(40) NOT NULL DEFAULT 'private',
+      location VARCHAR(240) NULL,
+      description TEXT NULL,
+      status VARCHAR(40) NOT NULL DEFAULT 'scheduled',
+      created_by VARCHAR(191) NOT NULL,
+      updated_by VARCHAR(191) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      INDEX idx_task_manager_events_task (task_id, starts_at, id),
+      INDEX idx_task_manager_events_status (task_id, status, starts_at)
+    )
+  `).execute(database)
+
+  await sql.raw(`
     CREATE TABLE IF NOT EXISTS task_manager_templates (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       uuid CHAR(8) NOT NULL UNIQUE,
