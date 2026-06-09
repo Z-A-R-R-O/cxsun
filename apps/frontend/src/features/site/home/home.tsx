@@ -18,6 +18,7 @@ export function HomePage({ developerMode, tenantSite }: HomePageProps) {
     tenantSite?.sliders?.find((item) => item.placement === 'home-slider' && item.is_primary) ??
     tenantSite?.sliders?.find((item) => item.placement === 'home-slider') ??
     tenantSite?.sliders?.[0]
+  const homePage = tenantSite?.pages.find((page) => page.slug === 'home') ?? null
 
   return (
     <main className="overflow-x-clip">
@@ -29,9 +30,14 @@ export function HomePage({ developerMode, tenantSite }: HomePageProps) {
             options={slider.options}
           />
         ) : (
-          <StaticHomeHero tenantName={tenantSite?.tenant?.name ?? APP_NAME} />
+          <StaticHomeHero page={homePage} tenantName={tenantSite?.tenant?.name ?? APP_NAME} />
         )}
       </SiteSection>
+      {tenantSite?.resolved && homePage ? (
+        <SiteSection developerMode={developerMode} name="tenant-home-profile">
+          <TenantHomeProfile page={homePage} tenantSite={tenantSite} />
+        </SiteSection>
+      ) : null}
       <SiteSection developerMode={developerMode} name="home-brand-intro">
         <ScrollReveal direction="bottom" distance={34}>
           <HomeBrandIntro />
@@ -1606,18 +1612,46 @@ function CtaConceptVisual({ type }: { type: string }) {
   )
 }
 
-function StaticHomeHero({ tenantName }: { tenantName: string }) {
+function StaticHomeHero({ page, tenantName }: { page: TenantStaticSiteContent['pages'][number] | null; tenantName: string }) {
   return (
     <div className="flex h-[calc(100svh-10rem)] min-h-[420px] items-center bg-[radial-gradient(circle_at_20%_20%,rgba(37,99,235,0.14),transparent_32%),linear-gradient(135deg,#0f172a,#111827_48%,#172554)] text-white">
       <div className="cx-container max-w-5xl">
-        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-blue-200">Stop juggling. Start building.</p>
+        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-blue-200">{page?.eyebrow || 'Stop juggling. Start building.'}</p>
         <h1 className="max-w-4xl text-4xl font-black leading-tight md:text-6xl">
-          {tenantName} — one workspace for your entire business.
+          {page?.title || `${tenantName} - one workspace for your entire business.`}
         </h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-200 md:text-xl">
-          No more switching between five different tools. Your website, billing, customers, and daily operations live together — so nothing falls through the cracks.
+          {page?.summary || 'No more switching between five different tools. Your website, billing, customers, and daily operations live together - so nothing falls through the cracks.'}
         </p>
       </div>
     </div>
+  )
+}
+
+function TenantHomeProfile({ page, tenantSite }: { page: TenantStaticSiteContent['pages'][number]; tenantSite: TenantStaticSiteContent }) {
+  const services = tenantSite.services.slice(0, 4)
+
+  return (
+    <section className="bg-white px-4 py-14 text-slate-950 md:py-16">
+      <div className="cx-container">
+        <ScrollReveal direction="bottom" distance={28}>
+          <div className="grid gap-8 rounded-md border border-slate-200 bg-slate-50 p-6 shadow-xl shadow-slate-950/5 lg:grid-cols-[1.1fr_.9fr] lg:p-8">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-sky-700">{tenantSite.domain?.domain}</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-normal md:text-4xl">{page.title}</h2>
+              <p className="mt-4 text-base leading-8 text-slate-600">{page.body}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {services.map((service) => (
+                <article className="rounded-md border border-slate-200 bg-white p-4 shadow-sm" key={service.id}>
+                  <h3 className="text-base font-black text-slate-950">{service.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{service.description}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
+      </div>
+    </section>
   )
 }

@@ -5,7 +5,9 @@ export interface TenantStaticContentInput {
   enabledApps: string[]
   landingApp: string
   companies?: string[]
+  domain?: string | null
   requirements?: string[]
+  tenantSlug?: string | null
 }
 
 export interface TenantStaticPage {
@@ -77,16 +79,18 @@ function tenantBasePages(input: TenantStaticContentInput, profile: IndustryProfi
   const companyLine = companySummary(input.companies)
   const primaryApp = appPageDefinitions().find((page) => page.app === input.landingApp)
   const capabilityLine = readableList(input.requirements?.map(readableToken) ?? [])
+  const homeProfile = tenantHomeProfile(input, profile, companyLine)
 
   return [
     {
       slug: 'home',
       nav_label: 'Home',
-      title: `${input.tenantName} ${profile.homeTitle}`,
-      eyebrow: input.industryName ?? profile.eyebrow,
-      summary: profile.summary(companyLine),
+      title: homeProfile.title,
+      eyebrow: homeProfile.eyebrow,
+      summary: homeProfile.summary,
       body: [
-        profile.body,
+        homeProfile.body,
+        input.domain ? `Public domain: ${input.domain}.` : '',
         primaryApp ? `Primary app: ${primaryApp.navLabel}.` : '',
         capabilityLine ? `Configured scope: ${capabilityLine}.` : '',
       ].filter(Boolean).join(' '),
@@ -143,6 +147,13 @@ function readableToken(value: string) {
   return value.split('-').filter(Boolean).join(' ')
 }
 
+interface TenantHomeProfile {
+  eyebrow: string
+  title: string
+  summary: string
+  body: string
+}
+
 interface IndustryProfile {
   eyebrow: string
   homeTitle: string
@@ -154,6 +165,51 @@ interface IndustryProfile {
 }
 
 const stablePublishedDate = '2026-05-26'
+
+const tenantHomeProfiles: Record<string, TenantHomeProfile> = {
+  codexsun: {
+    eyebrow: 'CODEXSUN Shared Billing',
+    title: 'CODEXSUN Shared Billing and business workspace',
+    summary: 'A shared billing tenant for Codexsun operations, customer accounts, invoices, receipts, mail, and public support entry points.',
+    body: 'This domain is the Codexsun operating tenant. It keeps shared billing, mail, account follow-up, and future client migration support under one strict tenant boundary.',
+  },
+  aaran_associates: {
+    eyebrow: 'Aaran Associates',
+    title: 'Aaran Associates auditor office and software service desk',
+    summary: 'A client service workspace for statutory follow-up, GST filing support, credentials, CRM tasks, billing, and mail operations.',
+    body: 'This domain belongs to Aaran Associates. It is shaped for auditor-office work: client details, compliance reminders, document requests, staff tasks, GST filing records, and client assistance from one protected tenant workspace.',
+  },
+  tirupur_direct: {
+    eyebrow: 'Tirupur Direct',
+    title: 'Tirupur Direct garment ecommerce and billing desk',
+    summary: 'A garment sales tenant for storefront content, product discovery, inventory movement, billing, order follow-up, and customer support.',
+    body: 'This domain is prepared for Tirupur Direct as a garment ecommerce tenant. The public home page introduces the storefront, while the tenant workspace keeps product catalog, billing, stock, delivery, and mail workflows together.',
+  },
+  deal_o_deal: {
+    eyebrow: 'Deal O Deal',
+    title: 'Deal O Deal ecommerce workspace for computer seconds and offers',
+    summary: 'A deal-focused ecommerce tenant for product offers, stock visibility, customer enquiries, billing, inventory, and mail follow-up.',
+    body: 'This domain is prepared for Deal O Deal. The static home page points customers toward current product offers and enquiries, while the private workspace manages ecommerce, billing, inventory, and order communication.',
+  },
+  tenkasi_sports: {
+    eyebrow: 'Tenkasi Sports',
+    title: 'Tenkasi Sports club management and member portal',
+    summary: 'A sports club tenant for memberships, students, batches, subscriptions, attendance, billing, and member-facing communication.',
+    body: 'This domain is prepared for Tenkasi Sports. The public home page introduces the club, coaching, subscription, and membership path, while the tenant workspace can grow into students, masters, attendance, fees, and communication.',
+  },
+  the_tirupur_textiles: {
+    eyebrow: 'The Tirupur Textiles',
+    title: 'The Tirupur Textiles garment manufacturing and catalog desk',
+    summary: 'A garment manufacturing tenant for product catalog presentation, billing, inventory, statutory documents, and production workflow expansion.',
+    body: 'This domain is prepared for The Tirupur Textiles. The public page introduces garment manufacturing and catalog readiness, while the workspace keeps billing, inventory, styles, sizes, colours, stock, and future production movement under one tenant.',
+  },
+  tirupur_connect: {
+    eyebrow: 'Tirupur Connect',
+    title: 'Tirupur Connect marketplace for verified suppliers and global buyers',
+    summary: 'The central Tirupur marketplace tenant for approved suppliers, product publications, open RFQs, inquiry capture, membership, messaging, and review workflows.',
+    body: 'This domain owns the Tirupur Connect marketplace boundary. Client tenants publish supplier and product profiles here through review APIs; RFQs, leads, messages, membership, and analytics remain central marketplace data.',
+  },
+}
 
 const industryProfiles: Record<string, IndustryProfile> = {
   auditor_office: {
@@ -264,6 +320,35 @@ const industryProfiles: Record<string, IndustryProfile> = {
     contact: 'Send tenant enquiries through this domain-bound contact page.',
     post: 'Tenant pages are active through strict domain resolution.',
   },
+}
+
+function tenantHomeProfile(input: TenantStaticContentInput, profile: IndustryProfile, companyLine: string): TenantHomeProfile {
+  const key = input.tenantSlug ?? domainProfileKey(input.domain)
+  const exact = key ? tenantHomeProfiles[key] : undefined
+  if (exact) {
+    return exact
+  }
+
+  return {
+    eyebrow: input.industryName ?? profile.eyebrow,
+    title: `${input.tenantName} ${profile.homeTitle}`,
+    summary: profile.summary(companyLine),
+    body: profile.body,
+  }
+}
+
+function domainProfileKey(domain: string | null | undefined) {
+  const normalized = domain?.toLowerCase().replace(/^www\./, '').trim()
+  if (!normalized) return ''
+
+  if (normalized.endsWith('aaran.org') || normalized.includes('aaran.')) return 'aaran_associates'
+  if (normalized.includes('tirupurdirect')) return 'tirupur_direct'
+  if (normalized.includes('dealodeal')) return 'deal_o_deal'
+  if (normalized.includes('tenkasisports')) return 'tenkasi_sports'
+  if (normalized.includes('thetirupurtextiles')) return 'the_tirupur_textiles'
+  if (normalized.includes('tirupurconnect')) return 'tirupur_connect'
+  if (normalized.includes('codexsun')) return 'codexsun'
+  return ''
 }
 
 function appPageDefinitions() {

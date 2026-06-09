@@ -10,9 +10,9 @@
 - [x] Add central review queues for supplier/product publications.
 - [x] Add public approved supplier/product listing APIs.
 - [x] Render approved supplier/product publications on `tirupurconnect.com`.
-- [ ] Add public supplier/product detail pages.
-- [ ] Add central RFQ board and public RFQ APIs.
-- [ ] Add lead/inquiry capture into central marketplace tables.
+- [x] Add public supplier/product detail pages.
+- [x] Add central RFQ board and public RFQ APIs.
+- [x] Add lead/inquiry capture into central marketplace tables.
 - [ ] Replace client numeric IDs with Contact/Product/Supplier autocomplete pickers.
 - [ ] Add membership and verification workflow surfaces.
 
@@ -21,5 +21,9 @@
 - [x] Add read-only public TC marketplace API for approved suppliers.
 - [x] Add read-only public TC marketplace API for approved products.
 - [x] Update the TC public page to show approved marketplace listings.
+- [x] Add public supplier/product detail APIs and pages.
+- [x] Add public RFQ board/detail APIs and page sections.
+- [x] Add public inquiry capture for supplier/product/RFQ detail pages.
 - [x] Run server and frontend typechecks.
+- [x] Run server and frontend builds.
 - [x] Run tenant static content smoke test.

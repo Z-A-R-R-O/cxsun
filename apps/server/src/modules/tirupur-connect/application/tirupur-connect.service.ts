@@ -1,14 +1,16 @@
 import { Inject } from '../../../core/decorators/inject.js'
 import { Injectable } from '../../../core/decorators/injectable.js'
-import { ForbiddenException } from '../../../core/exceptions/http.exception.js'
+import { BadRequestException, ForbiddenException, NotFoundException } from '../../../core/exceptions/http.exception.js'
 import { TenantContextService, type TenantRequestHeaders } from '../../../core/tenant/tenant-context.service.js'
 import type {
   TirupurConnectBuyerCompanyInput,
   TirupurConnectProductInput,
+  TirupurConnectPublicInquiryInput,
   TirupurConnectRfqInput,
   TirupurConnectSettings,
   TirupurConnectSupplierProfileInput,
 } from '../core/tirupur-connect.types.js'
+import { TirupurConnectPublicRepository } from '../infrastructure/tirupur-connect-public.repository.js'
 import { TirupurConnectRepository } from '../infrastructure/tirupur-connect.repository.js'
 
 @Injectable()
@@ -16,6 +18,7 @@ export class TirupurConnectService {
   constructor(
     @Inject(TenantContextService) private readonly tenants: TenantContextService,
     @Inject(TirupurConnectRepository) private readonly tirupurConnect: TirupurConnectRepository,
+    @Inject(TirupurConnectPublicRepository) private readonly publicMarketplace: TirupurConnectPublicRepository,
   ) {}
 
   async overview(headers: TenantRequestHeaders) {
@@ -125,11 +128,51 @@ export class TirupurConnectService {
   }
 
   async publicSuppliers() {
-    return { ok: true, records: await this.tirupurConnect.listPublicSuppliers() }
+    return { ok: true, records: await this.publicMarketplace.listSuppliers() }
+  }
+
+  async publicSupplier(uuid: string) {
+    const record = await this.publicMarketplace.getSupplier(uuid)
+    if (!record) throw new NotFoundException('Approved supplier publication was not found.')
+    return { ok: true, record }
   }
 
   async publicProducts() {
-    return { ok: true, records: await this.tirupurConnect.listPublicProducts() }
+    return { ok: true, records: await this.publicMarketplace.listProducts() }
+  }
+
+  async publicProduct(uuidOrSlug: string) {
+    const record = await this.publicMarketplace.getProduct(uuidOrSlug)
+    if (!record) throw new NotFoundException('Approved product publication was not found.')
+    return { ok: true, record }
+  }
+
+  async publicRfqs() {
+    return { ok: true, records: await this.publicMarketplace.listRfqs() }
+  }
+
+  async publicRfq(uuid: string) {
+    const record = await this.publicMarketplace.getRfq(uuid)
+    if (!record) throw new NotFoundException('Open RFQ was not found.')
+    return { ok: true, record }
+  }
+
+  async createPublicInquiry(input: TirupurConnectPublicInquiryInput) {
+    const entityType = normalizeEntityType(input.entityType)
+    const buyerName = requiredText(input.buyerName, 'Buyer name')
+    const message = requiredText(input.message, 'Message')
+    await this.publicMarketplace.createInquiry({
+      ...input,
+      buyerName,
+      entityType,
+      message,
+      companyName: optionalText(input.companyName),
+      email: optionalText(input.email),
+      entityUuid: optionalText(input.entityUuid),
+      phone: optionalText(input.phone),
+      sourceTenantSlug: optionalText(input.sourceTenantSlug),
+    })
+    return { ok: true }
   }
 
   private assertMarketplace(context: Awaited<ReturnType<TenantContextService['resolve']>>) {
@@ -137,4 +180,18 @@ export class TirupurConnectService {
       throw new ForbiddenException('This Tirupur Connect desk is client-side. RFQ, leads, messages, membership, and analytics belong to the central Tirupur Connect tenant.')
     }
   }
+}
+
+function normalizeEntityType(value: unknown) {
+  if (value === 'supplier' || value === 'product' || value === 'rfq') return value
+  throw new BadRequestException('Inquiry target is required.')
+}
+
+function requiredText(value: unknown, label: string) {
+  if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(`${label} is required.`)
+  return value.trim()
+}
+
+function optionalText(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }

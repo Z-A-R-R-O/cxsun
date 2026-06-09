@@ -15,8 +15,8 @@ assert.ok(!allDomains.includes('smaupvc.local'), 'typo domain smaupvc.local must
 assert.ok(!allDomains.includes('smsupvc.local'), 'SMS UPVC must not be seeded during first install')
 assert.deepEqual(
   liveClientScopes.map((client) => client.slug).sort(),
-  ['aaran_associates', 'codexsun', 'tirupur_connect'],
-  'first install must seed CODEXSUN, Aaran Associates, and the central Tirupur Connect marketplace',
+  ['aaran_associates', 'codexsun', 'deal_o_deal', 'tenkasi_sports', 'the_tirupur_textiles', 'tirupur_connect', 'tirupur_direct'],
+  'first install must seed the active live tenant catalog',
 )
 
 const publicApps = new Set(publicAppKeys())
@@ -32,7 +32,9 @@ for (const client of liveClientScopes) {
     enabledApps: client.apps,
     landingApp: client.landingApp,
     companies: client.companies,
+    domain: client.domains[0],
     requirements: client.requirements,
+    tenantSlug: client.slug,
   })
 
   const pages = new Map(content.pages.map((page) => [page.slug, page]))
@@ -44,7 +46,7 @@ for (const client of liveClientScopes) {
 
   const home = pages.get('home')
   assert.ok(home?.title.includes(client.name), `${client.slug} home title must name the tenant`)
-  assert.equal(home?.eyebrow, client.industryName, `${client.slug} home eyebrow must show industry`)
+  assert.ok(home?.eyebrow, `${client.slug} home eyebrow must be populated`)
 
   for (const company of client.companies) {
     assert.ok(
@@ -74,6 +76,23 @@ for (const client of liveClientScopes) {
 
   for (const service of content.services) {
     assert.ok(services.has(service.title), `${client.slug} service title must be stable`)
+  }
+
+  for (const domain of client.domains) {
+    const domainContent = buildTenantStaticContent({
+      tenantName: client.name,
+      industryKey: client.industry,
+      industryName: client.industryName,
+      enabledApps: client.apps,
+      landingApp: client.landingApp,
+      companies: client.companies,
+      domain,
+      requirements: client.requirements,
+      tenantSlug: client.slug,
+    })
+    const domainHome = domainContent.pages.find((page) => page.slug === 'home')
+    assert.ok(domainHome?.body.includes(`Public domain: ${domain}.`), `${domain} must have its own static home page body`)
+    assert.ok(domainHome?.title.includes(client.name), `${domain} home title must be related to ${client.name}`)
   }
 }
 

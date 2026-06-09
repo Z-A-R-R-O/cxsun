@@ -1,10 +1,11 @@
-import { Body, Headers } from '../../../../core/decorators/http-params.js'
+import { Body, Headers, Param } from '../../../../core/decorators/http-params.js'
 import { Controller, Get, Post } from '../../../../core/decorators/controller.js'
 import { Inject } from '../../../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../../../core/tenant/tenant-context.service.js'
 import type {
   TirupurConnectBuyerCompanyInput,
   TirupurConnectProductInput,
+  TirupurConnectPublicInquiryInput,
   TirupurConnectRfqInput,
   TirupurConnectSettings,
   TirupurConnectSupplierProfileInput,
@@ -25,9 +26,34 @@ export class TirupurConnectController {
     return this.tirupurConnect.publicSuppliers()
   }
 
+  @Get('public/suppliers/:uuid')
+  publicSupplier(@Param('uuid') uuid: string) {
+    return this.tirupurConnect.publicSupplier(uuid)
+  }
+
   @Get('public/products')
   publicProducts() {
     return this.tirupurConnect.publicProducts()
+  }
+
+  @Get('public/products/:uuidOrSlug')
+  publicProduct(@Param('uuidOrSlug') uuidOrSlug: string) {
+    return this.tirupurConnect.publicProduct(uuidOrSlug)
+  }
+
+  @Get('public/rfqs')
+  publicRfqs() {
+    return this.tirupurConnect.publicRfqs()
+  }
+
+  @Get('public/rfqs/:uuid')
+  publicRfq(@Param('uuid') uuid: string) {
+    return this.tirupurConnect.publicRfq(uuid)
+  }
+
+  @Post('public/inquiries')
+  createPublicInquiry(@Body() body: TirupurConnectPublicInquiryInput) {
+    return this.tirupurConnect.createPublicInquiry(body)
   }
 
   @Post('settings')

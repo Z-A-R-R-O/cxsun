@@ -118,6 +118,30 @@ export interface TirupurConnectRfqInput {
   status?: string
 }
 
+export interface TirupurConnectPublicRfq {
+  id: number
+  uuid: string
+  title: string
+  description: string | null
+  quantity: number
+  deliveryDeadline: string | null
+  budgetMin: number | null
+  budgetMax: number | null
+  status: string
+  createdAt: string
+}
+
+export interface TirupurConnectPublicInquiryInput {
+  entityType?: string
+  entityUuid?: string
+  sourceTenantSlug?: string
+  buyerName?: string
+  companyName?: string
+  email?: string
+  phone?: string
+  message?: string
+}
+
 export interface TirupurConnectSupplierPublication {
   id: number
   uuid: string
@@ -131,6 +155,12 @@ export interface TirupurConnectSupplierPublication {
   publicationStatus: string
   createdAt: string
   reviewedAt: string | null
+}
+
+export interface TirupurConnectSupplierPublicationDetail extends TirupurConnectSupplierPublication {
+  about: string | null
+  factoryAddress: string | null
+  verificationLevel: string
 }
 
 export interface TirupurConnectProductPublication {
@@ -147,4 +177,9 @@ export interface TirupurConnectProductPublication {
   publicationStatus: string
   createdAt: string
   reviewedAt: string | null
+}
+
+export interface TirupurConnectProductPublicationDetail extends TirupurConnectProductPublication {
+  fabricDetails: string | null
+  certificationDetails: string | null
 }

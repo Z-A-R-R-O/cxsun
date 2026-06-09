@@ -1,7 +1,7 @@
 # Session Plan
 
 **Date:** 2026-06-09  
-**Version:** 1.0.89  
+**Version:** 1.0.90  
 **Focus:** Tirupur Connect central marketplace and client publication flow.
 
 ## Objective
@@ -19,19 +19,20 @@ Make Tirupur Connect operate as a serious isolated marketplace tenant at `tirupu
 
 ## Current Slice
 
-Complete the public proof loop:
+Complete public marketplace discovery:
 
-1. Client tenant creates supplier/product profile.
-2. Client tenant publishes it by API.
-3. Central marketplace team approves/rejects it.
-4. `tirupurconnect.com` displays only approved supplier/product publications.
+1. `tirupurconnect.com` lists approved supplier/product publications.
+2. Public users can open supplier/product detail pages.
+3. Public users can browse open RFQs from the central marketplace tenant.
+4. Public users can submit supplier/product/RFQ inquiries into central marketplace tables.
 
 ## Implementation Tasks
 
-- Add public read-only marketplace APIs for approved suppliers/products.
+- Add public read-only marketplace APIs for approved suppliers/products and open RFQs.
 - Query only central marketplace publication tables.
 - Keep pending/rejected publications hidden from public APIs.
-- Render approved suppliers/products on the TC public page.
+- Render approved suppliers/products/RFQs on the TC public page.
+- Add public detail pages and inquiry capture.
 - Preserve central/private authenticated APIs separately from public marketplace APIs.
 
 ## Verification

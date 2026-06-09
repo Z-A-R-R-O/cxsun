@@ -2215,3 +2215,21 @@ create log for this with version update in changelog
 User prompt:
 
 > ok fine read assist/execution/tirupur-connect and implement this with writing planning.md and task.md and complete this
+
+## 2026-06-09 - Continue Tirupur Connect public marketplace
+
+User prompt:
+
+> confirm that supplier/product public listings are done, while pending next items include public supplier/product detail pages, RFQ board/public RFQ APIs, inquiry capture, autocomplete picker replacement, and membership/verification workflow surfaces. continue this
+
+## 2026-06-09 - Wire new tenant domains
+
+User prompt:
+
+> i have added some of these tenant wire these tenant also and update in vite for their domain
+
+## 2026-06-09 - Domain-specific tenant home pages
+
+User prompt:
+
+> create each tenant domain has it own static home page with related content on it

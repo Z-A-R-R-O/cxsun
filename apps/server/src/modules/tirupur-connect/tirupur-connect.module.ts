@@ -4,6 +4,7 @@ import { TenantRepository } from '../../core/tenant/infrastructure/tenant.reposi
 import { TenantDomainRepository } from '../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
 import { AuthRepository } from '../auth/infrastructure/auth.repository.js'
 import { TirupurConnectService } from './application/tirupur-connect.service.js'
+import { TirupurConnectPublicRepository } from './infrastructure/tirupur-connect-public.repository.js'
 import { TirupurConnectRepository } from './infrastructure/tirupur-connect.repository.js'
 import { TirupurConnectController } from './interface/http/tirupur-connect.controller.js'
 
@@ -14,6 +15,7 @@ import { TirupurConnectController } from './interface/http/tirupur-connect.contr
     TenantRepository,
     TenantDomainRepository,
     TenantContextService,
+    TirupurConnectPublicRepository,
     TirupurConnectRepository,
     TirupurConnectService,
   ],

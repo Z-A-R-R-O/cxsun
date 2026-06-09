@@ -70,7 +70,9 @@ export class SiteService {
       enabledApps,
       landingApp: resolution.tenant.apps.landing,
       companies: resolution.tenant.liveScope?.companies,
+      domain: resolution.domain.domain,
       requirements: resolution.tenant.liveScope?.requirements,
+      tenantSlug: resolution.tenant.slug,
     })
 
     return {

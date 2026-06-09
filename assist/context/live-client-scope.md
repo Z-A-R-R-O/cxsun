@@ -33,7 +33,7 @@ npm run hosts:check
 
 | Code | Tenant | Domains | Industry | Apps / Scope |
 |---:|---|---|---|---|
-| 100 | Aaran Associates | `aaran.codexsun.com`, `office.codexsun.com`, `aaran.local` | Auditor office / software back office | Auditor, task manager, CRM, billing, mail |
+| 100 | Aaran Associates | `office.aaran.org`, `aaran.org`, `www.aaran.org`, `aaran.codexsun.com`, `office.codexsun.com`, `aaran.local` | Auditor office / software back office | Auditor, task manager, CRM, billing, mail |
 | 101 | CODEXSUN Shared Billing | `codexsun.com`, `www.codexsun.com`, `codexsun.local` | Shared billing platform | Billing and mail for shared-domain clients |
 | 102 | Sri Ganapathi Printing Press | `sriganapathi.codexsun.com`, `ganapathi.local` | Offset printing | Simple billing + accounts |
 | 103 | Cotton Knits Fashion | `cotton.codexsun.com`, `cottonknits.codexsun.com`, `cotton.local` | Garment manufacturing | Billing + accounts + e-invoice + e-way |
@@ -43,17 +43,18 @@ npm run hosts:check
 | 107 | KGS Printing | `kgsprinting.codexsun.com` | Offset printing | Simple billing + accounts |
 | 108 | Thirumurugan Printers | `thirumurugan.codexsun.com` | Offset printing | Simple billing + accounts |
 | 109 | SMS UPVC | `smsupvc.codexsun.com`, `smsupvc.local` | UPVC | Simple billing + accounts + e-way |
-| 110 | Tirupur Direct | `tirupurdirect.codexsun.com`, `tirupurdirect.local` | Ecommerce / garments sales | Ecommerce + billing + inventory |
-| 111 | Deal O Deal | `dealodeal.codexsun.com` | Ecommerce / computer seconds store | Ecommerce + billing + inventory |
-| 112 | Tenkasi Sports | `tenkasisports.codexsun.com`, `tenkasisports.local` | Sports club | Students, masters, subscriptions, attendance |
+| 110 | Tirupur Direct | `tirupurdirect.com`, `www.tirupurdirect.com`, `tirupurdirect.codexsun.com`, `tirupurdirect.local` | Ecommerce / garments sales | Ecommerce + billing + inventory |
+| 111 | Deal O Deal | `dealodeal.com`, `www.dealodeal.com`, `dealodeal.codexsun.com` | Ecommerce / computer seconds store | Ecommerce + billing + inventory |
+| 112 | Tenkasi Sports | `tenkasisports.com`, `www.tenkasisports.com`, `tenkasisports.codexsun.com`, `tenkasisports.local` | Sports club | Students, masters, subscriptions, attendance |
 | 113 | Altexlabs | `altexlabs.codexsun.com` | Garment testing lab | Testing reports and lab workflow |
 | 114 | Aaran Business Connect | `business.codexsun.com`, `connect.codexsun.com`, `aaranconnect.local` | Business connect | Business directory and lead connection |
 | 115 | Tirupur Connect | `tirupurconnect.com`, `www.tirupurconnect.com`, `tirupurconnect.local` | Tirupur Connect marketplace | Central marketplace tenant for supplier/product publication review, RFQ, leads, messages, membership, analytics, events, and news |
+| 116 | The Tirupur Textiles | `thetirupurtextiles.com`, `www.thetirupurtextiles.com` | Garment manufacturing | Garment public catalog + billing + inventory |
 
 ## Implementation Notes
 
 - The first-install seed catalog is stored in `apps/server/src/core/tenant/live-client-scope.ts`.
-- `db:seed` upserts tenant rows, tenant app settings, domain mappings, industry records, and scoped company seed names only for CODEXSUN and Aaran Associates.
+- `db:seed` upserts tenant rows, tenant app settings, domain mappings, industry records, and scoped company seed names for the active live-client catalog. Domain auto-seeding remains opt-in unless a catalog row has `seedDomains: true`.
 - Public pages resolve strictly through `GET /api/site/tenant-static`; an unmapped domain returns an unresolved tenant error.
 - Private tenant data must still use authenticated tenant APIs.
 - Tirupur Connect uses a central marketplace tenant. Client tenants keep only their own supplier and product profile source records, then publish to `tirupurconnect.com` by API. RFQ, leads, messages, membership, analytics, events, and news are central marketplace-owned data.
