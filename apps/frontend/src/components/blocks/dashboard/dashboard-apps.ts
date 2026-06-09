@@ -19,6 +19,7 @@ import {
   FileCog,
   FileText,
   Globe2,
+  Handshake,
   Hash,
   Image,
   Landmark,
@@ -53,7 +54,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "accounts" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "sites" | "tally"
+export type DashboardAppId = "application" | "accounts" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "tirupur-connect" | "sites" | "tally"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -138,7 +139,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-emerald-600 text-white",
     icon: ReceiptText,
     menuGroups: [
-      { title: "Entries", icon: FileText, items: [item("billing", "sales", "Sales", FileText), item("billing", "export-sales", "Export Sales", Send), item("billing", "purchase", "Purchase", ReceiptText), item("billing", "receipts", "Receipts", ReceiptText), item("billing", "payments", "Payments", CreditCard)] },
+      { title: "Entries", icon: FileText, items: [item("billing", "quotation", "Quotation", ClipboardList), item("billing", "sales", "Sales", FileText), item("billing", "export-sales", "Export Sales", Send), item("billing", "purchase", "Purchase", ReceiptText), item("billing", "receipts", "Receipts", ReceiptText), item("billing", "payments", "Payments", CreditCard)] },
       { title: "Accounts", icon: Landmark, items: [item("billing", "cash-book", "Cash Book", Banknote), item("billing", "bank-book", "Bank Book", Landmark)] },
       { title: "Report", icon: BarChart3, items: [item("billing", "customer-statement", "Customer Statement", BarChart3), item("billing", "supplier-statement", "Supplier Statement", BarChart3), item("billing", "gst-report", "GST Report", BarChart3)] },
       { title: "Compliance", icon: Send, items: [item("billing", "gst-production", "GST API", Send)] },
@@ -315,6 +316,32 @@ export const dashboardApps: DashboardAppDefinition[] = [
         ],
       },
       { title: "Settings", icon: Settings, items: [item("inventory", "document-settings", "Document Settings", FileCog)] },
+    ],
+  }),
+  withMenu({
+    id: "tirupur-connect",
+    name: "Tirupur Connect",
+    shortName: "TC",
+    description: "B2B trade desk for Tirupur suppliers, global buyers, RFQs, leads, messages, and membership activity.",
+    status: "active",
+    accent: "bg-emerald-700 text-white",
+    icon: Handshake,
+    menuGroups: [
+      {
+        title: "Workspace",
+        icon: Handshake,
+        items: [
+          item("tirupur-connect", "dashboard", "Dashboard", LayoutDashboard),
+          item("tirupur-connect", "profile", "Supplier Profile", Building2),
+          item("tirupur-connect", "products", "Products", PackageSearch),
+          item("tirupur-connect", "rfqs", "RFQs", ClipboardList),
+          item("tirupur-connect", "leads", "Leads", UsersRound),
+          item("tirupur-connect", "messages", "Messages", Mail),
+          item("tirupur-connect", "membership", "Membership", ShieldCheck),
+          item("tirupur-connect", "analytics", "Analytics", BarChart3),
+          item("tirupur-connect", "settings", "Settings", Settings),
+        ],
+      },
     ],
   }),
   withMenu({

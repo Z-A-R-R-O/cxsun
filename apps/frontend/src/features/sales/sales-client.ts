@@ -83,6 +83,9 @@ export interface SalesEntry {
   eway_part: string | null
   notes: string | null
   terms: string | null
+  source_type?: string | null
+  source_ref_no?: string | null
+  source_quotation_uuids?: string[]
   is_active: boolean | number
   created_at: string
   updated_at: string
@@ -128,6 +131,9 @@ export function emptySalesEntry(): SalesEntryInput {
     eway_part: "part-b",
     notes: "",
     terms: "Goods once sold will not be taken back unless agreed in writing.",
+    source_type: null,
+    source_ref_no: null,
+    source_quotation_uuids: [],
     is_active: true,
     items: [],
   }

@@ -63,6 +63,9 @@ export interface SalesEntryInput {
   eway_part?: string | null
   notes?: string | null
   terms?: string | null
+  source_type?: string | null
+  source_ref_no?: string | null
+  source_quotation_uuids?: string[] | null
   is_active?: boolean
   items?: SalesEntryItemInput[]
 }
@@ -240,6 +243,9 @@ export class SalesEntryRepository {
         eway_part: emptyAsNull(input.eway_part),
         notes: emptyAsNull(input.notes),
         terms: emptyAsNull(input.terms),
+        source_type: emptyAsNull(input.source_type),
+        source_ref_no: emptyAsNull(input.source_ref_no),
+        source_quotation_uuids: input.source_quotation_uuids?.length ? JSON.stringify(input.source_quotation_uuids) : null,
         is_active: input.is_active ?? true,
       },
       items,
@@ -306,6 +312,9 @@ export class SalesEntryRepository {
       eway_part: stringOrNull(row.eway_part),
       notes: stringOrNull(row.notes),
       terms: stringOrNull(row.terms),
+      source_type: stringOrNull(row.source_type),
+      source_ref_no: stringOrNull(row.source_ref_no),
+      source_quotation_uuids: stringArrayFromJson(row.source_quotation_uuids),
       is_active: Boolean(row.is_active),
       created_at: row.created_at as Date,
       updated_at: row.updated_at as Date,
@@ -522,6 +531,15 @@ function toItem(row: Record<string, unknown>): SalesEntryItem {
 
 function stringOrNull(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function stringArrayFromJson(value: unknown) {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : []
+  } catch {
+    return []
+  }
 }
 
 function emptyAsNull(value: unknown) {

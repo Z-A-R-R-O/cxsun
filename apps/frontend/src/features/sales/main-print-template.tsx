@@ -55,6 +55,11 @@ export function MainPrintTemplate({ children }: { children: ReactNode }) {
             break-after: page;
             page-break-after: always;
           }
+
+          .sales-print-extended-page:not(:last-child) {
+            break-after: page;
+            page-break-after: always;
+          }
         }
       `}</style>
       <section className="main-print-sheet mx-auto w-[210mm] max-w-full origin-top bg-white font-[Verdana,Arial,sans-serif] text-[10px] text-black print:mx-auto print:mt-0 print:w-[198mm] print:max-w-none">

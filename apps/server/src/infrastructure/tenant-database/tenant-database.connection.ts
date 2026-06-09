@@ -9,6 +9,7 @@ import { nowIso } from '../database/database-module.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import { migrateCommonModuleTables, seedCommonModuleTables } from '../../modules/common/index.js'
 import { migrateSalesEntryTables } from '../../modules/entries/sales/index.js'
+import { migrateQuotationEntryTables } from '../../modules/entries/quotation/index.js'
 import { migrateExportSalesEntryTables } from '../../modules/entries/export-sales/index.js'
 import { migratePurchaseEntryTables } from '../../modules/entries/purchase/index.js'
 import { migratePurchaseReceiptTables } from '../../modules/stock/inward/purchase-receipt/index.js'
@@ -25,6 +26,7 @@ import { migrateMailTables } from '../../modules/mail/index.js'
 import { migrateTaskManagerTables } from '../../modules/task-manager/index.js'
 import { migrateCrmTables } from '../../modules/crm/index.js'
 import { migrateTallyTables } from '../../modules/tally/index.js'
+import { migrateTirupurConnectTables } from '../../modules/tirupur-connect/index.js'
 import { migrateAuditorContactCredentialTables } from '../../modules/auditor/contact-credential/index.js'
 import { migrateAuditorGstFilingTables } from '../../modules/auditor/gst-filing/index.js'
 import { migrateSiteSliderTables, seedDefaultSiteSliders } from '../../modules/site/slider/database/site-slider.migration.js'
@@ -123,6 +125,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await createContactCommunicationTables(database)
   await migrateCommonModuleTables(database)
   await migrateSalesEntryTables(database)
+  await migrateQuotationEntryTables(database)
   await migrateExportSalesEntryTables(database)
   await migratePurchaseEntryTables(database)
   await migratePurchaseReceiptTables(database)
@@ -139,6 +142,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateTaskManagerTables(database as never)
   await migrateCrmTables(database as never)
   await migrateTallyTables(database as never)
+  await migrateTirupurConnectTables(database, tenant)
   await migrateAuditorContactCredentialTables(database)
   await migrateAuditorGstFilingTables(database)
   await migrateSiteSliderTables(database as never)

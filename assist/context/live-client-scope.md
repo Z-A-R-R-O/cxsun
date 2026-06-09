@@ -48,6 +48,7 @@ npm run hosts:check
 | 112 | Tenkasi Sports | `tenkasisports.codexsun.com`, `tenkasisports.local` | Sports club | Students, masters, subscriptions, attendance |
 | 113 | Altexlabs | `altexlabs.codexsun.com` | Garment testing lab | Testing reports and lab workflow |
 | 114 | Aaran Business Connect | `business.codexsun.com`, `connect.codexsun.com`, `aaranconnect.local` | Business connect | Business directory and lead connection |
+| 115 | Tirupur Connect | `tirupurconnect.com`, `www.tirupurconnect.com`, `tirupurconnect.local` | Tirupur Connect marketplace | Central marketplace tenant for supplier/product publication review, RFQ, leads, messages, membership, analytics, events, and news |
 
 ## Implementation Notes
 
@@ -55,3 +56,4 @@ npm run hosts:check
 - `db:seed` upserts tenant rows, tenant app settings, domain mappings, industry records, and scoped company seed names only for CODEXSUN and Aaran Associates.
 - Public pages resolve strictly through `GET /api/site/tenant-static`; an unmapped domain returns an unresolved tenant error.
 - Private tenant data must still use authenticated tenant APIs.
+- Tirupur Connect uses a central marketplace tenant. Client tenants keep only their own supplier and product profile source records, then publish to `tirupurconnect.com` by API. RFQ, leads, messages, membership, analytics, events, and news are central marketplace-owned data.

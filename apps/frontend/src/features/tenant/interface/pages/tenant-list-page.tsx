@@ -334,8 +334,9 @@ function TenantShowPage({
     try {
       const result = await appsMutation.mutateAsync(enabledAppDraft)
       onTenantUpdated(result)
+      notifyTenantAppsPublished(result)
       toast.success("Tenant apps published", {
-        description: `${result.name} app access is ready for next tenant login.`,
+        description: `${result.name} app access is live for tenant desks.`,
       })
       await queryClient.invalidateQueries({ queryKey: ["tenants"] })
     } catch (error) {
@@ -1021,6 +1022,12 @@ function toTenantFeatureInput(tenant: TenantRecord, enabledApps: Record<Dashboar
       },
     }, null, 2),
   }
+}
+
+function notifyTenantAppsPublished(tenant: TenantRecord) {
+  const detail = { at: Date.now(), payloadSettings: tenant.payloadSettings, tenantSlug: tenant.slug }
+  window.localStorage.setItem("cxsun.tenant-apps-published", JSON.stringify(detail))
+  window.dispatchEvent(new CustomEvent("cxsun:tenant-apps-published", { detail }))
 }
 
 function parseTenantPayloadSettings(value: string): { apps?: { enabled?: unknown[]; publishedAt?: string }; [key: string]: unknown } {

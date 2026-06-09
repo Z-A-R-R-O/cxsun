@@ -5,13 +5,14 @@ import { LetterheadBuilder } from "src/features/company/letterhead-builder"
 import type { LetterheadSettings } from "src/features/settings/software-settings"
 import { MainPrintTemplate } from "./main-print-template"
 import { createCode128BarcodeSvg } from "./sales-barcode"
-import { getSalesPrintLinePlan } from "./sales-print-line-plan"
+import { getSalesPrintLinePlan, getSalesPrintPagedLinePlan } from "./sales-print-line-plan"
 import type { SalesEntry, SalesEntryItem } from "./sales-client"
 
 const tableClass = "w-full border-collapse border border-gray-400"
 const baseCell = "border-r border-gray-400 align-top p-[3px]"
 const itemCell = `${baseCell} h-[26px] border-b-4 border-double border-gray-400 p-0 text-center text-[9px] leading-none`
 const lineItemCell = `${baseCell} h-[28px] text-center text-[9px] leading-[1.08]`
+const compactLineItemCell = "border-r border-gray-400 align-top h-[22px] p-[1px] text-center text-[8px] leading-none"
 const totalItemCell = `${baseCell} h-[18px] border-y border-gray-400 text-center text-[9px] leading-none`
 export type SalesPrintCopy = "duplicate" | "original" | "triplicate"
 export interface SalesPrintAddressLabels {
@@ -29,30 +30,13 @@ export interface SalesPrintPartyDetails {
   stateName: string
 }
 
-export function SalesInvoiceDocument({
-  addressLabels,
-  billingParty,
-  company,
-  copy = "original",
-  customTerms,
-  documentTitle = "TAX INVOICE",
-  letterheadSettings,
-  record,
-  showBankAccountNumber = true,
-  showColour = false,
-  showDc = true,
-  showFooterDetails = true,
-  showLogo = true,
-  showPo = true,
-  showQrAccountDetails = true,
-  shippingParty,
-  showSize = false,
-}: {
+interface SalesInvoiceDocumentProps {
   readonly addressLabels?: SalesPrintAddressLabels
   readonly billingParty?: SalesPrintPartyDetails | null
   readonly company?: CompanyRecord | null
   readonly copy?: SalesPrintCopy
   readonly customTerms?: string | null
+  readonly documentNumberLabel?: string
   readonly documentTitle?: string
   readonly letterheadSettings?: Partial<LetterheadSettings>
   readonly record: SalesEntry
@@ -63,9 +47,32 @@ export function SalesInvoiceDocument({
   readonly showLogo?: boolean
   readonly showPo?: boolean
   readonly showQrAccountDetails?: boolean
+  readonly showShippingAddress?: boolean
   readonly shippingParty?: SalesPrintPartyDetails | null
   readonly showSize?: boolean
-}) {
+}
+
+export function SalesInvoiceDocument({
+  addressLabels,
+  billingParty,
+  company,
+  copy = "original",
+  customTerms,
+  documentNumberLabel = "Invoice No:",
+  documentTitle = "TAX INVOICE",
+  letterheadSettings,
+  record,
+  showBankAccountNumber = true,
+  showColour = false,
+  showDc = true,
+  showFooterDetails = true,
+  showLogo = true,
+  showPo = true,
+  showQrAccountDetails = true,
+  showShippingAddress = true,
+  shippingParty,
+  showSize = false,
+}: SalesInvoiceDocumentProps) {
   void showQrAccountDetails
   const isCgstSgst = (record.place_of_supply ?? "cgst-sgst") !== "igst"
   const totals = useMemo(() => calculatePrintTotals(record), [record])
@@ -79,6 +86,37 @@ export function SalesInvoiceDocument({
   const hasComplianceDetails = hasSalesComplianceDetails(record)
   const eInvoiceQrValue = useMemo(() => buildSalesEinvoiceQrPayload(record, company ?? null, totals), [company, record, totals])
   const hasEInvoiceQr = hasIrn && Boolean(eInvoiceQrValue)
+
+  if (itemLinePlan.requiresTwoPageTemplate) {
+    return (
+      <ExtendedSalesInvoiceDocument
+        addressLabels={addressLabels}
+        billingParty={billingParty}
+        company={company}
+        companyBank={companyBank}
+        companyName={companyName}
+        copy={copy}
+        documentNumberLabel={documentNumberLabel}
+        documentTitle={documentTitle}
+        eInvoiceQrValue={eInvoiceQrValue}
+        hasComplianceDetails={hasComplianceDetails}
+        hasEInvoiceQr={hasEInvoiceQr}
+        isCgstSgst={isCgstSgst}
+        itemColumns={itemColumns}
+        letterheadSettings={letterheadSettings}
+        record={record}
+        shippingParty={shippingParty}
+        showBankAccountNumber={showBankAccountNumber}
+        showColour={showColour}
+        showFooterDetails={showFooterDetails}
+        showLogo={showLogo}
+        showShippingAddress={showShippingAddress}
+        showSize={showSize}
+        termsLines={termsLines}
+        totals={totals}
+      />
+    )
+  }
 
   return (
     <MainPrintTemplate>
@@ -108,7 +146,7 @@ export function SalesInvoiceDocument({
           <tr>
             <td className={`${baseCell} border-t border-gray-400 p-[5px] ${hasComplianceDetails ? "" : "border-r-0"}`} colSpan={hasComplianceDetails ? 1 : 2}>
               <BillDetailsBlock lines={[
-                { label: "Invoice No:", value: record.invoice_no, strong: true },
+                { label: documentNumberLabel, value: record.invoice_no, strong: true },
                 { label: "Date:", value: formatDate(record.invoice_date), strong: true },
                 { label: "Work Order:", value: record.reference_no ?? "" },
               ]} />
@@ -120,7 +158,7 @@ export function SalesInvoiceDocument({
             ) : null}
           </tr>
           <tr>
-            <td className={`${baseCell} h-[74px] w-1/2 border-y border-gray-400 px-2.5 pb-2 pt-1 leading-tight`}>
+            <td className={`${baseCell} h-[74px] ${showShippingAddress ? "w-1/2" : "border-r-0"} border-y border-gray-400 px-2.5 pb-2 pt-1 leading-tight`} colSpan={showShippingAddress ? 1 : 2}>
               <PartyAddressBlock
                 address={record.billing_address}
                 details={billingParty}
@@ -131,17 +169,19 @@ export function SalesInvoiceDocument({
                 stateName={record.customer_state_name}
               />
             </td>
-            <td className={`${baseCell} h-[74px] w-1/2 border-y border-gray-400 border-r-0 px-2.5 pb-2 pt-1 leading-tight`}>
-              <PartyAddressBlock
-                address={record.shipping_address ?? record.billing_address}
-                details={shippingParty ?? billingParty}
-                gstin={record.customer_gstin}
-                label="Buyer (Ship to)"
-                partyName={record.customer_name}
-                stateCode={record.customer_state_code}
-                stateName={record.customer_state_name}
-              />
-            </td>
+            {showShippingAddress ? (
+              <td className={`${baseCell} h-[74px] w-1/2 border-y border-gray-400 border-r-0 px-2.5 pb-2 pt-1 leading-tight`}>
+                <PartyAddressBlock
+                  address={record.shipping_address ?? record.billing_address}
+                  details={shippingParty ?? billingParty}
+                  gstin={record.customer_gstin}
+                  label="Buyer (Ship to)"
+                  partyName={record.customer_name}
+                  stateCode={record.customer_state_code}
+                  stateName={record.customer_state_name}
+                />
+              </td>
+            ) : null}
           </tr>
         </tbody>
       </table>
@@ -228,6 +268,234 @@ export function SalesInvoiceDocument({
   )
 }
 
+function ExtendedSalesInvoiceDocument({
+  addressLabels,
+  billingParty,
+  company,
+  companyBank,
+  companyName,
+  copy,
+  documentNumberLabel,
+  documentTitle,
+  eInvoiceQrValue,
+  hasComplianceDetails,
+  hasEInvoiceQr,
+  isCgstSgst,
+  itemColumns,
+  letterheadSettings,
+  record,
+  shippingParty,
+  showBankAccountNumber,
+  showColour,
+  showFooterDetails,
+  showLogo,
+  showShippingAddress,
+  showSize,
+  termsLines,
+  totals,
+}: {
+  readonly addressLabels?: SalesPrintAddressLabels
+  readonly billingParty?: SalesPrintPartyDetails | null
+  readonly company?: CompanyRecord | null
+  readonly companyBank: CompanyRecord["bankAccounts"][number] | null
+  readonly companyName: string
+  readonly copy: SalesPrintCopy
+  readonly documentNumberLabel: string
+  readonly documentTitle: string
+  readonly eInvoiceQrValue: string
+  readonly hasComplianceDetails: boolean
+  readonly hasEInvoiceQr: boolean
+  readonly isCgstSgst: boolean
+  readonly itemColumns: ReturnType<typeof printItemColumns>
+  readonly letterheadSettings?: Partial<LetterheadSettings>
+  readonly record: SalesEntry
+  readonly shippingParty?: SalesPrintPartyDetails | null
+  readonly showBankAccountNumber: boolean
+  readonly showColour: boolean
+  readonly showFooterDetails: boolean
+  readonly showLogo: boolean
+  readonly showShippingAddress: boolean
+  readonly showSize: boolean
+  readonly termsLines: readonly string[]
+  readonly totals: ReturnType<typeof calculatePrintTotals>
+}) {
+  const pages = getSalesPrintPagedLinePlan(record.items)
+  const preQtyColumnCount = itemColumns.findIndex((column) => column.key === "quantity")
+
+  return (
+    <MainPrintTemplate>
+      {pages.map((page, pageIndex) => {
+        const isLastPage = pageIndex === pages.length - 1
+        return (
+          <div key={`sales-print-page-${pageIndex}`} className="sales-print-extended-page">
+            <div className="grid grid-cols-[1fr_auto_1fr] p-px text-[9px]">
+              <span />
+              <span className="text-[12px] font-bold">{documentTitle}</span>
+              <span className="text-right">{salesPrintCopyLabel(copy)} - Page {pageIndex + 1} of {pages.length}</span>
+            </div>
+            <table className={`${tableClass} border-b-0`}>
+              <tbody>
+                <tr>
+                  <td className={`${baseCell} ${hasEInvoiceQr ? "" : "border-r-0"} p-0 align-middle`} colSpan={hasEInvoiceQr ? 2 : 3}>
+                    <LetterheadBuilder addressLabels={addressLabels} company={company ?? null} settings={letterheadSettings} showLogo={showLogo} />
+                  </td>
+                  {hasEInvoiceQr ? (
+                    <td className={`${baseCell} w-[160px] border-r-0 align-middle`}>
+                      <div className="mx-auto flex size-[154px] items-center justify-center bg-white p-[2px]">
+                        <EInvoiceQrData value={eInvoiceQrValue} />
+                      </div>
+                    </td>
+                  ) : null}
+                </tr>
+              </tbody>
+            </table>
+            <table className={tableClass}>
+              <tbody>
+                <tr>
+                  <td className={`${baseCell} border-t border-gray-400 p-[5px] ${hasComplianceDetails ? "" : "border-r-0"}`} colSpan={hasComplianceDetails ? 1 : 2}>
+                    <BillDetailsBlock lines={[
+                      { label: documentNumberLabel, value: record.invoice_no, strong: true },
+                      { label: "Date:", value: formatDate(record.invoice_date), strong: true },
+                      { label: "Work Order:", value: record.reference_no ?? "" },
+                    ]} />
+                  </td>
+                  {hasComplianceDetails ? (
+                    <td className={`${baseCell} border-t border-gray-400 border-r-0 p-[5px]`}>
+                      <IrnDetailsBlock record={record} />
+                    </td>
+                  ) : null}
+                </tr>
+                <tr>
+                  <td className={`${baseCell} h-[74px] ${showShippingAddress ? "w-1/2" : "border-r-0"} border-y border-gray-400 px-2.5 pb-2 pt-1 leading-tight`} colSpan={showShippingAddress ? 1 : 2}>
+                    <PartyAddressBlock
+                      address={record.billing_address}
+                      details={billingParty}
+                      gstin={record.customer_gstin}
+                      label="Buyer (Bill to)"
+                      partyName={record.customer_name}
+                      stateCode={record.customer_state_code}
+                      stateName={record.customer_state_name}
+                    />
+                  </td>
+                  {showShippingAddress ? (
+                    <td className={`${baseCell} h-[74px] w-1/2 border-y border-gray-400 border-r-0 px-2.5 pb-2 pt-1 leading-tight`}>
+                      <PartyAddressBlock
+                        address={record.shipping_address ?? record.billing_address}
+                        details={shippingParty ?? billingParty}
+                        gstin={record.customer_gstin}
+                        label="Buyer (Ship to)"
+                        partyName={record.customer_name}
+                        stateCode={record.customer_state_code}
+                        stateName={record.customer_state_name}
+                      />
+                    </td>
+                  ) : null}
+                </tr>
+              </tbody>
+            </table>
+            <table className={`${tableClass} border-t-0`} data-print-template="multi-page">
+              <thead>
+                <tr className="bg-gray-50">
+                  {itemColumns.map((header) => (
+                    <th key={header.label} className={`${itemCell} ${header.widthClass}`}>
+                      <span className="flex h-[26px] items-center justify-center">{header.label}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pageIndex > 0 ? (
+                  <tr>
+                    <td className={`${totalItemCell} border-r-0 text-left font-bold`} colSpan={itemColumns.length}>
+                      Carry forward from previous page
+                    </td>
+                  </tr>
+                ) : null}
+                <tr>
+                  {itemColumns.map((column, index) => (
+                    <td key={`extended-item-spacer-${pageIndex}-${column.key}`} className={`${baseCell} h-[2px] p-0 text-[1px] leading-none ${index === itemColumns.length - 1 ? "border-r-0" : ""}`}>&nbsp;</td>
+                  ))}
+                </tr>
+                {page.rows.map((row) => row.kind === "item"
+                  ? <SalesPrintItemRow key={`item-${row.index}`} columns={itemColumns} compact={!isLastPage} index={row.index} isCgstSgst={isCgstSgst} item={row.item} showColour={showColour} showSize={showSize} />
+                  : <BlankSalesPrintItemRow key={`blank-${pageIndex}-${row.index}`} columns={itemColumns} compact={!isLastPage} />)}
+                <tr>
+                  {itemColumns.map((column, index) => (
+                    <td key={`extended-item-bottom-spacer-${pageIndex}-${column.key}`} className={`${baseCell} h-[2px] p-0 text-[1px] leading-none ${index === itemColumns.length - 1 ? "border-r-0" : ""}`}>&nbsp;</td>
+                  ))}
+                </tr>
+                {isLastPage ? (
+                  <>
+                    <tr>
+                      {preQtyColumnCount > 1 ? (
+                        <>
+                          <td className={`${totalItemCell} text-left text-[8px]`}>E&amp;OE</td>
+                          <td className={`${totalItemCell} font-bold`} colSpan={preQtyColumnCount - 1}>Total</td>
+                        </>
+                      ) : (
+                        <td className={`${totalItemCell} font-bold`}>Total</td>
+                      )}
+                      <td className={totalItemCell}>{sumQty(record.items)}</td>
+                      <td className={totalItemCell}>&nbsp;</td>
+                      <td className={`${totalItemCell} text-right`}>{money(totals.taxableAmount)}</td>
+                      <td className={totalItemCell}>&nbsp;</td>
+                      {isCgstSgst ? (
+                        <>
+                          <td className={`${totalItemCell} text-right`}>{money(splitTax(totals.gstTotal).first)}</td>
+                          <td className={`${totalItemCell} text-right`}>{money(splitTax(totals.gstTotal).second)}</td>
+                        </>
+                      ) : <td className={`${totalItemCell} text-right`}>{money(totals.gstTotal)}</td>}
+                      <td className={`${totalItemCell} border-r-0 text-right`}>{money(totals.grandTotal)}</td>
+                    </tr>
+                    <tr>
+                      <td className={`${baseCell} border-r-0 p-0 leading-tight`} colSpan={itemColumns.length}>
+                        <div className="grid grid-cols-[1fr_255px]">
+                          <div className="min-h-[96px] p-1.5 text-[8px] leading-[1.15]">
+                            <div>We hereby certify that our registration under the GST Act 2017 is in force on the date on which sale of goods specified in this invoice is made by us and the sale is effected in the regular course of business.</div>
+                            <div className="mt-2 space-y-0.5 font-bold">
+                              {termsLines.map((line) => <div key={line}>* {line}</div>)}
+                            </div>
+                            {showFooterDetails ? <AccountDetailsBlock bank={companyBank} showAccountNumber={showBankAccountNumber} /> : null}
+                          </div>
+                          <div className="border-l border-gray-400">
+                            <PrintTotalTable
+                              isCgstSgst={isCgstSgst}
+                              roundOff={Number(record.round_off ?? 0)}
+                              totals={totals}
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t border-gray-400 px-2 py-0.5 text-[8px] leading-tight">
+                          <div>Amount (in words)</div>
+                          <div className="font-bold">{amountInWords(totals.grandTotal)}</div>
+                        </div>
+                        <div className="grid h-[92px] grid-cols-[1fr_1fr] border-t border-gray-400 text-[9px]">
+                          <div className="p-2">Receiver Sign</div>
+                          <div className="border-l border-gray-400 p-2">
+                            <div className="font-bold">For {companyName}</div>
+                            <div className="mt-14 font-bold">Authorised Signatory</div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    <td className={`${totalItemCell} border-r-0 text-right font-bold`} colSpan={itemColumns.length}>
+                      To be continued...
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {isLastPage ? <div className="px-2 py-0.5 text-left text-[8px] font-bold">Subject to Tiruppur Jurisdiction</div> : null}
+          </div>
+        )
+      })}
+    </MainPrintTemplate>
+  )
+}
+
 type PrintItemColumnKey = "cgst" | "gstPercent" | "hsn" | "igst" | "poDc" | "product" | "quantity" | "rate" | "serial" | "sgst" | "taxable" | "total"
 
 function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; showDc: boolean; showPo: boolean; showSize: boolean }) {
@@ -246,7 +514,7 @@ function printItemColumns(isCgstSgst: boolean, settings: { showColour: boolean; 
   ] satisfies Array<{ key: PrintItemColumnKey; label: string; widthClass: string }>
 }
 
-function SalesPrintItemRow({ columns, index, isCgstSgst, item, showColour, showSize }: { columns: ReturnType<typeof printItemColumns>; index: number; isCgstSgst: boolean; item: SalesEntryItem; showColour: boolean; showSize: boolean }) {
+function SalesPrintItemRow({ columns, compact = false, index, isCgstSgst, item, showColour, showSize }: { columns: ReturnType<typeof printItemColumns>; compact?: boolean; index: number; isCgstSgst: boolean; item: SalesEntryItem; showColour: boolean; showSize: boolean }) {
   const taxable = itemTaxable(item)
   const gst = itemTax(item)
   const split = splitTax(gst)
@@ -264,7 +532,7 @@ function SalesPrintItemRow({ columns, index, isCgstSgst, item, showColour, showS
     igst: money(gst),
     poDc: [item.po_no, item.dc_no].filter(Boolean).join(" / "),
     product: (
-      <div className="whitespace-normal break-words leading-[1.18]">
+      <div className={`whitespace-normal break-words ${compact ? "leading-[1.05]" : "leading-[1.18]"}`}>
         <span className="font-bold">{item.product_name}</span>
         {item.description ? <span> - {item.description}</span> : null}
         {attributes ? <span> - {attributes}</span> : null}
@@ -278,16 +546,18 @@ function SalesPrintItemRow({ columns, index, isCgstSgst, item, showColour, showS
     total: money(total),
   }
   const rightAlignedKeys = new Set<PrintItemColumnKey>(["cgst", "igst", "rate", "sgst", "taxable", "total"])
+  const cellClassName = compact ? compactLineItemCell : lineItemCell
   return (
     <tr>
-      {columns.map((column, columnIndex) => <td key={column.key} className={`${lineItemCell} ${column.key === "product" ? "break-words text-left" : ""} ${rightAlignedKeys.has(column.key) ? "text-right" : ""} ${columnIndex === columns.length - 1 ? "border-r-0" : ""}`}>{cells[column.key]}</td>)}
+      {columns.map((column, columnIndex) => <td key={column.key} className={`${cellClassName} ${column.key === "product" ? "break-words text-left" : ""} ${rightAlignedKeys.has(column.key) ? "text-right" : ""} ${columnIndex === columns.length - 1 ? "border-r-0" : ""}`}>{cells[column.key]}</td>)}
       {columns.length === 0 ? null : null}
     </tr>
   )
 }
 
-function BlankSalesPrintItemRow({ columns }: { columns: ReturnType<typeof printItemColumns> }) {
-  return <tr>{columns.map((column, index) => <td key={`${column.label}-${index}`} className={index === columns.length - 1 ? `${lineItemCell} border-r-0` : lineItemCell}>&nbsp;</td>)}</tr>
+function BlankSalesPrintItemRow({ columns, compact = false }: { columns: ReturnType<typeof printItemColumns>; compact?: boolean }) {
+  const cellClassName = compact ? compactLineItemCell : lineItemCell
+  return <tr>{columns.map((column, index) => <td key={`${column.label}-${index}`} className={index === columns.length - 1 ? `${cellClassName} border-r-0` : cellClassName}>&nbsp;</td>)}</tr>
 }
 
 function BillDetailsBlock({ labelWidthClassName = "grid-cols-[82px_1fr]", lines }: { labelWidthClassName?: string; lines: ReadonlyArray<{ label: string; strong?: boolean; value: ReactNode }> }) {

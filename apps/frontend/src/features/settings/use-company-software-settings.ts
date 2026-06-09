@@ -47,7 +47,7 @@ export function useCompanySoftwareSettings(session: AuthSession) {
     saveCompanySoftwareSettings(companyId, nextState)
     const saved = await saveCompanySoftwareSettingsToServer(session, companyId, nextState)
     setState(saved)
-    window.dispatchEvent(new CustomEvent("cxsun:software-settings-saved", { detail: { companyId } }))
+    window.dispatchEvent(new CustomEvent("cxsun:software-settings-saved", { detail: { companyId, settings: saved } }))
     toast.success("Company settings saved", { description: `${companyName} settings are now shared across devices.` })
   }
 

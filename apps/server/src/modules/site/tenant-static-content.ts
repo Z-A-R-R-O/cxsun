@@ -246,6 +246,15 @@ const industryProfiles: Record<string, IndustryProfile> = {
     contact: 'Send business listing, lead, partnership, or member enquiries.',
     post: 'Business connect pages are active with CRM and site app binding.',
   },
+  tirupur_connect: {
+    eyebrow: 'Tirupur Connect',
+    homeTitle: 'marketplace',
+    summary: () => 'Tirupur Connect is ready for verified supplier discovery, product publication, RFQs, leads, membership, messaging, and marketplace analytics.',
+    body: 'This tenant is the central Tirupur Connect marketplace. Client workspaces publish supplier and product profiles into this domain through API review flow; marketplace-side RFQs, leads, messages, membership, and analytics stay isolated here.',
+    about: 'The marketplace profile is prepared for Tirupur garment suppliers, global buyers, public directory pages, RFQ operations, membership plans, and review workflows.',
+    contact: 'Send supplier onboarding, buyer sourcing, RFQ, membership, or marketplace partnership enquiries.',
+    post: 'Tirupur Connect marketplace pages are active with strict domain-owned marketplace data.',
+  },
   default: {
     eyebrow: 'Tenant Workspace',
     homeTitle: 'workspace',
@@ -348,6 +357,15 @@ function appPageDefinitions() {
       eyebrow: 'Business Connect',
       summary: 'Business directory, lead connection, enquiry flow, and member profiles.',
       body: 'This page prepares business directory, enquiry capture, lead routing, and member profile workflows.',
+    },
+    {
+      app: 'tirupur-connect',
+      slug: 'tirupur-connect',
+      navLabel: 'Tirupur Connect',
+      title: 'marketplace',
+      eyebrow: 'Tirupur Connect',
+      summary: 'Verified Tirupur supplier profiles, trade products, RFQs, leads, membership, messages, and analytics.',
+      body: 'This page belongs to the central Tirupur Connect marketplace tenant. Client tenants publish supplier and product profiles here by API only.',
     },
   ]
 }

@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from 'src/components/ui/card
 import { RadioGroup, RadioGroupItem } from 'src/components/ui/radio-group'
 import { GlobalLoader } from 'src/components/blocks/loading/global-loader'
 import { cn } from 'src/lib/utils'
-import { isSoftwareSettingEnabled } from 'src/features/settings/software-settings'
+import { isSoftwareSettingEnabled, type SoftwareSettingsState } from 'src/features/settings/software-settings'
 import { loadCompanySoftwareSettingsFromServer } from 'src/features/settings/software-settings-service'
 
 const LoginForm = lazy(() =>
@@ -94,6 +94,9 @@ const ProductPage = lazy(() =>
 const SalesPage = lazy(() =>
   import('src/features/sales/sales-page').then((module) => ({ default: module.SalesPage })),
 )
+const QuotationPage = lazy(() =>
+  import('src/features/quotation/quotation-page').then((module) => ({ default: module.QuotationPage })),
+)
 const ExportSalesPage = lazy(() =>
   import('src/features/export-sales/export-sales-page').then((module) => ({ default: module.ExportSalesPage })),
 )
@@ -151,6 +154,9 @@ const TallySyncPage = lazy(() =>
 const CrmPage = lazy(() =>
   import('src/features/crm/crm-page').then((module) => ({ default: module.CrmPage })),
 )
+const TirupurConnectPage = lazy(() =>
+  import('src/features/tirupur-connect/tirupur-connect-page').then((module) => ({ default: module.TirupurConnectPage })),
+)
 const SiteSliderPage = lazy(() =>
   import('src/features/site/slider/site-slider-page').then((module) => ({ default: module.SiteSliderPage })),
 )
@@ -204,8 +210,7 @@ function dashboardPageFromPath(basePath: string, pathname = window.location.path
 
 function dashboardAppFromPage(page: DashboardPage): DashboardAppId | null {
   if (!page.startsWith("app-")) return null
-  const appId = page.split("-")[1]
-  return appId && isDashboardAppId(appId) ? appId : null
+  return dashboardApps.find((app) => page === `app-${app.id}-overview` || page.startsWith(`app-${app.id}-`))?.id ?? null
 }
 
 function dashboardOverviewAppFromPage(page: DashboardPage): DashboardAppId | null {
@@ -263,6 +268,7 @@ function prefetchAppModules(appId: DashboardAppId) {
     }
 
     if (appId === "billing") {
+      void import('src/features/quotation/quotation-page')
       void import('src/features/sales/sales-page')
       void import('src/features/export-sales/export-sales-page')
       void import('src/features/purchase/purchase-page')
@@ -319,6 +325,11 @@ function prefetchAppModules(appId: DashboardAppId) {
       return
     }
 
+    if (appId === "tirupur-connect") {
+      void import('src/features/tirupur-connect/tirupur-connect-page')
+      return
+    }
+
     if (appId === "sites") {
       void import('src/features/site/slider/site-slider-page')
     }
@@ -358,7 +369,7 @@ export function DashboardView({
     const nextLandingApp = readStoredLandingApp(nextEnabledApps)
     setEnabledApps(nextEnabledApps)
     setLandingApp(nextLandingApp)
-    if (!nextEnabledApps[activeApp]) {
+    if (!isAppAvailableFromAccess(nextEnabledApps, activeApp)) {
       setActiveApp(nextLandingApp)
       pushDashboardPage(basePath, defaultPageForApp(nextLandingApp))
     }
@@ -376,7 +387,7 @@ export function DashboardView({
         setSession(nextSession)
         setEnabledApps(nextEnabledApps)
         setLandingApp(nextLandingApp)
-        if (!nextEnabledApps[activeApp]) {
+        if (!isAppAvailableFromAccess(nextEnabledApps, activeApp)) {
           const nextPage = defaultPageForApp(nextLandingApp)
           setActiveApp(nextLandingApp)
           setActivePage(nextPage)
@@ -435,14 +446,70 @@ export function DashboardView({
     queryFn: () => loadCompanySoftwareSettingsFromServer(session as AuthSession, defaultCompanyContextQuery.data?.companyId),
   })
   const exportSalesEnabled = softwareSettingsQuery.data ? isSoftwareSettingEnabled(softwareSettingsQuery.data, "feature-export-sales") : true
+  const quotationEnabled = softwareSettingsQuery.data ? isSoftwareSettingEnabled(softwareSettingsQuery.data, "feature-quotation") : true
+  const tirupurConnectEnabled = softwareSettingsQuery.data ? isSoftwareSettingEnabled(softwareSettingsQuery.data, "feature-tirupur-connect") : false
+  const tirupurConnectAppEnabled = enabledApps["tirupur-connect"] || tirupurConnectEnabled
 
   useEffect(() => {
-    function refreshSoftwareSettings() {
+    function refreshSoftwareSettings(event: Event) {
+      const detail = (event as CustomEvent<{ companyId?: number | string | null; settings?: SoftwareSettingsState }>).detail
+      if (detail?.settings && detail.companyId === defaultCompanyContextQuery.data?.companyId) {
+        queryClient.setQueryData(["company-software-settings", session?.selectedTenant.slug, detail.companyId], detail.settings)
+      }
       void queryClient.invalidateQueries({ queryKey: ["company-software-settings", session?.selectedTenant.slug] })
     }
     window.addEventListener("cxsun:software-settings-saved", refreshSoftwareSettings)
     return () => window.removeEventListener("cxsun:software-settings-saved", refreshSoftwareSettings)
-  }, [queryClient, session?.selectedTenant.slug])
+  }, [defaultCompanyContextQuery.data?.companyId, queryClient, session?.selectedTenant.slug])
+
+  useEffect(() => {
+    if (mode !== "tenant" || !session) return
+
+    const currentSession = session
+    let refreshing = false
+    async function refreshTenantApps() {
+      if (refreshing) return
+      refreshing = true
+      try {
+        const nextSession = await refreshSession(currentSession, "tenant")
+        const nextEnabledApps = enabledAppsForSession(nextSession)
+        setSession(nextSession)
+        setEnabledApps(nextEnabledApps)
+      } catch (error) {
+        toast.error("Tenant app access not refreshed", {
+          description: error instanceof Error ? error.message : "Please reload the workspace.",
+        })
+      } finally {
+        refreshing = false
+      }
+    }
+
+    function handleTenantAppsPublished(event: Event) {
+      const detail = (event as CustomEvent<{ tenantSlug?: string }>).detail
+      if (detail?.tenantSlug === currentSession.selectedTenant.slug) {
+        void refreshTenantApps()
+      }
+    }
+
+    function handleTenantAppsStorage(event: StorageEvent) {
+      if (event.key !== "cxsun.tenant-apps-published" || !event.newValue) return
+      try {
+        const detail = JSON.parse(event.newValue) as { tenantSlug?: string }
+        if (detail.tenantSlug === currentSession.selectedTenant.slug) {
+          void refreshTenantApps()
+        }
+      } catch {
+        // Ignore malformed cross-tab hints.
+      }
+    }
+
+    window.addEventListener("cxsun:tenant-apps-published", handleTenantAppsPublished)
+    window.addEventListener("storage", handleTenantAppsStorage)
+    return () => {
+      window.removeEventListener("cxsun:tenant-apps-published", handleTenantAppsPublished)
+      window.removeEventListener("storage", handleTenantAppsStorage)
+    }
+  }, [mode, session])
   const landingMutation = useMutation({
     mutationFn: (appId: DashboardAppId) => {
       if (!session || !defaultCompanyContextQuery.data) {
@@ -458,7 +525,7 @@ export function DashboardView({
     onSuccess: async (context) => {
       toast.success("Landing desk updated")
       await queryClient.invalidateQueries({ queryKey: ["default-company-context", session?.selectedTenant.slug] })
-      if (context.landingApp && isDashboardAppId(context.landingApp) && enabledApps[context.landingApp]) {
+      if (context.landingApp && isDashboardAppId(context.landingApp) && isAppAvailableForLanding(enabledApps, context.landingApp, tirupurConnectAppEnabled)) {
         setLandingApp(context.landingApp)
       }
     },
@@ -471,7 +538,7 @@ export function DashboardView({
 
   useEffect(() => {
     const savedLandingApp = defaultCompanyContextQuery.data?.landingApp
-    if (mode !== "tenant" || !savedLandingApp || !isDashboardAppId(savedLandingApp) || !enabledApps[savedLandingApp]) {
+    if (mode !== "tenant" || !savedLandingApp || !isDashboardAppId(savedLandingApp) || !isAppAvailableForLanding(enabledApps, savedLandingApp, tirupurConnectAppEnabled)) {
       return
     }
 
@@ -483,7 +550,7 @@ export function DashboardView({
       setActivePage(nextPage)
       pushDashboardPage(basePath, nextPage)
     }
-  }, [activePage, basePath, defaultCompanyContextQuery.data?.landingApp, enabledApps, mode])
+  }, [activePage, basePath, defaultCompanyContextQuery.data?.landingApp, enabledApps, mode, tirupurConnectAppEnabled])
 
   useEffect(() => {
     if (needsLogin) return
@@ -553,8 +620,17 @@ export function DashboardView({
 
   const accessiblePage = pageAccess[mode].includes(activePage) ? activePage : "overview"
   const activePageApp = dashboardAppFromPage(accessiblePage)
-  const featureVisiblePage = !exportSalesEnabled && accessiblePage === "app-billing-export-sales" ? "app-billing-overview" : accessiblePage
-  const visiblePage = activePageApp && !enabledApps[activePageApp] ? "overview" : featureVisiblePage
+  const featureEnabledApps: Record<DashboardAppId, boolean> = {
+    ...enabledApps,
+    "tirupur-connect": tirupurConnectAppEnabled,
+  }
+  const featureHiddenPages = [
+    ...(!quotationEnabled ? ["app-billing-quotation" as const] : []),
+    ...(!exportSalesEnabled ? ["app-billing-export-sales" as const] : []),
+    ...(!tirupurConnectAppEnabled ? appModulePages.filter((page) => page.startsWith("app-tirupur-connect-")) : []),
+  ]
+  const featureVisiblePage = featureHiddenPages.includes(accessiblePage as (typeof featureHiddenPages)[number]) ? "app-billing-overview" : accessiblePage
+  const visiblePage = activePageApp && !featureEnabledApps[activePageApp] ? "overview" : featureVisiblePage
   const breadcrumbLabel = getBreadcrumbLabel({ appId: activeApp, mode, page: visiblePage })
   const moduleKey = pageModuleKey(visiblePage)
   const overviewApp = dashboardOverviewAppFromPage(visiblePage)
@@ -587,7 +663,7 @@ export function DashboardView({
   }
 
   function changeApp(appId: DashboardAppId) {
-    if (!enabledApps[appId]) {
+    if (!featureEnabledApps[appId]) {
       return
     }
 
@@ -600,7 +676,7 @@ export function DashboardView({
   }
 
   function changeLandingApp(appId: DashboardAppId) {
-    if (!enabledApps[appId]) {
+    if (!featureEnabledApps[appId]) {
       return
     }
 
@@ -622,12 +698,12 @@ export function DashboardView({
         selectedTenant={session.selectedTenant.slug}
         tenants={session.tenants}
         user={session.user}
-        hiddenPages={exportSalesEnabled ? [] : ["app-billing-export-sales"]}
+        hiddenPages={featureHiddenPages}
       />
       <SidebarInset>
         <SiteHeader
           activeApp={activeApp}
-          appEnabled={enabledApps}
+          appEnabled={featureEnabledApps}
           dashboardTitle={breadcrumbLabel}
           onBackHome={onBackHome}
           onChangeApp={changeApp}
@@ -651,7 +727,7 @@ export function DashboardView({
           ) : overviewApp ? (
             <DashboardHome
               activeApp={overviewApp}
-              appEnabled={enabledApps}
+              appEnabled={featureEnabledApps}
               defaultCompanyContext={defaultCompanyContextQuery.data ?? null}
               exportSalesEnabled={exportSalesEnabled}
               mode={mode}
@@ -659,6 +735,7 @@ export function DashboardView({
               onOpenBillingEntry={openBillingEntry}
               onNavigate={navigate}
               session={session}
+              quotationEnabled={quotationEnabled}
             />
           ) : visiblePage === "app-application-default-company" ? (
             <DefaultCompanyPage session={session} />
@@ -667,7 +744,7 @@ export function DashboardView({
           ) : visiblePage === "app-application-landing-desk" ? (
             <LandingDeskSettingsPage
               activeApp={activeApp}
-              enabledApps={enabledApps}
+              enabledApps={featureEnabledApps}
               landingApp={landingApp}
               onChangeApp={changeApp}
               onChangeLandingApp={changeLandingApp}
@@ -693,6 +770,8 @@ export function DashboardView({
             <SupportPage type="tenant-roles" />
           ) : visiblePage === "app-billing-sales" ? (
             <SalesPage initialEntryUuid={focusedBillingEntry?.type === "sales" ? focusedBillingEntry.id : null} session={session} />
+          ) : visiblePage === "app-billing-quotation" ? (
+            <QuotationPage session={session} />
           ) : visiblePage === "app-billing-export-sales" && exportSalesEnabled ? (
             <ExportSalesPage session={session} />
           ) : visiblePage === "app-accounts-cash-book" || visiblePage === "app-billing-cash-book" ? (
@@ -737,6 +816,8 @@ export function DashboardView({
             <MailDeskPage session={session} view="settings" />
           ) : visiblePage === "app-sites-sliders" ? (
             <SiteSliderPage session={session} />
+          ) : visiblePage.startsWith("app-tirupur-connect-") ? (
+            <TirupurConnectPage page={visiblePage} session={session} />
           ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-my-tasks" ? (
             <TaskManagerPage scope="my" session={session} />
           ) : visiblePage === "app-crm-leads" ? (
@@ -804,7 +885,7 @@ export function DashboardView({
           ) : (
             <DashboardHome
               activeApp={activeApp}
-              appEnabled={enabledApps}
+              appEnabled={featureEnabledApps}
               defaultCompanyContext={defaultCompanyContextQuery.data ?? null}
               exportSalesEnabled={exportSalesEnabled}
               mode={mode}
@@ -812,6 +893,7 @@ export function DashboardView({
               onOpenBillingEntry={openBillingEntry}
               onNavigate={navigate}
               session={session}
+              quotationEnabled={quotationEnabled}
             />
           )}
         </Suspense>
@@ -1085,4 +1167,12 @@ function fallbackLandingApp(enabledApps: Record<DashboardAppId, boolean>): Dashb
 
 function applicationOnlyApps(): Record<DashboardAppId, boolean> {
   return Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application"])) as Record<DashboardAppId, boolean>
+}
+
+function isAppAvailableFromAccess(enabledApps: Record<DashboardAppId, boolean>, appId: DashboardAppId) {
+  return enabledApps[appId]
+}
+
+function isAppAvailableForLanding(enabledApps: Record<DashboardAppId, boolean>, appId: DashboardAppId, tirupurConnectEnabled: boolean) {
+  return appId === "tirupur-connect" ? tirupurConnectEnabled : enabledApps[appId]
 }

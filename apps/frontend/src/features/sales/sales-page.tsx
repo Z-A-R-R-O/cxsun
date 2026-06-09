@@ -414,7 +414,12 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.customer_name}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{entry.invoice_no}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>{entry.invoice_no}</span>
+              {entry.source_type === "quotation" && entry.source_ref_no ? (
+                <Badge variant="outline" className="rounded-md border-sky-200 bg-sky-50 text-sky-700">From quotation: {entry.source_ref_no}</Badge>
+              ) : null}
+            </div>
           </div>
           <Button type="button" className="h-9 shrink-0 rounded-md" onClick={onNew}><Plus className="size-4" />New</Button>
         </div>

@@ -54,12 +54,10 @@ export const tenantDomainDatabaseModule: PlatformDatabaseModule = {
         .execute()
     }
 
-    if (!shouldAutoSeedTenantDomains()) {
-      return
-    }
-
     for (const client of liveClientScopes) {
-      await ensureLiveClientDomains(database, client)
+      if (client.seedDomains || shouldAutoSeedTenantDomains()) {
+        await ensureLiveClientDomains(database, client)
+      }
     }
   },
 }

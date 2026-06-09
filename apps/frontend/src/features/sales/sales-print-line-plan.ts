@@ -2,6 +2,8 @@ import type { SalesEntryItem } from "./sales-client"
 
 export const salesPrintMinimumItemLineBudget = 12
 export const salesPrintMaximumItemLineBudget = 12
+export const salesPrintExtendedItemOnlyLineBudget = 24
+export const salesPrintFinalTotalsLineBudget = 11
 
 export type SalesPrintLineRow =
   | {
@@ -65,4 +67,54 @@ export function getClampedPrintLineCount(value: string, charactersPerLine: numbe
 export function getSalesPrintLineBudget(itemLineCounts: readonly number[]) {
   void itemLineCounts
   return salesPrintMinimumItemLineBudget
+}
+
+export function getSalesPrintPagedLinePlan(items: readonly SalesEntryItem[]) {
+  const pages: Array<{
+    readonly lineBudget: number
+    readonly rows: SalesPrintLineRow[]
+    readonly startIndex: number
+    readonly usedLines: number
+  }> = []
+  let itemIndex = 0
+
+  while (items.length - itemIndex > salesPrintFinalTotalsLineBudget) {
+    const startIndex = itemIndex
+    const lineBudget = salesPrintExtendedItemOnlyLineBudget
+    const rows: SalesPrintLineRow[] = []
+    let usedLines = 0
+
+    while (itemIndex < items.length && usedLines < lineBudget) {
+      const item = items[itemIndex]
+      if (!item) break
+      const lineCount = getSalesItemPrintLineCount(item)
+      if (usedLines + lineCount > lineBudget) break
+      rows.push({ index: itemIndex, item, kind: "item", lineCount })
+      usedLines += lineCount
+      itemIndex += 1
+    }
+
+    pages.push({ lineBudget, rows, startIndex, usedLines })
+  }
+
+  const finalStartIndex = itemIndex
+  const finalRows: SalesPrintLineRow[] = []
+  let finalUsedLines = 0
+  while (itemIndex < items.length && finalUsedLines < salesPrintFinalTotalsLineBudget) {
+    const item = items[itemIndex]
+    if (!item) break
+    const lineCount = getSalesItemPrintLineCount(item)
+    if (finalUsedLines + lineCount > salesPrintFinalTotalsLineBudget) break
+    finalRows.push({ index: itemIndex, item, kind: "item", lineCount })
+    finalUsedLines += lineCount
+    itemIndex += 1
+  }
+
+  for (let index = finalStartIndex + finalRows.length; finalUsedLines < salesPrintFinalTotalsLineBudget; index += 1) {
+    finalRows.push({ index, kind: "blank" })
+    finalUsedLines += 1
+  }
+  pages.push({ lineBudget: salesPrintFinalTotalsLineBudget, rows: finalRows, startIndex: finalStartIndex, usedLines: finalUsedLines })
+
+  return pages
 }

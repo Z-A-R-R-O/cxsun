@@ -117,7 +117,9 @@ export const defaultSoftwareSettingsState: SoftwareSettingsState = {
   ],
   features: [
     { id: "feature-billing", label: "Billing", description: "Sales, purchase, receipt, payment, and report modules for simple billing.", scope: "industry", enabled: true },
+    { id: "feature-quotation", label: "Quotation", description: "Shows Quotation entries and enables quotation consolidation into draft Sales invoices.", scope: "client", enabled: true },
     { id: "feature-export-sales", label: "Export Sales", description: "Shows Export Sales entries, totals, shortcuts, and document settings across the Billing desk.", scope: "client", enabled: true },
+    { id: "feature-tirupur-connect", label: "Tirupur Connect", description: "Shows the Tirupur Connect trade platform workspace, public route, and dashboard navigation.", scope: "client", enabled: false },
   ],
 }
 

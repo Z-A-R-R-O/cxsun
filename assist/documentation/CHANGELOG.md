@@ -2,15 +2,73 @@
 
 ## Version State
 
-- **Current version:** `1.0.89`
-- **Release tag:** `v-1.0.89`
-- **Changelog label:** `v 1.0.89`
+- **Current version:** `1.0.90`
+- **Release tag:** `v-1.0.90`
+- **Changelog label:** `v 1.0.90`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
+## v-1.0.90
+
+### [v 1.0.90] 2026-06-09 9:49 am - Tirupur Connect marketplace boundary
+
+- Bumped workspace version to 1.0.90
+- Added the central `tirupur_connect` marketplace tenant/domain mapping for `tirupurconnect.com`, `www.tirupurconnect.com`, and `tirupurconnect.local`.
+- Split the Tirupur Connect data boundary so client tenants keep only their supplier and product source profiles while the Tirupur Connect domain owns RFQs, leads, messages, memberships, analytics, events, and news.
+- Added tenant-to-marketplace publish APIs for supplier and product profiles, with central marketplace review queues for approve/reject handling.
+- Added public read-only APIs for approved supplier and product listings from the central marketplace tenant.
+- Rendered approved supplier and product marketplace listings on the public Tirupur Connect page.
+- Registered the Tirupur Connect tenant provisioning, overview/settings API, dashboard navigation, and public landing route as the foundation for the isolated marketplace.
+- Reset the assist planning and task documents around the new isolated Tirupur Connect marketplace boundary.
+- Verified with server typecheck, frontend typecheck, and the tenant static content smoke test.
+
 ## v-1.0.89
+
+### [v 1.0.89] 2026-06-09 7:18 am - Quotation invoice reference column
+
+- Added an Invoice Ref column to the Quotation list.
+- Shows the generated Sales invoice number from the quotation checkpoint, making invoiced quotations easier to trace.
+
+### [v 1.0.89] 2026-06-09 7:10 am - Quotation invoice checkpoint
+
+- Added a quotation invoice checkpoint that marks source quotations as `invoiced` after draft Sales invoice generation.
+- Stored generated Sales invoice UUID/number on each source quotation and stored quotation source metadata on the Sales invoice.
+- Blocked already-invoiced quotations from edit and repeat invoice generation until the generated Sales invoice is suspended.
+- Added Sales invoice suspend handling that releases linked quotations back to `posted`, matching the intended remove-invoice-then-edit quotation flow.
+- Added Sales show source badge and Quotation show/list locked status handling.
+- Verified the lifecycle through API: generated `SAL-0029` from two quotations, duplicate generation returned HTTP 400, and suspending `SAL-0029` released both quotations back to `posted`.
+
+### [v 1.0.89] 2026-06-09 6:50 am - Quotation print wording
+
+- Changed Quotation print preview title from `TAX INVOICE` to `QUOTATION`.
+- Changed the printed document number label to `Quotation No:`.
+- Hid the Ship To address block on Quotation print preview while keeping Sales invoice print unchanged.
+- Updated Quotation list/form wording from invoice-focused labels to quotation-focused labels.
+
+### [v 1.0.89] 2026-06-09 6:40 am - Quotation feature toggle
+
+- Added a client-level Sales Settings > Features toggle for Quotation.
+- Wired the Quotation toggle to hide Billing > Entries > Quotation in the sidebar and Billing shortcut cards when disabled.
+- Added direct-route fallback so disabled Quotation pages redirect to Billing overview, matching the existing Export Sales feature toggle behavior.
+
+### [v 1.0.89] 2026-06-09 6:25 am - Quotation to draft sales invoice
+
+- Added a new Quotation entry module cloned from Sales for list, show, upsert, comments, activities, print preview, and autocomplete-backed customer/product/common lookups.
+- Added tenant quotation tables with `QUO-0001` style numbering and dashboard Billing > Entries navigation.
+- Added multi-select quotation invoice generation from the Quotation list with contact filtering and same-contact validation.
+- Consolidated matching quotation item lines by product/details/rate/discount/tax and created a draft Sales invoice with selected quotation numbers in the reference field.
+- Verified API generation with two same-contact quotations and confirmed mixed-contact selections return validation failure.
+- Smoke-tested the Quotation list UI in the app: contact filter, row selection, selected count, and Generate Invoice enablement.
+
+### [v 1.0.89] 2026-06-09 5:34 am - Sales invoice extended print pagination
+
+- Added a separate extended Sales invoice print template for invoices that exceed the existing 12-line item budget.
+- Kept the existing Sales invoice print layout unchanged for 12 or fewer item rows.
+- Made extended Sales invoice item-only pages carry up to 24 rows before moving the totals, amount in words, footer, jurisdiction, and signature block to the next page.
+- Added `To be continued...` on item-only pages and `Carry forward from previous page` on continuation/final pages.
+- Verified temporary API-created invoices with 15, 19, and 24 item rows against A4 print-media page-height checks.
 
 ### [v 1.0.89] 2026-06-08 2:15 pm - Sales show page new action
 

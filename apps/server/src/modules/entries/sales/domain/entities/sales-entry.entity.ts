@@ -84,6 +84,9 @@ export interface SalesEntry {
   eway_part: string | null
   notes: string | null
   terms: string | null
+  source_type: string | null
+  source_ref_no: string | null
+  source_quotation_uuids: string[]
   is_active: boolean | number
   created_at: Date | string
   updated_at: Date | string

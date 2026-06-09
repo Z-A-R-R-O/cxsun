@@ -1,37 +1,41 @@
 # Session Plan
 
-**Date:** 2026-06-06
-**Version:** 1.0.84
-**Focus:** Stabilize the current Billing and Export Sales application shape.
+**Date:** 2026-06-09  
+**Version:** 1.0.89  
+**Focus:** Tirupur Connect central marketplace and client publication flow.
 
 ## Objective
 
-Keep the current tenant Billing desk coherent after the Export Sales, overview, settings, GST, print, and mail updates.
+Make Tirupur Connect operate as a serious isolated marketplace tenant at `tirupurconnect.com`, while client workspaces use TC only to maintain and publish their own supplier/product identity. Marketplace transactions and collaboration data must stay in the central tenant and be accessed only through explicit APIs.
 
-## Remaining Scope
+## Architecture Boundary
 
-### Export Sales
+- Central marketplace tenant: `tirupur_connect`.
+- Central domains: `tirupurconnect.com`, `www.tirupurconnect.com`, `tirupurconnect.local`.
+- Central tenant owns RFQ, leads, messages, membership, analytics, events, news, buyer companies, review queues, and public marketplace listings.
+- Client tenants own only source supplier/product profile records in their own tenant database.
+- Client tenants publish supplier/product records to central marketplace tables through API.
+- No internal cross-tenant transactions from client workflow screens. Cross-tenant movement happens only through publish/review APIs.
 
-- Verify currency selection persists and appears correctly in list/show/print where required.
-- Verify `feature-export-sales` enabled and disabled states across navigation, overview, routes, shortcuts, and document settings.
-- Keep Export Sales persistence and numbering separate from domestic Sales.
+## Current Slice
 
-### Billing Context
+Complete the public proof loop:
 
-- Verify lists, overview totals, month summaries, reports, and numbering follow the selected company and accounting year.
-- Avoid aggregating foreign-currency Export Sales into INR domestic Sales charts without an explicit conversion rule.
+1. Client tenant creates supplier/product profile.
+2. Client tenant publishes it by API.
+3. Central marketplace team approves/rejects it.
+4. `tirupurconnect.com` displays only approved supplier/product publications.
 
-### Compliance And Delivery
+## Implementation Tasks
 
-- Harden GST gateway request/response logs, cancellation, retries, and validation.
-- Keep exact-print PDF mail attachments retryable and remove temporary files only after successful delivery.
-- Leave WhatsApp as a separate follow-up until a real dispatch provider is selected.
+- Add public read-only marketplace APIs for approved suppliers/products.
+- Query only central marketplace publication tables.
+- Keep pending/rejected publications hidden from public APIs.
+- Render approved suppliers/products on the TC public page.
+- Preserve central/private authenticated APIs separately from public marketplace APIs.
 
-## Verification Needed
+## Verification
 
-- Run server typecheck after backend changes.
-- Run frontend typecheck after UI/client changes.
-- Run frontend build after stock ledger or voucher UI changes.
-- Smoke test Export Sales feature visibility in enabled and disabled states.
-- Smoke test selected-company/accounting-year switching on Billing Overview and entry lists.
-- Smoke test exact-print PDF email delivery and cleanup.
+- `npm -w apps/server run typecheck`
+- `npm -w apps/frontend run typecheck`
+- `npm run test:tenant-static`

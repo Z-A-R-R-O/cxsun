@@ -68,6 +68,7 @@ export function DashboardHome({
   onNavigate,
   defaultCompanyContext,
   exportSalesEnabled = true,
+  quotationEnabled = true,
   session,
 }: {
   activeApp?: DashboardAppId
@@ -78,6 +79,7 @@ export function DashboardHome({
   onChangeApp?: (appId: DashboardAppId) => void
   onOpenBillingEntry?: (entry: BillingRecentTransaction) => void
   onNavigate?: (page: DashboardPage) => void
+  quotationEnabled?: boolean
   session?: AuthSession
 }) {
   const content = dashboardCopy[mode]
@@ -118,7 +120,7 @@ export function DashboardHome({
       {mode === "tenant" && activeApp === "billing" && session ? (
         <BillingTransactionDashboard defaultCompanyContext={defaultCompanyContext ?? null} exportSalesEnabled={exportSalesEnabled} onNavigate={onNavigate} onOpenBillingEntry={onOpenBillingEntry} session={session} />
       ) : null}
-      {mode === "tenant" ? <DeskShortcutCards appId={selectedApp.id} exportSalesEnabled={exportSalesEnabled} onNavigate={onNavigate} onChangeApp={onChangeApp} /> : null}
+      {mode === "tenant" ? <DeskShortcutCards appId={selectedApp.id} exportSalesEnabled={exportSalesEnabled} quotationEnabled={quotationEnabled} onNavigate={onNavigate} onChangeApp={onChangeApp} /> : null}
       {cards.length ? (
         <div className="grid gap-4 px-4 lg:grid-cols-3 lg:px-6">
           {cards.map(({ body, Icon, title }) => (
@@ -152,6 +154,7 @@ function deskHeaderBackground(appId: DashboardAppId) {
     sites: "rgba(124, 58, 237, 0.18)",
     tally: "rgba(29, 78, 216, 0.18)",
     taskmanager: "rgba(8, 145, 178, 0.18)",
+    "tirupur-connect": "rgba(4, 120, 87, 0.20)",
   }
 
   return `radial-gradient(circle at 82% 18%, ${accentByApp[appId]}, transparent 44%)`
@@ -261,7 +264,7 @@ function BillingTransactionDashboard({
   )
 }
 
-function DeskShortcutCards({ appId, exportSalesEnabled, onChangeApp, onNavigate }: { appId: DashboardAppId; exportSalesEnabled: boolean; onChangeApp?: (appId: DashboardAppId) => void; onNavigate?: (page: DashboardPage) => void }) {
+function DeskShortcutCards({ appId, exportSalesEnabled, onChangeApp, onNavigate, quotationEnabled }: { appId: DashboardAppId; exportSalesEnabled: boolean; onChangeApp?: (appId: DashboardAppId) => void; onNavigate?: (page: DashboardPage) => void; quotationEnabled: boolean }) {
   const app = dashboardApps.find((entry) => entry.id === appId) ?? dashboardApps[0]
 
   return (
@@ -278,7 +281,7 @@ function DeskShortcutCards({ appId, exportSalesEnabled, onChangeApp, onNavigate 
               <p className="text-sm leading-5 text-muted-foreground">{appGroupDescription(group.title)}</p>
             </CardHeader>
             <CardContent className="space-y-2">
-              {group.items.filter((item) => exportSalesEnabled || item.page !== "app-billing-export-sales").map((item) => (
+              {group.items.filter((item) => isShortcutFeatureVisible(item, { exportSalesEnabled, quotationEnabled })).map((item) => (
                 <ShortcutButton key={item.title} item={item} onSelect={(page) => {
                   const nextApp = dashboardAppIdFromPage(page)
                   if (nextApp) {
@@ -293,6 +296,12 @@ function DeskShortcutCards({ appId, exportSalesEnabled, onChangeApp, onNavigate 
       })}
     </div>
   )
+}
+
+function isShortcutFeatureVisible(item: DashboardAppMenuItem, features: { exportSalesEnabled: boolean; quotationEnabled: boolean }) {
+  if (!features.quotationEnabled && item.page === "app-billing-quotation") return false
+  if (!features.exportSalesEnabled && item.page === "app-billing-export-sales") return false
+  return true
 }
 
 function TransactionBars({ rows }: { rows: Array<{ month: string; payments: number; purchase: number; receipts: number; sales: number }> }) {

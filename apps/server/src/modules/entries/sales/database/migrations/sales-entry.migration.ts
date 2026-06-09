@@ -58,6 +58,10 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
     )
   `).execute(database)
 
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_type VARCHAR(80) NULL AFTER terms`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_ref_no VARCHAR(255) NULL AFTER source_type`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_quotation_uuids JSON NULL AFTER source_ref_no`).execute(database)
+
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS sales_entry_items (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,

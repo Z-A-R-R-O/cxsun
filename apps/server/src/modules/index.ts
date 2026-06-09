@@ -8,6 +8,7 @@ import { OrdersModule } from './master/order/index.js'
 import { ProductsModule } from './master/product/index.js'
 import { SiteModule } from './site/index.js'
 import { SalesEntryModule } from './entries/sales/index.js'
+import { QuotationEntryModule } from './entries/quotation/index.js'
 import { ExportSalesEntryModule } from './entries/export-sales/index.js'
 import { PurchaseEntryModule } from './entries/purchase/index.js'
 import { ReceiptEntryModule } from './entries/receipt/index.js'
@@ -24,6 +25,7 @@ import { MailModule } from './mail/index.js'
 import { TaskManagerModule } from './task-manager/index.js'
 import { CrmModule } from './crm/index.js'
 import { TallyModule } from './tally/index.js'
+import { TirupurConnectModule } from './tirupur-connect/index.js'
 import { AuditorContactCredentialModule } from './auditor/contact-credential/index.js'
 import { AuditorGstFilingModule } from './auditor/gst-filing/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
@@ -57,6 +59,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     ProductsModule,
     OrdersModule,
     SalesEntryModule,
+    QuotationEntryModule,
     ExportSalesEntryModule,
     PurchaseEntryModule,
     PurchaseReceiptModule,
@@ -73,6 +76,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     TaskManagerModule,
     CrmModule,
     TallyModule,
+    TirupurConnectModule,
     AuditorContactCredentialModule,
     AuditorGstFilingModule,
     CompanyModule,

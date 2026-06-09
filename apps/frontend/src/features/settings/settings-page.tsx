@@ -34,6 +34,18 @@ import { useCompanySoftwareSettings } from "./use-company-software-settings"
 export function SalesSettingsPage({ session }: { session: AuthSession }) {
   const [state, setState, context] = useCompanySoftwareSettings(session)
 
+  function toggleFeature(settingId: string, enabled: boolean) {
+    setState((current) => {
+      const nextState = updateFeatureSetting(current, settingId, enabled)
+      if (context.isLoaded) {
+        void context.saveNow(nextState).catch((error) => {
+          toast.error("Feature setting not saved", { description: error instanceof Error ? error.message : "Please try again." })
+        })
+      }
+      return nextState
+    })
+  }
+
   return (
     <MasterListPageFrame
       action={
@@ -103,7 +115,7 @@ export function SalesSettingsPage({ session }: { session: AuthSession }) {
             content: (
               <div className="grid gap-3">
                 {state.features.map((setting) => (
-                  <SettingSwitchRow key={setting.id} setting={setting} onToggle={(enabled) => setState((current) => updateFeatureSetting(current, setting.id, enabled))} />
+                  <SettingSwitchRow key={setting.id} setting={setting} onToggle={(enabled) => toggleFeature(setting.id, enabled)} />
                 ))}
               </div>
             ),

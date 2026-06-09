@@ -12,6 +12,7 @@ import { DocumentNumberRepository } from '../../settings/document-settings/infra
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
+import { QuotationEntryRepository } from '../quotation/infrastructure/persistence/quotation-entry.repository.js'
 
 @Module({
   controllers: [SalesEntryV1Controller],
@@ -26,6 +27,7 @@ import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
     PrintHtmlPdfService,
     SalesEntryEventBus,
     DocumentNumberRepository,
+    QuotationEntryRepository,
     SalesEntryRepository,
     SalesEntryService,
   ],

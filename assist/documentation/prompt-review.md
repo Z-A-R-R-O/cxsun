@@ -2210,3 +2210,8 @@ the same for product individually
 and make this as reusable for  sale invoice and purchase entries that can check use of these masters and then push their records to tally
 
 create log for this with version update in changelog
+## 2026-06-09 - Tirupur Connect execution
+
+User prompt:
+
+> ok fine read assist/execution/tirupur-connect and implement this with writing planning.md and task.md and complete this

@@ -1,11 +1,12 @@
 import { Inject } from '../../../../core/decorators/inject.js'
 import { Injectable } from '../../../../core/decorators/injectable.js'
-import { NotFoundException } from '../../../../core/exceptions/http.exception.js'
+import { BadRequestException, NotFoundException } from '../../../../core/exceptions/http.exception.js'
 import { TenantContextService, type TenantRequestHeaders } from '../../../../core/tenant/tenant-context.service.js'
 import { SalesEntryAggregate } from '../domain/aggregates/sales-entry.aggregate.js'
 import { salesEntryEvent } from '../domain/events/sales-entry.events.js'
 import { SalesEntryRepository, type SalesEntryInput } from '../infrastructure/persistence/sales-entry.repository.js'
 import { EntryDocumentMailService } from '../../shared/entry-document-mail.service.js'
+import { QuotationEntryRepository } from '../../quotation/infrastructure/persistence/quotation-entry.repository.js'
 import { SalesEntryEventBus } from './sales-entry-event-bus.js'
 
 @Injectable()
@@ -13,6 +14,7 @@ export class SalesEntryService {
   constructor(
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(SalesEntryRepository) private readonly salesEntries: SalesEntryRepository,
+    @Inject(QuotationEntryRepository) private readonly quotationEntries: QuotationEntryRepository,
     @Inject(SalesEntryEventBus) private readonly events: SalesEntryEventBus,
     @Inject(EntryDocumentMailService) private readonly documentMail: EntryDocumentMailService,
   ) {}
@@ -49,12 +51,23 @@ export class SalesEntryService {
     const context = await this.tenantContext.resolve(headers, 'company.manage')
     const entry = await this.salesEntries.softDelete(context, idOrUuid)
     if (!entry) return { ok: false, error: 'Sales entry was not found.' }
+    if (entry.source_type === 'quotation') {
+      await this.quotationEntries.releaseBySalesInvoice(context, { invoice_no: entry.invoice_no, uuid: entry.uuid })
+    }
     await this.events.publish(SalesEntryAggregate.fromEntry(entry, context.tenant.id, context.user.email).deletedEvent())
     return { ok: true }
   }
 
   async restore(headers: TenantRequestHeaders, idOrUuid: string) {
     const context = await this.tenantContext.resolve(headers, 'company.manage')
+    const existing = await this.salesEntries.find(context, idOrUuid)
+    if (!existing) return { ok: false, error: 'Sales entry was not found.' }
+    if (existing.source_type === 'quotation') {
+      if (existing.source_quotation_uuids.length === 0) {
+        throw new BadRequestException('This sales invoice does not have quotation source details to relock.')
+      }
+      await this.quotationEntries.markInvoicedBySalesInvoice(context, existing.source_quotation_uuids, { invoice_no: existing.invoice_no, uuid: existing.uuid })
+    }
     const entry = await this.salesEntries.restore(context, idOrUuid)
     if (!entry) return { ok: false, error: 'Sales entry was not found.' }
     await this.events.publish(SalesEntryAggregate.fromEntry(entry, context.tenant.id, context.user.email).restoredEvent())
