@@ -12,7 +12,7 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 
 ## v-1.0.91
 
-### [v 1.0.91] 2026-06-10 - Frappe integration foundation
+### [v 1.0.91] 2026-06-09 1:56 pm - Frappe integration foundation
 
 - Added a first-class tenant Frappe app foundation with dashboard app switch, side menu, breadcrumb routing, and a connection settings desk.
 - Added tenant Frappe tables for settings, sync jobs, and record activity, with provisioning wired into tenant database startup.
