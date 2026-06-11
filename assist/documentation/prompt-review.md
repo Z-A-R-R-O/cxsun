@@ -2255,3 +2255,229 @@ User prompt:
 User prompt:
 
 > write log in changelog and version update
+
+## 2026-06-11 - Versatile Agent OS plan
+
+User prompt:
+
+```text
+Can you understand our project fully and Update ZRO\
+Also assist\
+
+Kinda this plan is mainly under ZRO\ than assist\
+
+THIS IS PLAN: 
+
+For Versatile Agent, don't build the "Jarvis that does everything" first.
+
+Build Agent OS in layers.
+
+Phase 0 - Core Principle
+User
+ ↓
+Agent Router
+ ↓
+Specialized Agents
+ ↓
+Site Actions / Database / APIs
+
+Not:
+
+User
+ ↓
+One Giant Agent
+
+Multi-agent wins because each agent has one job.
+
+MVP v1 - Site Helper Agent
+
+Goal:
+
+User can ask anything about the platform.
+
+Examples:
+
+What is Versatile?
+How do I create a project?
+Where are my tasks?
+Explain pricing
+Show features
+Architecture
+Website Docs
+FAQ
+Knowledge Base
+
+-> RAG Search -> Helper Agent
+
+Stack:
+
+OpenRouter
+Gemini Flash Free
+DeepSeek Free
+Qwen Free
+
+Cheap.
+
+No automation yet.
+
+MVP v2 - Site Operator Agent
+
+Now agent can perform actions.
+
+Examples:
+
+Create project
+Create task
+Delete task
+Update profile
+Add note
+
+Architecture:
+
+User -> Operator Agent -> Tool Calls -> Backend API -> Database
+
+Example:
+
+User:
+
+Create project called MERIT
+
+Agent:
+
+{
+ "tool":"create_project",
+ "name":"MERIT"
+}
+
+Backend executes.
+
+MVP v3 - Workflow Agent
+
+Now agent can chain actions.
+
+User:
+
+Create a startup project, add roadmap, create 5 tasks.
+
+Agent:
+
+Create Project -> Generate Roadmap -> Create Tasks -> Return Summary
+
+This is your first real automation layer.
+
+MVP v4 - Multi-Agent System
+
+Introduce specialization.
+
+Helper Agent - Knowledge.
+Operator Agent - CRUD.
+Workflow Agent - Automation.
+Planner Agent - Break goals.
+Analytics Agent - Reads data.
+
+MVP v5 - Agent Router
+
+Most important component.
+
+User:
+
+Build a roadmap for my AI startup and create tasks.
+
+Router decides:
+
+Planner Agent -> Workflow Agent -> Operator Agent
+
+User never sees this.
+
+Looks like one AI.
+
+Internally many agents.
+
+MVP v6 - Versatile Agent Ecosystem
+
+Agents communicate.
+
+Planner <-> Workflow <-> Analytics <-> Operator <-> Helper
+
+Shared memory:
+
+User Profile
+Projects
+Tasks
+Preferences
+History
+
+Suggested Free Model Setup
+Router - Gemini 2.5 Flash (free/OpenRouter)
+Helper - DeepSeek Chat / Qwen 3
+Planner - Gemini Flash
+Workflow - DeepSeek Reasoner
+Analytics - Qwen
+Fallback - Any free OpenRouter model
+
+Database Structure
+users
+projects
+tasks
+workflows
+agent_memories
+agent_logs
+conversations
+tool_executions
+
+Don't skip:
+
+agent_logs
+
+You'll need it later for debugging.
+
+Long-Term Vision (Versatile OS)
+Chat + Projects + Tasks + Documents + Automation + Agents + Memory + Analytics
+
+Final flow:
+
+User -> Versatile Agent -> Router -> Specialized Agents -> Tools -> Database -> Website
+
+Execution order I'd follow:
+
+Helper Agent (chat + site knowledge)
+Operator Agent (perform actions)
+Workflow Agent (multi-step automation)
+Planner Agent
+Analytics Agent
+Agent Router
+Shared Memory
+Full Multi-Agent Ecosystem
+
+That gets you to a useful product quickly while keeping the architecture clean enough to evolve into a full AI Operating System.
+```
+
+## 2026-06-11 - Agent OS mini icon and base
+
+User prompt:
+
+```text
+Can we include a mini icon somewhere suitable without disturbing current site. And can you create base for this?
+```
+
+## 2026-06-11 - ZETRO rename and universal chat
+
+User prompt:
+
+```text
+Rename it To " ZETRO " and we include switchable model. Also create universal Chat window.
+```
+
+## 2026-06-11 - ZETRO free-first model connection
+
+User prompt:
+
+```text
+Can we connect free models first and Also provide connectable premium model through APIs
+```
+
+Implementation note:
+
+- ZETRO now reads `ZETRO_FREE_MODELS` before `ZETRO_PREMIUM_MODELS`.
+- The backend calls OpenRouter-compatible `/chat/completions` when `OPENROUTER_API_KEY` is present.
+- Missing keys, provider failures, selected model tier, latency, and usage metadata are recorded in `agent_logs`.

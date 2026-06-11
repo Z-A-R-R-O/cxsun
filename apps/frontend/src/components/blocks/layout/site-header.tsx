@@ -1,4 +1,4 @@
-import { Bell, Check, ChevronDown, House, LogOut } from "lucide-react"
+import { Bell, Bot, Check, ChevronDown, House, LogOut } from "lucide-react"
 
 import { Button } from "src/components/ui/button"
 import {
@@ -28,6 +28,7 @@ interface SiteHeaderProps {
   dashboardTitle?: string
   onBackHome?: () => void
   onChangeApp?: (appId: DashboardAppId) => void
+  onOpenZetroChat?: () => void
   onLogout?: () => void
 }
 
@@ -37,6 +38,7 @@ export function SiteHeader({
   dashboardTitle = "Dashboard",
   onBackHome,
   onChangeApp,
+  onOpenZetroChat,
   onLogout,
 }: SiteHeaderProps) {
   const selectedApp = dashboardApps.find((app) => app.id === activeApp) ?? dashboardApps[0]
@@ -103,6 +105,19 @@ export function SiteHeader({
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
+          {appEnabled?.["agent-os"] ? (
+            <Button
+              aria-label="Open ZETRO"
+              className="h-8 rounded-md px-2.5"
+              onClick={onOpenZetroChat}
+              size="sm"
+              title="Open ZETRO"
+              type="button"
+              variant="ghost"
+            >
+              <Bot className="size-4" />
+            </Button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button aria-label="Notifications" className="relative h-8 rounded-md px-2.5" size="sm" type="button" variant="outline">

@@ -27,6 +27,7 @@ import { CrmModule } from './crm/index.js'
 import { TallyModule } from './tally/index.js'
 import { FrappeModule } from './frappe/index.js'
 import { TConnectModule } from './tconnect/index.js'
+import { AgentOsModule } from './agent-os/index.js'
 import { AuditorContactCredentialModule } from './auditor/contact-credential/index.js'
 import { AuditorGstFilingModule } from './auditor/gst-filing/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
@@ -79,6 +80,7 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     TallyModule,
     FrappeModule,
     TConnectModule,
+    AgentOsModule,
     AuditorContactCredentialModule,
     AuditorGstFilingModule,
     CompanyModule,

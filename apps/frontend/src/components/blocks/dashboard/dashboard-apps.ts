@@ -4,6 +4,7 @@ import {
   Banknote,
   Barcode,
   BookOpenText,
+  Bot,
   Boxes,
   Brush,
   Building2,
@@ -54,7 +55,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "accounts" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "tconnect" | "sites" | "tally" | "frappe"
+export type DashboardAppId = "application" | "accounts" | "agent-os" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "tconnect" | "sites" | "tally" | "frappe"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -126,6 +127,24 @@ export const dashboardApps: DashboardAppDefinition[] = [
           { ...item("application", "users", "Users", UsersRound) },
           { title: "Roles", page: "tenant-roles", icon: Settings },
           { ...item("application", "landing-desk", "Landing Desk", Settings) },
+        ],
+      },
+    ],
+  }),
+  withMenu({
+    id: "agent-os",
+    name: "ZETRO",
+    shortName: "ZETRO",
+    description: "Universal AI chat base for helper knowledge, safe tools, workflows, planning, analytics, and memory.",
+    status: "active",
+    accent: "bg-zinc-900 text-white",
+    icon: Bot,
+    menuGroups: [
+      {
+        title: "ZETRO",
+        icon: Bot,
+        items: [
+          item("agent-os", "base", "Base", Bot),
         ],
       },
     ],

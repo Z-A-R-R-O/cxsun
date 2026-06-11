@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { Queue, Worker } from 'bullmq'
+import { Queue, Worker, type ConnectionOptions } from 'bullmq'
 import IORedis from 'ioredis'
 import { sql } from 'kysely'
 
@@ -123,7 +123,7 @@ export function getHybridQueue(name: HybridQueueName) {
   const existing = queues.get(name)
   if (existing) return existing
 
-  const queue = new Queue(name, { connection: getRedisConnection() })
+  const queue = new Queue(name, { connection: getBullMqConnection() })
   queues.set(name, queue)
   return queue
 }
@@ -203,7 +203,7 @@ export async function getQueueRuntimeMode(): Promise<QueueRuntimeMode> {
 
 function startWorker(name: HybridQueueName, processor: (job: { data: HybridJobPayload }) => Promise<void>) {
   const worker = new Worker(name, processor, {
-    connection: getRedisConnection(),
+    connection: getBullMqConnection(),
     concurrency: name === 'database-backup' ? 1 : 5,
   })
   worker.on('failed', async (job, error) => {
@@ -399,6 +399,10 @@ function getRedisConnection() {
     warnRedis(`  ! Redis connection unavailable: ${message(error)}`)
   })
   return redisConnection
+}
+
+function getBullMqConnection(): ConnectionOptions {
+  return getRedisConnection() as unknown as ConnectionOptions
 }
 
 function closeRedisQueues() {

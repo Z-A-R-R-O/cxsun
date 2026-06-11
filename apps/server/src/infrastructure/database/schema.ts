@@ -155,6 +155,73 @@ export interface GstProviderGlobalSettingsTable {
   updated_at: Generated<string>
 }
 
+export interface ConversationsTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number | null
+  user_email: string | null
+  surface: string
+  title: string
+  status: string
+  metadata: string | null
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface AgentLogsTable {
+  id: Generated<number>
+  uuid: string
+  conversation_id: number | null
+  tenant_id: number | null
+  agent_id: string
+  event_type: string
+  model_id: string | null
+  input_summary: string | null
+  output_summary: string | null
+  metadata: string | null
+  latency_ms: number | null
+  status: string
+  error_message: string | null
+  created_at: Generated<string>
+}
+
+export interface KnowledgeDocumentsTable {
+  id: Generated<number>
+  uuid: string
+  source_type: string
+  source_path: string
+  title: string
+  chunk_key: string
+  content: string
+  metadata: string | null
+  status: string
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface AgentProviderConnectionsTable {
+  id: Generated<number>
+  uuid: string
+  provider_key: string
+  provider_name: string
+  provider_kind: string
+  base_url: string
+  api_key_ciphertext: string
+  api_key_iv: string
+  api_key_tag: string
+  default_model: string
+  free_models: string | null
+  premium_models: string | null
+  is_active: number
+  status: string
+  last_test_status: string | null
+  last_test_message: string | null
+  last_tested_at: string | null
+  metadata: string | null
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
 export interface DatabaseSchema {
   site_pages: SitePagesTable
   site_services: SiteServicesTable
@@ -169,4 +236,8 @@ export interface DatabaseSchema {
   queue_jobs: QueueJobsTable
   queue_runtime_settings: QueueRuntimeSettingsTable
   gst_provider_global_settings: GstProviderGlobalSettingsTable
+  conversations: ConversationsTable
+  agent_logs: AgentLogsTable
+  knowledge_documents: KnowledgeDocumentsTable
+  agent_provider_connections: AgentProviderConnectionsTable
 }

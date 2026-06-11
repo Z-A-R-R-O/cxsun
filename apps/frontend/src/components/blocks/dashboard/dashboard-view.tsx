@@ -154,6 +154,12 @@ const TallySyncPage = lazy(() =>
 const FrappePage = lazy(() =>
   import('src/features/frappe/frappe-page').then((module) => ({ default: module.FrappePage })),
 )
+const AgentOsPage = lazy(() =>
+  import('src/features/agent-os/agent-os-page').then((module) => ({ default: module.AgentOsPage })),
+)
+const ZetroChatWindow = lazy(() =>
+  import('src/features/agent-os/zetro-chat-window').then((module) => ({ default: module.ZetroChatWindow })),
+)
 const CrmPage = lazy(() =>
   import('src/features/crm/crm-page').then((module) => ({ default: module.CrmPage })),
 )
@@ -218,12 +224,15 @@ function dashboardOverviewAppFromPage(page: DashboardPage): DashboardAppId | nul
 }
 
 function defaultPageForApp(appId: DashboardAppId): DashboardPage {
+  if (appId === "agent-os") return "app-agent-os-base"
   return `app-${appId}-overview`
 }
 
+const crossSurfaceAppPages: DashboardPage[] = ["app-agent-os-base"]
+
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company-industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager"],
-  admin: ["overview", "company", "helpdesk", "bugs", "system-update"],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company-industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager", ...crossSurfaceAppPages],
+  admin: ["overview", "company", "helpdesk", "bugs", "system-update", ...crossSurfaceAppPages],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
 
@@ -325,6 +334,11 @@ function prefetchAppModules(appId: DashboardAppId) {
       return
     }
 
+    if (appId === "agent-os") {
+      void import('src/features/agent-os/agent-os-page')
+      return
+    }
+
     if (appId === "crm") {
       void import('src/features/crm/crm-page')
       return
@@ -362,6 +376,7 @@ export function DashboardView({
   const [landingApp, setLandingApp] = useState<DashboardAppId>(() => initialLandingApp)
   const [activeApp, setActiveApp] = useState<DashboardAppId>(() => dashboardAppFromPage(initialPage) ?? (initialPage === "overview" && mode === "tenant" ? initialLandingApp : readStoredApp()))
   const [focusedBillingEntry, setFocusedBillingEntry] = useState<{ id: string; type: BillingRecentTransaction["type"] } | null>(null)
+  const [zetroChatOpen, setZetroChatOpen] = useState(false)
 
   useEffect(() => {
     if (mode !== "tenant" || !session) return
@@ -706,6 +721,7 @@ export function DashboardView({
           dashboardTitle={breadcrumbLabel}
           onBackHome={onBackHome}
           onChangeApp={changeApp}
+          onOpenZetroChat={() => setZetroChatOpen(true)}
           onLogout={logout}
         />
         <Suspense fallback={<GlobalLoader />}>
@@ -863,6 +879,8 @@ export function DashboardView({
             <FrappePage session={session} view="desk" />
           ) : visiblePage === "app-frappe-sync-jobs" ? (
             <FrappePage session={session} view="jobs" />
+          ) : visiblePage === "app-agent-os-base" ? (
+            <AgentOsPage session={session} />
           ) : visiblePage === "app-billing-settings" ? (
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (
@@ -899,6 +917,17 @@ export function DashboardView({
               quotationEnabled={quotationEnabled}
             />
           )}
+        </Suspense>
+        <Suspense fallback={null}>
+          <ZetroChatWindow
+            open={zetroChatOpen}
+            session={session}
+            onOpenBase={() => {
+              setZetroChatOpen(false)
+              navigate("app-agent-os-base")
+            }}
+            onOpenChange={setZetroChatOpen}
+          />
         </Suspense>
       </SidebarInset>
     </SidebarProvider>
@@ -1097,6 +1126,7 @@ function appGroupDescription(title: string) {
     "Mail Desk": "Compose, queue, and inspect workspace mail.",
     "Tally Desk": "Handshake, single-operation sync, and job controls.",
     "Frappe Desk": "Handshake, DocType operations, and sync activity.",
+    "ZETRO": "Helper knowledge, safe tools, workflows, planning, analytics, and memory.",
     "Master Sync": "Contacts and products pushed as reusable Tally masters.",
     "Entry Sync": "Invoice and purchase checks built on synced masters.",
     "Storefront": "Store operations and checkout flow.",
@@ -1149,8 +1179,8 @@ function enabledAppsForSession(session: AuthSession): Record<DashboardAppId, boo
     return applicationOnlyApps()
   }
 
-  const enabled = Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application" || enabledIds.includes(app.id)])) as Record<DashboardAppId, boolean>
-  return { ...enabled, application: true }
+  const enabled = Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application" || app.id === "agent-os" || enabledIds.includes(app.id)])) as Record<DashboardAppId, boolean>
+  return { ...enabled, application: true, "agent-os": true }
 }
 
 function parseTenantPayloadSettings(value?: string): { apps?: { enabled?: unknown[] } } {
@@ -1171,7 +1201,7 @@ function fallbackLandingApp(enabledApps: Record<DashboardAppId, boolean>): Dashb
 }
 
 function applicationOnlyApps(): Record<DashboardAppId, boolean> {
-  return Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application"])) as Record<DashboardAppId, boolean>
+  return Object.fromEntries(dashboardApps.map((app) => [app.id, app.id === "application" || app.id === "agent-os"])) as Record<DashboardAppId, boolean>
 }
 
 function isAppAvailableFromAccess(enabledApps: Record<DashboardAppId, boolean>, appId: DashboardAppId) {

@@ -13,6 +13,7 @@ Public site and storefront
   -> customer and order activity
   -> tenant workspace
   -> company, catalog, stock, finance, support, and reporting
+  -> Versatile Agent for knowledge, actions, workflows, planning, and analytics
   -> platform admin and super-admin control
 ```
 
@@ -76,6 +77,22 @@ In the super-admin UI, keep navigation split into two easy areas:
 
 - `Platform / Master Database`: tenant, domain, industry, system update, and admin user manager.
 - `Tenant Database`: tenant-owned modules such as company that resolve into tenant database context.
+
+### Versatile Agent OS
+
+The agent layer should sit above the existing platform, not replace the existing module boundaries.
+
+It should be built in layers:
+
+- Helper Agent for platform knowledge and FAQ-style guidance.
+- Operator Agent for safe CRUD through typed backend tools.
+- Workflow Agent for multi-step action chains.
+- Planner Agent for goals, roadmaps, milestones, and tasks.
+- Analytics Agent for reading and explaining data.
+- Agent Router for choosing and chaining specialized agents.
+- Shared Memory for user preferences, projects, tasks, history, and useful summaries.
+
+The first implementation should be read-only Helper Agent with RAG over trusted docs and site knowledge. Do not add automation until typed tools, confirmation rules, and `agent_logs`/`tool_executions` exist.
 
 ## Data Model Picture
 
@@ -182,11 +199,13 @@ Each route family has its own auth gate and browser session key.
 
 The next implementation direction should build from the current foundation in this order:
 
-1. Tenant-local roles and permissions UI.
-2. Company default selection and company context switching inside the tenant workspace.
-3. Admin helpdesk and bug desk backed by the master MariaDB database.
-4. Tenant catalog and product/service setup.
-5. Storefront/public catalog pages through domain resolution.
-6. Sales/order/invoice flow inside the tenant database.
-7. Inventory and finance modules inside tenant databases.
-8. Super-admin diagnostics for tenant database health, feature toggles, and provisioning.
+1. Versatile Helper Agent for platform knowledge, docs, FAQ, architecture, and feature explanation.
+2. Tenant-local roles and permissions UI.
+3. Company default selection and company context switching inside the tenant workspace.
+4. Admin helpdesk and bug desk backed by the master MariaDB database.
+5. Tenant catalog and product/service setup.
+6. Storefront/public catalog pages through domain resolution.
+7. Sales/order/invoice flow inside the tenant database.
+8. Inventory and finance modules inside tenant databases.
+9. Super-admin diagnostics for tenant database health, feature toggles, and provisioning.
+10. Operator and Workflow Agent layers after safe tool contracts are implemented.

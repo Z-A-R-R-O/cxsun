@@ -19,6 +19,7 @@ Read `assist/context/product-picture.md` alongside this file for the product-lev
 | 2026-05-16 | Use `id INT AUTO_INCREMENT PRIMARY KEY` plus `uuid CHAR(8) NOT NULL UNIQUE` on application tables. | Numeric IDs stay fast and stable for internal joins, while short uppercase alphanumeric public UUIDs hide sequence IDs from APIs and UI. Move public UUIDs to 16 characters later when scale requires it. |
 | 2026-05-22 | Route user-facing frontend modules to feature-owned standalone pages. | Product, contact, company, sales, and future modules should keep custom UI behavior inside their own feature pages instead of expanding generic master-data/common-data pages with module-specific branches. |
 | 2026-06-06 | Keep Export Sales separate from domestic Sales and gate its visibility with a company feature setting. | Export invoices need separate persistence, numbering, currency selection, print/mail workflows, and optional visibility without deleting stored records. |
+| 2026-06-11 | Build Versatile Agent as layered Agent OS. | Start with read-only Helper Agent and add Operator, Workflow, Planner, Analytics, Router, Memory, and ecosystem layers only after logs and typed tools exist. |
 
 ## Active Workspaces
 
@@ -57,6 +58,7 @@ Run targeted checks during development, or `npm run check` before finalizing mea
 - Put tenant entries under `apps/server/src/modules/entries`; current billing entry modules include sales, export sales, purchase, receipt, and payment.
 - Put infrastructure configuration and lifecycle code under `apps/server/src/infrastructure`.
 - Put platform database migration/seed modules beside the owning backend module and register them in `apps/server/src/infrastructure/database/platform-modules.ts`.
+- Put Agent OS backend work under `apps/server/src/modules/agent-os`; start platform-wide tables such as `conversations`, `agent_logs`, and `knowledge_documents` in the master database.
 - Put tenant database connection, provisioning, and tenant-local schema types under `apps/server/src/infrastructure/tenant-database`.
 - Use `TenantContextService` for tenant-owned APIs. It resolves `x-tenant-code`, JWT tenant code, or host/domain to a tenant, verifies user access, checks tenant policy, and returns the tenant-local database handle.
 - Put active frontend UI work under `apps/frontend/src`.

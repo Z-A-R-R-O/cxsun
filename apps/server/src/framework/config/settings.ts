@@ -47,6 +47,25 @@ export const settings = {
     pop3Host: envString('MAIL_POP3_HOST', 'pop.hostinger.com'),
     pop3Port: envNumber('MAIL_POP3_PORT', 995),
   },
+  zetro: {
+    provider: envString('ZETRO_PROVIDER', 'openrouter'),
+    defaultModel: envString('ZETRO_DEFAULT_MODEL', 'deepseek/deepseek-chat-v3-0324:free'),
+    freeModels: envString(
+      'ZETRO_FREE_MODELS',
+      'deepseek/deepseek-chat-v3-0324:free,qwen/qwen3-235b-a22b:free,deepseek/deepseek-r1:free',
+    ),
+    premiumModels: envString(
+      'ZETRO_PREMIUM_MODELS',
+      'openai/gpt-5.2,anthropic/claude-sonnet-4.5,google/gemini-2.5-pro',
+    ),
+    openRouterApiKey: envOptionalString('OPENROUTER_API_KEY'),
+    openRouterBaseUrl: envString('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+    httpReferer: envOptionalString('OPENROUTER_HTTP_REFERER') ?? envOptionalString('FRONTEND_URL'),
+    appTitle: envString('OPENROUTER_APP_TITLE', 'CXSun ZETRO'),
+    requestTimeoutMs: envNumber('ZETRO_REQUEST_TIMEOUT_MS', 30000),
+    maxTokens: envNumber('ZETRO_MAX_TOKENS', 700),
+    temperature: envNumber('ZETRO_TEMPERATURE', 0.4),
+  },
   package: {
     version: envString('npm_package_version', '0.0.0'),
   },

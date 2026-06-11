@@ -4,7 +4,9 @@
 
 This directory is the working guide for AI agents on `cxsun`. It records project rules, current architecture, session plans, task tracking, and release notes.
 
-For the product north star, read `assist/context/product-picture.md`. It describes the software we are building: public storefront/content, tenant business workspace, admin support desk, and super-admin platform orchestration.
+For the product north star, read `assist/context/product-picture.md`. It describes the software we are building: public storefront/content, tenant business workspace, admin support desk, super-admin platform orchestration, and the new Versatile Agent OS direction.
+
+For the AI operating layer, read `assist/context/versatile-agent-os.md` and `ZRO/Vision/agent-os.md`. The agent direction is layered: Helper Agent first, then Operator, Workflow, Planner, Analytics, Router, Memory, and the full multi-agent ecosystem.
 
 ## Current Application Shape
 
@@ -137,6 +139,7 @@ At the start of each work session:
 - `assist/context/product-picture.md` describes the product picture and implementation direction.
 - `assist/context/live-client-scope.md` records the first real tenant/client, industry, app, and domain scope.
 - `assist/rules/architecture.md` describes current app placement and module boundaries.
+- `assist/context/versatile-agent-os.md` describes how the Versatile Agent OS should be implemented inside the current monorepo.
 - `assist/rules/verification.md` describes required checks by change type.
 - `assist/templates/server-module.md` gives the preferred backend module layout.
 

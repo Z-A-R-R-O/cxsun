@@ -24,6 +24,7 @@ type View =
   | 'login'
   | 'admin-login'
   | 'super-admin-login'
+  | 'zetro-read'
   | 'forgot-password'
 
 type AppRoute = {
@@ -44,6 +45,11 @@ const LoginForm = lazy(() =>
 const ForgotPasswordForm = lazy(() =>
   import('src/components/blocks/auth/forgot-password-form').then((module) => ({
     default: module.ForgotPasswordForm,
+  })),
+)
+const ZetroReadPage = lazy(() =>
+  import('src/features/agent-os/zetro-read-page').then((module) => ({
+    default: module.ZetroReadPage,
   })),
 )
 const fallbackContent: SiteContent = {
@@ -175,6 +181,10 @@ function parseRoute(pathname = window.location.pathname): AppRoute {
     return { page: 'home', view: 'forgot-password' }
   }
 
+  if (firstSegment === 'zetro') {
+    return { page: 'home', view: 'zetro-read' }
+  }
+
   if ((staticPageSlugs as readonly string[]).includes(firstSegment) && firstSegment !== 'home') {
     return { page: firstSegment, view: 'landing' }
   }
@@ -190,6 +200,7 @@ function routePath(route: AppRoute) {
   if (route.view === 'admin-login') return '/admin/login'
   if (route.view === 'super-admin-login') return '/sg/login'
   if (route.view === 'forgot-password') return '/forgot-password'
+  if (route.view === 'zetro-read') return '/zetro'
   return route.page === 'home' ? '/' : `/${route.page}`
 }
 
@@ -247,7 +258,7 @@ function App() {
   const tenantSiteQuery = useQuery({
     queryKey: ['tenant-static-site', window.location.host],
     queryFn: fetchTenantStaticSite,
-    enabled: !isPlatformView,
+    enabled: !isPlatformView && activeView !== 'zetro-read',
   })
   const healthQuery = useQuery({
     queryKey: ['health'],
@@ -412,6 +423,17 @@ function App() {
             {...dashboardConfig}
             onBackHome={() => navigate({ page: 'home', view: 'landing' })}
           />
+        </Suspense>
+        <Toaster />
+      </TooltipProvider>
+    )
+  }
+
+  if (activeView === 'zetro-read') {
+    return (
+      <TooltipProvider>
+        <Suspense fallback={<GlobalLoader />}>
+          <ZetroReadPage />
         </Suspense>
         <Toaster />
       </TooltipProvider>

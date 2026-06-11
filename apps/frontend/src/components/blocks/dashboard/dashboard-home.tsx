@@ -143,6 +143,7 @@ export function DashboardHome({
 function deskHeaderBackground(appId: DashboardAppId) {
   const accentByApp: Record<DashboardAppId, string> = {
     accounts: "rgba(77, 124, 15, 0.20)",
+    "agent-os": "rgba(24, 24, 27, 0.16)",
     application: "rgba(15, 23, 42, 0.16)",
     auditor: "rgba(162, 28, 175, 0.18)",
     billing: "rgba(5, 150, 105, 0.20)",

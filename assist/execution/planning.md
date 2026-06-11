@@ -1,30 +1,42 @@
 # Session Plan
 
-**Date:** 2026-06-10  
+**Date:** 2026-06-11  
 **Version:** 1.0.91  
-**Focus:** Frappe integration app foundation.
+**Focus:** ZETRO base scaffold.
 
 ## Objective
 
-Create a first-class Frappe app/module in the tenant workspace with backend and frontend wiring. The initial finish line is the handshake and connection setting page, plus a small DocType read/post bridge so later Contact/Product/Sales/Purchase sync work has a real integration surface.
+Create the first ZETRO base without disturbing existing site/dashboard flows: a small dashboard icon, tenant app entry, backend status/chat module, switchable model metadata, universal chat window, platform database tables, and OpenRouter-compatible free-first model calls for the future Helper Agent.
 
 ## Architecture Boundary
 
-- Frappe belongs in the tenant/client dashboard, not super-admin platform orchestration.
-- Tenant settings are scoped to the selected default company.
-- The live handshake uses Frappe API token auth: `Authorization: token <api_key>:<api_secret>`.
-- The handshake endpoint is `GET /api/method/frappe.auth.get_logged_user`.
-- Optional site routing uses `x-frappe-site-name`.
-- Remote operations remain blocked until the handshake succeeds.
+- ZRO is the strategic source of truth for the Agent OS plan.
+- Assist is the practical working guide for future coding agents.
+- This session includes a small frontend/backend scaffold.
+- The first implementation phase is Helper Agent with read-only RAG and logs.
+- Operator, Workflow, Planner, Analytics, Router, and Memory come later.
 
 ## Current Slice
 
-1. Add backend tables and APIs for Frappe settings, sync jobs, record activity, handshake, DocType GET, and DocType POST.
-2. Register tenant provisioning and backend module imports.
-3. Add a Frappe frontend feature with connection settings, handshake status, DocType workbench, jobs, and record activity.
-4. Wire the Frappe app into the dashboard app switch, side menu, breadcrumb labels, and route renderer.
+1. Add backend `agent-os` module base.
+2. Add platform migration for `conversations`, `agent_logs`, and `knowledge_documents`.
+3. Add `/api/v1/agent-os/status`.
+4. Rename the visible product surface to `ZETRO`.
+5. Add tenant dashboard `ZETRO` app entry.
+6. Add mini Bot icon shortcut in the dashboard header.
+7. Add base frontend ZETRO page.
+8. Add universal ZETRO chat window with switchable model selector.
+9. Connect OpenRouter-compatible chat calls with free models first and premium models configurable by env.
+10. Update ZRO and assist task records.
 
 ## Verification
 
 - `npm -w apps/server run typecheck`
 - `npm -w apps/frontend run typecheck`
+
+## Model Policy
+
+- Free OpenRouter model IDs are exposed first from `ZETRO_FREE_MODELS`.
+- Premium model IDs are exposed after free IDs from `ZETRO_PREMIUM_MODELS`.
+- Both free and premium calls require `OPENROUTER_API_KEY`.
+- ZETRO logs missing keys, provider failures, latency, model tier, and usage metadata in `agent_logs`.

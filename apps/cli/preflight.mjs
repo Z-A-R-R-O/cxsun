@@ -234,15 +234,13 @@ async function checkServerDatabase(env) {
 
     console.log(`  Setting up ${databaseName} master database...\n`)
 
-    const setupCommand = process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : tsxCommand()
-    const setupArgs = process.platform === 'win32'
-      ? ['/d', '/s', '/c', `${tsxCommand()} src/core/migration-manager/cli.ts setup --target=master`]
-      : ['src/core/migration-manager/cli.ts', 'setup', '--target=master']
+    const setupCommand = `"${tsxCommand()}"`
+    const setupArgs = ['src/core/migration-manager/cli.ts', 'setup', '--target=master']
     const setup = spawnSync(setupCommand, setupArgs, {
       cwd: resolve(ROOT, 'apps/server'),
       stdio: 'inherit',
       env: { ...process.env, ...env, DB_NAME: databaseName },
-      shell: false,
+      shell: true,
     })
 
     if (setup.status !== 0) {
@@ -302,22 +300,16 @@ if (APP === 'server') {
 }
 
 const cwd = resolve(ROOT, `apps/${APP}`)
-const command = process.platform === 'win32'
-  ? process.env.ComSpec || 'cmd.exe'
-  : APP === 'server'
-    ? tsxCommand()
-    : binCommand('vite')
-const args = process.platform === 'win32'
-  ? ['/d', '/s', '/c', APP === 'server'
-    ? `${tsxCommand()} watch src/main.ts`
-    : `${binCommand('vite')} --host 0.0.0.0`]
-  : APP === 'server'
-    ? ['watch', 'src/main.ts']
-    : ['--host', '0.0.0.0']
+const command = APP === 'server'
+  ? `"${tsxCommand()}"`
+  : `"${binCommand('vite')}"`
+const args = APP === 'server'
+  ? ['watch', 'src/main.ts']
+  : ['--host', '0.0.0.0']
 const child = spawn(command, args, {
   cwd,
   stdio: 'inherit',
-  shell: false,
+  shell: true,
   env: { ...process.env, ...env, [envKey]: String(port) },
 })
 
