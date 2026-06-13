@@ -863,10 +863,11 @@ export class AgentOsService {
     }
 
     const defaults = await resolveZetroTenantDefaults(context)
-    const result = await readZetroBusinessSummary(context, query, defaults)
+    const result = await runZetroReadonlyTool(context, query, defaults)
     return {
-      ok: true,
-      reply: formatZetroBusinessSummary(result),
+      ok: result.ok,
+      error: result.error,
+      reply: result.reply,
       metadata: {
         ...query,
         tenantResolved: true,
@@ -876,16 +877,29 @@ export class AgentOsService {
         defaultCompanyId: defaults.companyId,
         defaultAccountingYearId: defaults.accountingYearId,
         entryCount: result.entryCount,
+        matchCount: result.matchCount,
+        questionStatus: result.status,
       },
     }
   }
 }
 
 interface ZetroBusinessQuery {
-  intent: 'sales.summary' | 'sales.summary.by_contact' | 'purchase.summary' | 'purchase.summary.by_contact'
-  tool: 'sales.summary' | 'purchase.summary'
-  domain: 'sales' | 'purchase'
+  intent:
+    | 'sales.summary'
+    | 'sales.summary.by_contact'
+    | 'purchase.summary'
+    | 'purchase.summary.by_contact'
+    | 'sales.bill.detail'
+    | 'purchase.bill.detail'
+    | 'contact.balance'
+    | 'customer.balance'
+    | 'supplier.balance'
+  tool: 'sales.summary' | 'purchase.summary' | 'sales.bill.detail' | 'purchase.bill.detail' | 'contact.balance'
+  domain: 'sales' | 'purchase' | 'contact'
   partyName?: string
+  documentNo?: string
+  balanceSide?: 'customer' | 'supplier' | 'both'
   period: ZetroQueryPeriod
 }
 
@@ -902,7 +916,7 @@ interface ZetroTenantDefaults {
 }
 
 interface ZetroBusinessSummary {
-  domain: 'sales' | 'purchase'
+  domain: ZetroEntryDomain
   intent: ZetroBusinessQuery['intent']
   partyName?: string
   period: ZetroQueryPeriod
@@ -921,6 +935,95 @@ interface ZetroBusinessSummary {
     paymentStatus: string
   }>
 }
+
+interface ZetroBillDetail {
+  domain: ZetroEntryDomain
+  period: ZetroQueryPeriod
+  tenantName: string
+  documentNo?: string
+  partyName?: string
+  matchCount: number
+  documents: ZetroBillDocument[]
+  items: ZetroBillItem[]
+}
+
+interface ZetroBillDocument {
+  id: number
+  documentNo: string
+  documentDate: string
+  partyName: string
+  gstin?: string
+  referenceNo?: string
+  supplierBillNo?: string
+  supplierBillDate?: string
+  dueDate?: string
+  subtotal: number
+  discountTotal: number
+  taxableTotal: number
+  taxTotal: number
+  roundOff: number
+  grandTotal: number
+  paidAmount: number
+  balanceAmount: number
+  status: string
+  paymentStatus: string
+  ewayBillNo?: string
+}
+
+interface ZetroBillItem {
+  productName: string
+  description?: string
+  hsnCode?: string
+  quantity: number
+  unit?: string
+  rate: number
+  taxRate: number
+  taxAmount: number
+  lineTotal: number
+}
+
+interface ZetroContactBalance {
+  tenantName: string
+  partyName: string
+  side: 'customer' | 'supplier' | 'both'
+  period: ZetroQueryPeriod
+  contacts: Array<{
+    name: string
+    code?: string
+    gstin?: string
+    openingBalance: number
+    balanceType?: string
+    creditLimit?: number
+  }>
+  sales?: ZetroBalanceSide
+  purchase?: ZetroBalanceSide
+}
+
+interface ZetroBalanceSide {
+  entryCount: number
+  grandTotal: number
+  paidAmount: number
+  balanceAmount: number
+  recent: Array<{
+    documentNo: string
+    documentDate: string
+    partyName: string
+    grandTotal: number
+    balanceAmount: number
+    paymentStatus: string
+  }>
+}
+
+interface ZetroToolResult {
+  ok: boolean
+  status: 'answered' | 'needs_input' | 'not_found'
+  reply: string
+  error?: string
+  entryCount?: number
+  matchCount?: number
+}
+
+type ZetroEntryDomain = 'sales' | 'purchase'
 
 function resolveZetroAudience(input: ZetroAudienceInput = {}, fallback: ZetroMarkdownAudience = 'admin'): ZetroMarkdownAudience {
   const explicit = stringValue(input.audience ?? input['x-zetro-audience'])
@@ -1003,12 +1106,50 @@ function stringValue(value: unknown) {
 
 function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
   const text = message.toLowerCase()
+  const period = resolveQueryPeriod(message)
+  const asksBalance = /\b(balance|outstanding|pending|due|receivable|receivables|payable|payables)\b/.test(text)
+  const asksBillDetail = /\b(invoice|bill|entry|document)\b/.test(text)
+    && /\b(detail|details|status|items|lines|breakup|breakdown|show|find|get|open)\b/.test(text)
   const asksSummary = /\b(summary|summarise|summarize|total|details|report|outstanding|pending|balance)\b/.test(text)
   const asksSales = /\b(sales|sale|invoice|customer)\b/.test(text)
   const asksPurchase = /\b(purchase|purchases|supplier|vendor)\b/.test(text)
+
+  if (asksBalance && (asksSales || asksPurchase || /\b(contact|party|client)\b/.test(text))) {
+    const side: 'customer' | 'supplier' | 'both' = asksPurchase && !asksSales
+      ? 'supplier'
+      : asksSales && !asksPurchase
+        ? 'customer'
+        : /\b(payable|payables|supplier|vendor)\b/.test(text)
+          ? 'supplier'
+          : /\b(receivable|receivables|customer|client)\b/.test(text)
+            ? 'customer'
+            : 'both'
+    const partyName = extractPartyName(message, side === 'supplier' ? 'purchase' : 'sales') ?? extractLoosePartyName(message)
+    return {
+      domain: 'contact',
+      tool: 'contact.balance',
+      intent: side === 'supplier' ? 'supplier.balance' : side === 'customer' ? 'customer.balance' : 'contact.balance',
+      balanceSide: side,
+      partyName,
+      period,
+    }
+  }
+
+  if (asksBillDetail && (asksSales || asksPurchase)) {
+    const domain: ZetroEntryDomain = asksPurchase && !asksSales ? 'purchase' : 'sales'
+    return {
+      domain,
+      tool: domain === 'sales' ? 'sales.bill.detail' : 'purchase.bill.detail',
+      intent: domain === 'sales' ? 'sales.bill.detail' : 'purchase.bill.detail',
+      documentNo: extractDocumentNo(message),
+      partyName: extractPartyName(message, domain) ?? extractLoosePartyName(message),
+      period,
+    }
+  }
+
   if (!asksSummary || (!asksSales && !asksPurchase)) return null
 
-  const domain: 'sales' | 'purchase' = asksPurchase && !asksSales ? 'purchase' : 'sales'
+  const domain: ZetroEntryDomain = asksPurchase && !asksSales ? 'purchase' : 'sales'
   const partyName = extractPartyName(message, domain)
   const tool = domain === 'sales' ? 'sales.summary' : 'purchase.summary'
   return {
@@ -1016,7 +1157,7 @@ function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
     tool,
     intent: `${tool}${partyName ? '.by_contact' : ''}` as ZetroBusinessQuery['intent'],
     partyName,
-    period: resolveQueryPeriod(message),
+    period,
   }
 }
 
@@ -1040,14 +1181,40 @@ function zetroBoundaryReply(message: string, audience: ZetroMarkdownAudience) {
 
 function extractPartyName(message: string, domain: 'sales' | 'purchase') {
   const partyWords = domain === 'sales' ? 'customer|contact|party|client|for|of' : 'supplier|vendor|contact|party|for|of'
-  const match = message.match(new RegExp(`(?:${partyWords})\\s+(.+?)(?:\\s+(?:sales|sale|purchase|purchases|summary|details|report|total|from|for\\s+this|this\\s+month|last\\s+month|today|yesterday)|[?.!,]|$)`, 'i'))
+  const match = message.match(new RegExp(`(?:${partyWords})\\s+(.+?)(?:\\s+(?:sales|sale|purchase|purchases|summary|details|report|total|balance|outstanding|pending|payable|receivable|due|for|of|from|to|this\\s+month|last\\s+month|today|yesterday)|[?.!,]|$)`, 'i'))
   const value = match?.[1]?.trim()
   if (!value) return undefined
   const cleaned = value
-    .replace(/\b(this|last|month|year|summary|details|report|sales|purchase|customer|supplier|contact|party|client|vendor)\b/gi, '')
+    .replace(/\b(this|last|month|year|summary|details|report|sales|purchase|customer|supplier|contact|party|client|vendor|invoice|bill|entry|balance|outstanding|pending|payable|receivable|due|for|of|from|to)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
   return cleaned.length >= 2 ? cleaned.slice(0, 80) : undefined
+}
+
+function extractLoosePartyName(message: string) {
+  const match = message.match(/\b(?:for|of|from|to)\s+(.+?)(?:\s+(?:this month|last month|today|yesterday|current year|this year|details|summary|report|balance|outstanding|pending)|[?.!,]|$)/i)
+  const value = match?.[1]?.trim()
+  if (!value) return undefined
+  const cleaned = value
+    .replace(/\b(customer|supplier|vendor|contact|party|client|invoice|bill|entry|details|summary|balance|outstanding|pending)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned.length >= 2 ? cleaned.slice(0, 80) : undefined
+}
+
+function extractDocumentNo(message: string) {
+  const patterns = [
+    /\b(?:invoice|bill|entry|document)\s*(?:no\.?|number|#)?\s*[:#-]?\s*([A-Za-z0-9][A-Za-z0-9/_.,-]{1,79})/i,
+    /\b(?:no\.?|number|#)\s*[:#-]?\s*([A-Za-z0-9][A-Za-z0-9/_.,-]{1,79})/i,
+    /\b((?:INV|SI|SALE|PB|PUR|PI)[-/]?[A-Za-z0-9][A-Za-z0-9/_.,-]{1,79})\b/i,
+  ]
+  for (const pattern of patterns) {
+    const raw = message.match(pattern)?.[1]?.trim()
+    const cleaned = raw?.replace(/[.,!?]+$/g, '')
+    if (!cleaned || /^(detail|details|status|items|lines|summary|report|for|of|from)$/i.test(cleaned)) continue
+    return cleaned.slice(0, 80)
+  }
+  return undefined
 }
 
 function resolveQueryPeriod(message: string): ZetroQueryPeriod {
@@ -1108,27 +1275,69 @@ async function resolveZetroTenantDefaults(context: TenantRuntimeContext): Promis
   }
 }
 
+async function runZetroReadonlyTool(
+  context: TenantRuntimeContext,
+  query: ZetroBusinessQuery,
+  defaults: ZetroTenantDefaults,
+): Promise<ZetroToolResult> {
+  if (query.tool === 'contact.balance') {
+    if (!query.partyName) {
+      return {
+        ok: false,
+        status: 'needs_input',
+        error: 'contact_name_required',
+        reply: 'Please share the customer, supplier, or contact name so I can check the balance for this tenant.',
+      }
+    }
+    const balance = await readZetroContactBalance(context, query, defaults)
+    return {
+      ok: true,
+      status: balanceEntryCount(balance) ? 'answered' : 'not_found',
+      reply: formatZetroContactBalance(balance),
+      entryCount: balanceEntryCount(balance),
+      matchCount: balance.contacts.length,
+    }
+  }
+
+  if (query.tool === 'sales.bill.detail' || query.tool === 'purchase.bill.detail') {
+    if (!query.documentNo && !query.partyName) {
+      const label = query.domain === 'sales' ? 'sales invoice number or customer name' : 'purchase bill number or supplier name'
+      return {
+        ok: false,
+        status: 'needs_input',
+        error: 'document_or_contact_required',
+        reply: `Please share the ${label}. I can then fetch the matching ${query.domain === 'sales' ? 'sales bill' : 'purchase bill'} details for this tenant.`,
+      }
+    }
+    const detail = await readZetroBillDetail(context, query, defaults)
+    return {
+      ok: true,
+      status: detail.matchCount ? 'answered' : 'not_found',
+      reply: formatZetroBillDetail(detail),
+      entryCount: detail.matchCount,
+      matchCount: detail.matchCount,
+    }
+  }
+
+  const summary = await readZetroBusinessSummary(context, query, defaults)
+  return {
+    ok: true,
+    status: summary.entryCount ? 'answered' : 'not_found',
+    reply: formatZetroBusinessSummary(summary),
+    entryCount: summary.entryCount,
+    matchCount: summary.entryCount,
+  }
+}
+
 async function readZetroBusinessSummary(
   context: TenantRuntimeContext,
   query: ZetroBusinessQuery,
   defaults: ZetroTenantDefaults,
 ): Promise<ZetroBusinessSummary> {
-  const table = query.domain === 'sales' ? 'sales_entries' : 'purchase_entries'
-  const dateColumn = query.domain === 'sales' ? 'invoice_date' : 'entry_date'
-  const documentColumn = query.domain === 'sales' ? 'invoice_no' : 'entry_no'
-  const partyColumn = query.domain === 'sales' ? 'customer_name' : 'supplier_name'
-  const conditions = [
-    sql`tenant_id = ${context.tenant.id}`,
-    sql`deleted_at IS NULL`,
-  ]
-
-  if (defaults.companyId) conditions.push(sql`company_id = ${defaults.companyId}`)
-  if (defaults.accountingYearId) conditions.push(sql`accounting_year_id = ${defaults.accountingYearId}`)
-  if (query.period.start) conditions.push(sql`${sql.raw(dateColumn)} >= ${query.period.start}`)
-  if (query.period.end) conditions.push(sql`${sql.raw(dateColumn)} <= ${query.period.end}`)
-  if (query.partyName) conditions.push(sql`${sql.raw(partyColumn)} LIKE ${`%${query.partyName}%`}`)
-
+  const config = zetroEntryConfig(query.domain === 'purchase' ? 'purchase' : 'sales')
+  const conditions = zetroEntryConditions(context, defaults, config, query.period, query.partyName)
   const whereSql = sql.join(conditions, sql` AND `)
+
   const summaryResult = await sql<{
     entry_count: string | number | null
     grand_total: string | number | null
@@ -1140,7 +1349,7 @@ async function readZetroBusinessSummary(
       COALESCE(SUM(grand_total), 0) AS grand_total,
       COALESCE(SUM(paid_amount), 0) AS paid_amount,
       COALESCE(SUM(balance_amount), 0) AS balance_amount
-    FROM ${sql.raw(table)}
+    FROM ${sql.raw(config.table)}
     WHERE ${whereSql}
   `.execute(context.database)
 
@@ -1154,28 +1363,26 @@ async function readZetroBusinessSummary(
     payment_status: string
   }>`
     SELECT
-      ${sql.raw(documentColumn)} AS document_no,
-      ${sql.raw(dateColumn)} AS document_date,
-      ${sql.raw(partyColumn)} AS party_name,
+      ${sql.raw(config.documentColumn)} AS document_no,
+      ${sql.raw(config.dateColumn)} AS document_date,
+      ${sql.raw(config.partyColumn)} AS party_name,
       grand_total,
       balance_amount,
       status,
       payment_status
-    FROM ${sql.raw(table)}
+    FROM ${sql.raw(config.table)}
     WHERE ${whereSql}
-    ORDER BY ${sql.raw(dateColumn)} DESC, id DESC
+    ORDER BY ${sql.raw(config.dateColumn)} DESC, id DESC
     LIMIT 5
   `.execute(context.database)
 
   const summary = summaryResult.rows[0]
   return {
-    domain: query.domain,
+    domain: config.domain,
     intent: query.intent,
     partyName: query.partyName,
     period: {
-      label: defaults.accountingYearName && query.period.label === 'current accounting year'
-        ? defaults.accountingYearName
-        : query.period.label,
+      label: zetroPeriodLabel(query.period, defaults),
       start: query.period.start,
       end: query.period.end,
     },
@@ -1194,6 +1401,341 @@ async function readZetroBusinessSummary(
       paymentStatus: row.payment_status,
     })),
   }
+}
+
+interface ZetroEntryConfig {
+  domain: ZetroEntryDomain
+  table: 'sales_entries' | 'purchase_entries'
+  itemTable: 'sales_entry_items' | 'purchase_entry_items'
+  itemParentColumn: 'sales_entry_id' | 'purchase_entry_id'
+  dateColumn: 'invoice_date' | 'entry_date'
+  documentColumn: 'invoice_no' | 'entry_no'
+  partyColumn: 'customer_name' | 'supplier_name'
+  gstinColumn: 'customer_gstin' | 'supplier_gstin'
+}
+
+function zetroEntryConfig(domain: ZetroEntryDomain): ZetroEntryConfig {
+  return domain === 'sales'
+    ? {
+      domain,
+      table: 'sales_entries',
+      itemTable: 'sales_entry_items',
+      itemParentColumn: 'sales_entry_id',
+      dateColumn: 'invoice_date',
+      documentColumn: 'invoice_no',
+      partyColumn: 'customer_name',
+      gstinColumn: 'customer_gstin',
+    }
+    : {
+      domain,
+      table: 'purchase_entries',
+      itemTable: 'purchase_entry_items',
+      itemParentColumn: 'purchase_entry_id',
+      dateColumn: 'entry_date',
+      documentColumn: 'entry_no',
+      partyColumn: 'supplier_name',
+      gstinColumn: 'supplier_gstin',
+    }
+}
+
+function zetroEntryConditions(
+  context: TenantRuntimeContext,
+  defaults: ZetroTenantDefaults,
+  config: ZetroEntryConfig,
+  period: ZetroQueryPeriod,
+  partyName?: string,
+) {
+  const conditions = [
+    sql`tenant_id = ${context.tenant.id}`,
+    sql`deleted_at IS NULL`,
+  ]
+  if (defaults.companyId) conditions.push(sql`company_id = ${defaults.companyId}`)
+  if (defaults.accountingYearId) conditions.push(sql`accounting_year_id = ${defaults.accountingYearId}`)
+  if (period.start) conditions.push(sql`${sql.raw(config.dateColumn)} >= ${period.start}`)
+  if (period.end) conditions.push(sql`${sql.raw(config.dateColumn)} <= ${period.end}`)
+  if (partyName) conditions.push(sql`${sql.raw(config.partyColumn)} LIKE ${`%${partyName}%`}`)
+  return conditions
+}
+
+function zetroPeriodLabel(period: ZetroQueryPeriod, defaults: ZetroTenantDefaults) {
+  return defaults.accountingYearName && period.label === 'current accounting year'
+    ? defaults.accountingYearName
+    : period.label
+}
+
+async function readZetroBillDetail(
+  context: TenantRuntimeContext,
+  query: ZetroBusinessQuery,
+  defaults: ZetroTenantDefaults,
+): Promise<ZetroBillDetail> {
+  const config = zetroEntryConfig(query.domain === 'purchase' ? 'purchase' : 'sales')
+  const conditions = zetroEntryConditions(context, defaults, config, query.period, query.partyName)
+  if (query.documentNo) {
+    conditions.push(sql`${sql.raw(config.documentColumn)} LIKE ${`%${query.documentNo}%`}`)
+  }
+  const whereSql = sql.join(conditions, sql` AND `)
+  const purchaseColumns = config.domain === 'purchase'
+    ? sql`, supplier_bill_no, supplier_bill_date`
+    : sql`, NULL AS supplier_bill_no, NULL AS supplier_bill_date`
+
+  const rows = await sql<{
+    id: number
+    document_no: string
+    document_date: string
+    party_name: string
+    gstin: string | null
+    reference_no: string | null
+    supplier_bill_no: string | null
+    supplier_bill_date: string | null
+    due_date: string | null
+    subtotal: string | number
+    discount_total: string | number
+    taxable_total: string | number
+    tax_total: string | number
+    round_off: string | number
+    grand_total: string | number
+    paid_amount: string | number
+    balance_amount: string | number
+    status: string
+    payment_status: string
+    eway_bill_no: string | null
+  }>`
+    SELECT
+      id,
+      ${sql.raw(config.documentColumn)} AS document_no,
+      ${sql.raw(config.dateColumn)} AS document_date,
+      ${sql.raw(config.partyColumn)} AS party_name,
+      ${sql.raw(config.gstinColumn)} AS gstin,
+      reference_no,
+      due_date,
+      subtotal,
+      discount_total,
+      taxable_total,
+      tax_total,
+      round_off,
+      grand_total,
+      paid_amount,
+      balance_amount,
+      status,
+      payment_status,
+      eway_bill_no
+      ${purchaseColumns}
+    FROM ${sql.raw(config.table)}
+    WHERE ${whereSql}
+    ORDER BY ${sql.raw(config.dateColumn)} DESC, id DESC
+    LIMIT 10
+  `.execute(context.database)
+
+  const documents = rows.rows.map((row) => ({
+    id: Number(row.id),
+    documentNo: row.document_no,
+    documentDate: String(row.document_date),
+    partyName: row.party_name,
+    gstin: stringValue(row.gstin),
+    referenceNo: stringValue(row.reference_no),
+    supplierBillNo: stringValue(row.supplier_bill_no),
+    supplierBillDate: stringValue(row.supplier_bill_date),
+    dueDate: stringValue(row.due_date),
+    subtotal: numberValue(row.subtotal),
+    discountTotal: numberValue(row.discount_total),
+    taxableTotal: numberValue(row.taxable_total),
+    taxTotal: numberValue(row.tax_total),
+    roundOff: numberValue(row.round_off),
+    grandTotal: numberValue(row.grand_total),
+    paidAmount: numberValue(row.paid_amount),
+    balanceAmount: numberValue(row.balance_amount),
+    status: row.status,
+    paymentStatus: row.payment_status,
+    ewayBillNo: stringValue(row.eway_bill_no),
+  }))
+
+  const items = documents.length === 1
+    ? await readZetroBillItems(context, config, documents[0].id)
+    : []
+
+  return {
+    domain: config.domain,
+    period: {
+      label: zetroPeriodLabel(query.period, defaults),
+      start: query.period.start,
+      end: query.period.end,
+    },
+    tenantName: context.tenant.name,
+    documentNo: query.documentNo,
+    partyName: query.partyName,
+    matchCount: documents.length,
+    documents,
+    items,
+  }
+}
+
+async function readZetroBillItems(context: TenantRuntimeContext, config: ZetroEntryConfig, documentId: number): Promise<ZetroBillItem[]> {
+  const rows = await sql<{
+    product_name: string
+    description: string | null
+    hsn_code: string | null
+    quantity: string | number
+    unit: string | null
+    rate: string | number
+    tax_rate: string | number
+    tax_amount: string | number
+    line_total: string | number
+  }>`
+    SELECT
+      product_name,
+      description,
+      hsn_code,
+      quantity,
+      unit,
+      rate,
+      tax_rate,
+      tax_amount,
+      line_total
+    FROM ${sql.raw(config.itemTable)}
+    WHERE ${sql.raw(config.itemParentColumn)} = ${documentId}
+    ORDER BY sort_order ASC, id ASC
+    LIMIT 20
+  `.execute(context.database)
+
+  return rows.rows.map((row) => ({
+    productName: row.product_name,
+    description: stringValue(row.description),
+    hsnCode: stringValue(row.hsn_code),
+    quantity: numberValue(row.quantity),
+    unit: stringValue(row.unit),
+    rate: numberValue(row.rate),
+    taxRate: numberValue(row.tax_rate),
+    taxAmount: numberValue(row.tax_amount),
+    lineTotal: numberValue(row.line_total),
+  }))
+}
+
+async function readZetroContactBalance(
+  context: TenantRuntimeContext,
+  query: ZetroBusinessQuery,
+  defaults: ZetroTenantDefaults,
+): Promise<ZetroContactBalance> {
+  const side = query.balanceSide ?? 'both'
+  const partyName = query.partyName ?? ''
+  const [contacts, sales, purchase] = await Promise.all([
+    readZetroContactMatches(context, partyName),
+    side === 'customer' || side === 'both' ? readZetroBalanceSide(context, 'sales', defaults, query.period, partyName) : Promise.resolve(undefined),
+    side === 'supplier' || side === 'both' ? readZetroBalanceSide(context, 'purchase', defaults, query.period, partyName) : Promise.resolve(undefined),
+  ])
+
+  return {
+    tenantName: context.tenant.name,
+    partyName,
+    side,
+    period: {
+      label: zetroPeriodLabel(query.period, defaults),
+      start: query.period.start,
+      end: query.period.end,
+    },
+    contacts,
+    sales,
+    purchase,
+  }
+}
+
+async function readZetroContactMatches(context: TenantRuntimeContext, partyName: string): Promise<ZetroContactBalance['contacts']> {
+  const rows = await sql<{
+    name: string
+    code: string | null
+    gstin: string | null
+    opening_balance: string | number | null
+    balance_type: string | null
+    credit_limit: string | number | null
+  }>`
+    SELECT
+      name,
+      code,
+      gstin,
+      opening_balance,
+      balance_type,
+      credit_limit
+    FROM masters_contacts
+    WHERE deleted_at IS NULL
+      AND name LIKE ${`%${partyName}%`}
+    ORDER BY name ASC
+    LIMIT 5
+  `.execute(context.database)
+
+  return rows.rows.map((row) => ({
+    name: row.name,
+    code: stringValue(row.code),
+    gstin: stringValue(row.gstin),
+    openingBalance: numberValue(row.opening_balance),
+    balanceType: stringValue(row.balance_type),
+    creditLimit: row.credit_limit == null ? undefined : numberValue(row.credit_limit),
+  }))
+}
+
+async function readZetroBalanceSide(
+  context: TenantRuntimeContext,
+  domain: ZetroEntryDomain,
+  defaults: ZetroTenantDefaults,
+  period: ZetroQueryPeriod,
+  partyName: string,
+): Promise<ZetroBalanceSide> {
+  const config = zetroEntryConfig(domain)
+  const conditions = zetroEntryConditions(context, defaults, config, period, partyName)
+  const whereSql = sql.join(conditions, sql` AND `)
+  const summaryResult = await sql<{
+    entry_count: string | number | null
+    grand_total: string | number | null
+    paid_amount: string | number | null
+    balance_amount: string | number | null
+  }>`
+    SELECT
+      COUNT(*) AS entry_count,
+      COALESCE(SUM(grand_total), 0) AS grand_total,
+      COALESCE(SUM(paid_amount), 0) AS paid_amount,
+      COALESCE(SUM(balance_amount), 0) AS balance_amount
+    FROM ${sql.raw(config.table)}
+    WHERE ${whereSql}
+  `.execute(context.database)
+
+  const recentResult = await sql<{
+    document_no: string
+    document_date: string
+    party_name: string
+    grand_total: string | number
+    balance_amount: string | number
+    payment_status: string
+  }>`
+    SELECT
+      ${sql.raw(config.documentColumn)} AS document_no,
+      ${sql.raw(config.dateColumn)} AS document_date,
+      ${sql.raw(config.partyColumn)} AS party_name,
+      grand_total,
+      balance_amount,
+      payment_status
+    FROM ${sql.raw(config.table)}
+    WHERE ${whereSql}
+    ORDER BY ${sql.raw(config.dateColumn)} DESC, id DESC
+    LIMIT 5
+  `.execute(context.database)
+
+  const summary = summaryResult.rows[0]
+  return {
+    entryCount: numberValue(summary?.entry_count),
+    grandTotal: numberValue(summary?.grand_total),
+    paidAmount: numberValue(summary?.paid_amount),
+    balanceAmount: numberValue(summary?.balance_amount),
+    recent: recentResult.rows.map((row) => ({
+      documentNo: row.document_no,
+      documentDate: String(row.document_date),
+      partyName: row.party_name,
+      grandTotal: numberValue(row.grand_total),
+      balanceAmount: numberValue(row.balance_amount),
+      paymentStatus: row.payment_status,
+    })),
+  }
+}
+
+function balanceEntryCount(balance: ZetroContactBalance) {
+  return (balance.sales?.entryCount ?? 0) + (balance.purchase?.entryCount ?? 0)
 }
 
 function formatZetroBusinessSummary(summary: ZetroBusinessSummary) {
@@ -1221,6 +1763,106 @@ function formatZetroBusinessSummary(summary: ZetroBusinessSummary) {
   }
 
   return lines.join('\n')
+}
+
+function formatZetroBillDetail(detail: ZetroBillDetail) {
+  const title = detail.domain === 'sales' ? 'Sales bill details' : 'Purchase bill details'
+  const target = detail.documentNo ? ` for ${detail.documentNo}` : detail.partyName ? ` for ${detail.partyName}` : ''
+  const lines = [
+    `**${title}${target}**`,
+    `Period: ${detail.period.label}${detail.period.start ? ` (${detail.period.start} to ${detail.period.end})` : ''}`,
+  ]
+
+  if (!detail.matchCount) {
+    lines.push('', 'No matching bill was found for this tenant and period. Please check the bill number or contact name.')
+    return lines.join('\n')
+  }
+
+  if (detail.documents.length > 1) {
+    lines.push('', `I found ${detail.documents.length} matching documents. Please share the exact bill number if you want item-level details.`, '')
+    lines.push('**Matching documents**')
+    for (const doc of detail.documents) {
+      lines.push(`- ${doc.documentDate} / ${doc.documentNo} / ${doc.partyName}: ${formatMoney(doc.grandTotal)} (${doc.paymentStatus}, balance ${formatMoney(doc.balanceAmount)})`)
+    }
+    return lines.join('\n')
+  }
+
+  const doc = detail.documents[0]
+  lines.push(
+    '',
+    `Document: ${doc.documentNo}`,
+    `Date: ${doc.documentDate}`,
+    `Party: ${doc.partyName}${doc.gstin ? ` (${doc.gstin})` : ''}`,
+  )
+  if (doc.supplierBillNo) lines.push(`Supplier bill: ${doc.supplierBillNo}${doc.supplierBillDate ? ` dated ${doc.supplierBillDate}` : ''}`)
+  if (doc.referenceNo) lines.push(`Reference: ${doc.referenceNo}`)
+  if (doc.dueDate) lines.push(`Due date: ${doc.dueDate}`)
+  lines.push(
+    `Subtotal: ${formatMoney(doc.subtotal)}`,
+    `Discount: ${formatMoney(doc.discountTotal)}`,
+    `Taxable: ${formatMoney(doc.taxableTotal)}`,
+    `Tax: ${formatMoney(doc.taxTotal)}`,
+    `Round off: ${formatMoney(doc.roundOff)}`,
+    `Total: ${formatMoney(doc.grandTotal)}`,
+    `Paid: ${formatMoney(doc.paidAmount)}`,
+    `Balance: ${formatMoney(doc.balanceAmount)}`,
+    `Status: ${doc.status} / ${doc.paymentStatus}`,
+  )
+  if (doc.ewayBillNo) lines.push(`E-way bill: ${doc.ewayBillNo}`)
+
+  if (detail.items.length) {
+    lines.push('', '**Items**')
+    for (const item of detail.items) {
+      const unit = item.unit ? ` ${item.unit}` : ''
+      const hsn = item.hsnCode ? `, HSN ${item.hsnCode}` : ''
+      lines.push(`- ${item.productName}: ${item.quantity}${unit} x ${formatMoney(item.rate)}${hsn}, tax ${item.taxRate}% (${formatMoney(item.taxAmount)}), line ${formatMoney(item.lineTotal)}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function formatZetroContactBalance(balance: ZetroContactBalance) {
+  const label = balance.side === 'customer' ? 'Customer balance' : balance.side === 'supplier' ? 'Supplier balance' : 'Contact balance'
+  const lines = [
+    `**${label} for ${balance.partyName}**`,
+    `Period: ${balance.period.label}${balance.period.start ? ` (${balance.period.start} to ${balance.period.end})` : ''}`,
+  ]
+
+  if (balance.contacts.length) {
+    lines.push('', '**Matched contacts**')
+    for (const contact of balance.contacts) {
+      const opening = contact.openingBalance ? `, opening ${formatMoney(contact.openingBalance)}${contact.balanceType ? ` ${contact.balanceType}` : ''}` : ''
+      const limit = contact.creditLimit ? `, credit limit ${formatMoney(contact.creditLimit)}` : ''
+      lines.push(`- ${contact.name}${contact.gstin ? ` (${contact.gstin})` : ''}${opening}${limit}`)
+    }
+  }
+
+  if (balance.sales) appendBalanceSide(lines, 'Sales receivable', balance.sales)
+  if (balance.purchase) appendBalanceSide(lines, 'Purchase payable', balance.purchase)
+
+  if (!balanceEntryCount(balance)) {
+    lines.push('', 'No matching sales or purchase balance was found for this tenant and period. Please check the contact name or ask with a wider period.')
+  }
+
+  return lines.join('\n')
+}
+
+function appendBalanceSide(lines: string[], title: string, side: ZetroBalanceSide) {
+  lines.push(
+    '',
+    `**${title}**`,
+    `Entries: ${side.entryCount}`,
+    `Total: ${formatMoney(side.grandTotal)}`,
+    `Paid: ${formatMoney(side.paidAmount)}`,
+    `Balance: ${formatMoney(side.balanceAmount)}`,
+  )
+  if (side.recent.length) {
+    lines.push('Recent documents:')
+    for (const row of side.recent) {
+      lines.push(`- ${row.documentDate} / ${row.documentNo} / ${row.partyName}: ${formatMoney(row.grandTotal)} (${row.paymentStatus}, balance ${formatMoney(row.balanceAmount)})`)
+    }
+  }
 }
 
 function numberValue(value: unknown) {

@@ -73,6 +73,15 @@ fi
 
 cd "$APP_DIR"
 
+mkdir -p "$APP_DIR/storage/public" "$APP_DIR/apps/frontend/public"
+if [ -L "$APP_DIR/apps/frontend/public/storage" ] && [ ! -e "$APP_DIR/apps/frontend/public/storage" ]; then
+  rm -f "$APP_DIR/apps/frontend/public/storage"
+fi
+if [ ! -e "$APP_DIR/apps/frontend/public/storage" ]; then
+  ln -s "$APP_DIR/storage/public" "$APP_DIR/apps/frontend/public/storage" 2>/dev/null || \
+    mkdir -p "$APP_DIR/apps/frontend/public/storage"
+fi
+
 if [ "${GIT_PULL_ON_START:-false}" = "true" ]; then
   log_step "Pulling latest changes for $GIT_BRANCH"
   git fetch origin "$GIT_BRANCH"

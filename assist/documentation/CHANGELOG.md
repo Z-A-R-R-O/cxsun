@@ -2,13 +2,40 @@
 
 ## Version State
 
-- **Current version:** `1.0.96`
-- **Release tag:** `v-1.0.96`
-- **Changelog label:** `v 1.0.96`
+- **Current version:** `1.0.99`
+- **Release tag:** `v-1.0.99`
+- **Changelog label:** `v 1.0.99`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.99
+
+### [v 1.0.99] 2026-06-13 7:47 pm - ZETRO backend query connection layer
+
+- Bumped workspace version to 1.0.99
+## v-1.0.98
+
+### [v 1.0.98] 2026-06-13 4:05 pm - cloud reinstall startup fix
+
+- Bumped workspace version to 1.0.98
+- Added streaming database setup logs for master migrations, master seeds, tenant provisioning, and migration queue enqueue during cloud/local Docker reinstall.
+- Added a 30s tenant provisioning timeout to the migration manager setup path and runtime startup provisioner so a stuck tenant database step fails with a concrete message instead of leaving deploy logs idle.
+- Lazily loaded tenant database provisioning from the migration manager to keep setup away from startup import cycles.
+- Recreated the frontend public storage link during container startup so Linux Docker volumes do not inherit a broken Windows junction at `apps/frontend/public/storage`.
+- Verified local Docker reinstall with MariaDB and Redis: dependency install, database setup, backend build, frontend TypeScript build, Vite bundle, backend health, frontend preview, and super-admin login smoke test.
+
+## v-1.0.97
+
+### [v 1.0.97] 2026-06-13 3:48 pm - ZETRO business query APIs
+
+- Bumped workspace version to 1.0.97
+- Added tenant-aware ZETRO read-only tools for customer/contact balances and supplier/contact balances.
+- Added sales invoice detail and purchase bill detail lookup tools with item-line output when a single matching document is found.
+- Added clarification handling so ZETRO asks for a contact name, invoice number, or bill number before running underspecified data queries.
+- Kept all ZETRO business lookups scoped to the authenticated tenant, default company, and default accounting year when available.
+- Updated ZETRO user, system, policy, admin review docs, and the execution task list for the expanded backend query layer.
 
 ## v-1.0.96
 

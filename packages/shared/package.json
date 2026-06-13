@@ -1,6 +1,6 @@
 {
   "name": "@cxsun/shared",
-  "version": "1.0.96",
+  "version": "1.0.99",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",

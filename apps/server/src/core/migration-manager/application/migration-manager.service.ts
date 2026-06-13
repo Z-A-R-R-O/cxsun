@@ -4,11 +4,12 @@ import {
   migratePlatformDatabase,
   seedPlatformDatabase,
 } from '../../../infrastructure/database/connection.js'
-import { provisionTenantDatabase } from '../../../infrastructure/tenant-database/tenant-database.connection.js'
 import { createMigrationEvent } from '../domain/migration-manager.events.js'
 import type { MigrationCommand, MigrationRunResult, MigrationStepResult } from '../domain/migration-manager.types.js'
 import { MigrationManagerEventBus } from './migration-manager-event-bus.js'
 import { MigrationManagerRepository } from '../infrastructure/migration-manager.repository.js'
+
+const DEFAULT_TENANT_PROVISION_TIMEOUT_MS = 30_000
 
 export class MigrationManagerService {
   constructor(
@@ -67,12 +68,9 @@ export class MigrationManagerService {
 
   private async fresh(command: MigrationCommand, results: MigrationStepResult[]) {
     if (command.target === 'master' || command.target === 'all') {
-      await dropPlatformDatabase()
-      results.push({ step: 'master.drop', ok: true, message: 'Master MariaDB database recreated.' })
-      await migratePlatformDatabase()
-      results.push({ step: 'master.migrate', ok: true, message: 'Platform migrations completed.' })
-      await seedPlatformDatabase()
-      results.push({ step: 'master.seed', ok: true, message: 'Platform seeds completed.' })
+      await this.runStep(results, 'master.drop', 'Master MariaDB database recreated.', () => dropPlatformDatabase())
+      await this.runStep(results, 'master.migrate', 'Platform migrations completed.', () => migratePlatformDatabase())
+      await this.runStep(results, 'master.seed', 'Platform seeds completed.', () => seedPlatformDatabase())
     }
 
     if (command.target === 'tenant' || command.target === 'all') {
@@ -83,10 +81,8 @@ export class MigrationManagerService {
 
   private async setup(command: MigrationCommand, results: MigrationStepResult[]) {
     if (command.target === 'master' || command.target === 'all') {
-      await migratePlatformDatabase()
-      results.push({ step: 'master.migrate', ok: true, message: 'Platform migrations completed.' })
-      await seedPlatformDatabase()
-      results.push({ step: 'master.seed', ok: true, message: 'Platform seeds completed.' })
+      await this.runStep(results, 'master.migrate', 'Platform migrations completed.', () => migratePlatformDatabase())
+      await this.runStep(results, 'master.seed', 'Platform seeds completed.', () => seedPlatformDatabase())
     }
 
     if (command.target === 'tenant' || command.target === 'all') {
@@ -96,8 +92,7 @@ export class MigrationManagerService {
 
   private async migrate(command: MigrationCommand, results: MigrationStepResult[]) {
     if (command.target === 'master' || command.target === 'all') {
-      await migratePlatformDatabase()
-      results.push({ step: 'master.migrate', ok: true, message: 'Platform migrations completed.' })
+      await this.runStep(results, 'master.migrate', 'Platform migrations completed.', () => migratePlatformDatabase())
     }
 
     if (command.target === 'tenant' || command.target === 'all') {
@@ -107,8 +102,7 @@ export class MigrationManagerService {
 
   private async seed(command: MigrationCommand, results: MigrationStepResult[]) {
     if (command.target === 'master' || command.target === 'all') {
-      await seedPlatformDatabase()
-      results.push({ step: 'master.seed', ok: true, message: 'Platform seeds completed.' })
+      await this.runStep(results, 'master.seed', 'Platform seeds completed.', () => seedPlatformDatabase())
     }
 
     if (command.target === 'tenant' || command.target === 'all') {
@@ -120,17 +114,25 @@ export class MigrationManagerService {
     const tenants = await this.targetTenants(command)
 
     for (const tenant of tenants) {
-      await this.repository.dropTenantDatabase(tenant)
-      results.push({ step: `tenant.${tenant.slug}.drop`, ok: true, message: `${tenant.db_name} dropped.` })
+      await this.runStep(results, `tenant.${tenant.slug}.drop`, `${tenant.db_name} dropped.`, () =>
+        this.repository.dropTenantDatabase(tenant),
+      )
     }
   }
 
   private async provisionTenant(command: MigrationCommand, results: MigrationStepResult[]) {
     const tenants = await this.targetTenants(command)
+    const timeoutMs = tenantProvisionTimeoutMs()
 
     for (const tenant of tenants) {
-      await provisionTenantDatabase(tenant)
-      results.push({ step: `tenant.${tenant.slug}.setup`, ok: true, message: `${tenant.db_name} migrated and seeded.` })
+      await this.runStep(results, `tenant.${tenant.slug}.setup`, `${tenant.db_name} migrated and seeded.`, async () => {
+        const { provisionTenantDatabase } = await import('../../../infrastructure/tenant-database/tenant-database.connection.js')
+        await withTimeout(
+          provisionTenantDatabase(tenant),
+          timeoutMs,
+          `Tenant "${tenant.slug}" database provisioning timed out after ${timeoutMs}ms.`,
+        )
+      })
     }
   }
 
@@ -149,7 +151,53 @@ export class MigrationManagerService {
   }
 
   private async enqueue(command: MigrationCommand) {
+    console.log('[db:setup] START migration.enqueue')
     await migratePlatformDatabase()
     await this.queue.enqueue({ type: 'database.migration', payload: { ...command } })
+    console.log('[db:setup] DONE migration.enqueue')
   }
+
+  private async runStep(
+    results: MigrationStepResult[],
+    step: string,
+    successMessage: string,
+    task: () => Promise<unknown>,
+  ) {
+    console.log(`[db:setup] START ${step}`)
+    const startedAt = Date.now()
+
+    try {
+      await task()
+      const duration = Math.round((Date.now() - startedAt) / 1000)
+      console.log(`[db:setup] DONE ${step} (${duration}s)`)
+      results.push({ step, ok: true, message: successMessage })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `${step} failed.`
+      const duration = Math.round((Date.now() - startedAt) / 1000)
+      console.error(`[db:setup] FAIL ${step} (${duration}s): ${message}`)
+      results.push({ step, ok: false, message })
+      throw error
+    }
+  }
+}
+
+function tenantProvisionTimeoutMs() {
+  const configured = Number.parseInt(process.env.TENANT_PROVISION_TIMEOUT_MS ?? '', 10)
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_TENANT_PROVISION_TIMEOUT_MS
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      (value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timeout)
+        reject(error)
+      },
+    )
+  })
 }
