@@ -1,9 +1,10 @@
 import type { FastifyRequest } from 'fastify'
-import { Body, Param, Query, Req } from '../../core/decorators/http-params.js'
+import { Body, Headers, Param, Query, Req } from '../../core/decorators/http-params.js'
 import { Controller, Delete, Get, Post } from '../../core/decorators/controller.js'
 import { UseGuards } from '../../core/decorators/guards.js'
 import { Inject } from '../../core/decorators/inject.js'
 import { AuthAnyGuard } from '../../core/guards/auth-any.guard.js'
+import type { TenantRequestHeaders } from '../../core/tenant/tenant-context.service.js'
 import type { AuthTokenPayload } from '../../infrastructure/auth/jwt.js'
 import { AgentOsService, type ZetroApiConnectionInput, type ZetroChatInput, type ZetroSearchInput } from './agent-os.service.js'
 
@@ -54,6 +55,14 @@ export class AgentOsController {
     return this.agentOs.clearConversations(zetroAudienceFromRequest(request))
   }
 
+  @Get('query-insights')
+  @UseGuards(AuthAnyGuard)
+  queryInsights(@Req() request: ZetroAuthenticatedRequest) {
+    const audience = zetroAudienceFromRequest(request)
+    if (!isZetroAdminRole(audience.userRole)) return zetroAdminOnlyResponse('review ZETRO query logs')
+    return this.agentOs.queryInsights()
+  }
+
   @Post('api-connection/test')
   @UseGuards(AuthAnyGuard)
   testApiConnection(@Body() body: ZetroApiConnectionInput, @Req() request: ZetroAuthenticatedRequest) {
@@ -85,8 +94,8 @@ export class AgentOsController {
 
   @Post('chat')
   @UseGuards(AuthAnyGuard)
-  chat(@Body() body: ZetroChatInput, @Req() request: ZetroAuthenticatedRequest) {
-    return this.agentOs.chat({ ...(body ?? {}), ...zetroAudienceFromRequest(request) })
+  chat(@Body() body: ZetroChatInput, @Req() request: ZetroAuthenticatedRequest, @Headers() headers: TenantRequestHeaders) {
+    return this.agentOs.chat({ ...(body ?? {}), ...zetroAudienceFromRequest(request) }, headers ?? {})
   }
 }
 

@@ -10,7 +10,7 @@ import type { AccountBookEntryInput, AccountBookType, AccountLedgerInput, Accoun
 @Injectable()
 export class AccountsService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(AccountsRepository) private readonly accounts: AccountsRepository,
     @Inject(AccountsEngineRepository) private readonly engine: AccountsEngineRepository,
     @Inject(AccountsEntryPostingService) private readonly entryPostings: AccountsEntryPostingService,

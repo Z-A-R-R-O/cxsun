@@ -23,6 +23,21 @@ CURRENT_STEP="starting"
 mkdir -p "$UPDATE_LOG_DIR"
 exec > >(tee -a "$UPDATE_LOG_PATH") 2>&1
 
+log_step() {
+  printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+}
+
+run_step() {
+  CURRENT_STEP="$1"
+  shift
+
+  log_step "START: ${CURRENT_STEP}"
+  step_started_at="$(date +%s)"
+  "$@"
+  step_finished_at="$(date +%s)"
+  echo "DONE: ${CURRENT_STEP} ($((step_finished_at - step_started_at))s)"
+}
+
 write_status() {
   phase="$1"
   ok="$2"
@@ -146,6 +161,8 @@ CURRENT_STEP="stop frontend port ${FRONTEND_PORT}"
 kill_port "$FRONTEND_PORT" "frontend"
 
 CURRENT_STEP="database backup"
+log_step "START: ${CURRENT_STEP}"
+backup_started_at="$(date +%s)"
 BACKUP_OUTPUT="$(mktemp)"
 npm run db:backup 2>&1 | tee "$BACKUP_OUTPUT"
 BACKUP_PATH="$(sed -n 's/^Database backup completed:[[:space:]]*//p' "$BACKUP_OUTPUT" | tail -n 1)"
@@ -157,41 +174,29 @@ if [ -n "$BACKUP_PATH" ]; then
 fi
 rm -f "$BACKUP_OUTPUT"
 echo "Backup ID: ${BACKUP_ID:-not-captured}"
+backup_finished_at="$(date +%s)"
+echo "DONE: ${CURRENT_STEP} ($((backup_finished_at - backup_started_at))s)"
 write_status "updating" "false" ""
 
-CURRENT_STEP="git fetch ${REMOTE}/${BRANCH}"
-git fetch "$REMOTE" "$BRANCH" --prune
+run_step "git fetch ${REMOTE}/${BRANCH}" git fetch "$REMOTE" "$BRANCH" --prune
 TARGET_COMMIT="$(git rev-parse "${REMOTE}/${BRANCH}")"
 echo "Target commit: ${TARGET_COMMIT:-unknown}"
-CURRENT_STEP="git reset --hard ${REMOTE}/${BRANCH}"
-git reset --hard "${REMOTE}/${BRANCH}"
-CURRENT_STEP="git clean -fd"
-git clean -fd
+run_step "git reset --hard ${REMOTE}/${BRANCH}" git reset --hard "${REMOTE}/${BRANCH}"
+run_step "git clean -fd" git clean -fd
 
 echo "Removing old build output"
-CURRENT_STEP="remove build output"
-rm -rf build
+run_step "remove build output" rm -rf build
 
 if [ -f package-lock.json ]; then
-  CURRENT_STEP="npm install -g npm@latest"
-  npm install -g npm@latest
-  CURRENT_STEP="npm update --workspaces"
-  npm update --workspaces
-  CURRENT_STEP="npm ci"
-  npm ci
+  run_step "npm install -g npm@latest" npm install -g npm@latest
+  run_step "npm ci" npm ci
 else
-  CURRENT_STEP="npm install -g npm@latest"
-  npm install -g npm@latest
-  CURRENT_STEP="npm update --workspaces"
-  npm update --workspaces
-  CURRENT_STEP="npm install"
-  npm install
+  run_step "npm install -g npm@latest" npm install -g npm@latest
+  run_step "npm install" npm install
 fi
 
-CURRENT_STEP="npm run db:migrate"
-npm run db:migrate
-CURRENT_STEP="npm run build:active"
-npm run build:active
+run_step "npm run db:migrate" npm run db:migrate
+run_step "npm run build:active" npm run build:active
 CURRENT_STEP="npm run restart:active"
 write_status "completed" "true" ""
-npm run restart:active
+run_step "npm run restart:active" npm run restart:active

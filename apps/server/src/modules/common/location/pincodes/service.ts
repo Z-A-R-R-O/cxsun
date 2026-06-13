@@ -13,7 +13,7 @@ export class PincodesCommonService {
   private readonly definition = pincodesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(PincodesCommonRepository) private readonly records: PincodesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

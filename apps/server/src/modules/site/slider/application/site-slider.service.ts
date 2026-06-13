@@ -9,7 +9,7 @@ import { SiteSliderEventBus } from './site-slider-event-bus.js'
 @Injectable()
 export class SiteSliderService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(SiteSliderRepository) private readonly sliders: SiteSliderRepository,
     @Inject(SiteSliderEventBus) private readonly events: SiteSliderEventBus,
   ) {}

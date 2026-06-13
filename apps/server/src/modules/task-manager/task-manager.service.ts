@@ -8,7 +8,7 @@ import type { TaskManagerAttachmentInput, TaskManagerCampaignInput, TaskManagerC
 @Injectable()
 export class TaskManagerService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(TaskManagerRepository) private readonly tasks: TaskManagerRepository,
     @Inject(MasterQueueService) private readonly queue: MasterQueueService,
   ) {}

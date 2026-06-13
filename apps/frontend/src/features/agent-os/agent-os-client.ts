@@ -193,6 +193,33 @@ export interface ZetroLearnResponse {
   learned: number
   source_count: number
   query: string | null
+  error?: string
+}
+
+export interface ZetroQueryInsightCount {
+  key: string
+  count: number
+}
+
+export interface ZetroQueryInsightRecent {
+  id: number
+  event_type: string
+  intent: string
+  tool: string | null
+  question: string
+  normalized_question: string
+  tenant: string | null
+  role: string | null
+  status: string
+  created_at: string
+}
+
+export interface ZetroQueryInsightsResponse {
+  ok: boolean
+  recent: ZetroQueryInsightRecent[]
+  intent_counts: ZetroQueryInsightCount[]
+  question_counts: ZetroQueryInsightCount[]
+  tool_counts: ZetroQueryInsightCount[]
 }
 
 export async function getAgentOsStatus(session: AuthSession) {
@@ -217,7 +244,11 @@ export async function getZetroRead() {
     throw new Error(`ZETRO read screen failed with status ${response.status}.`)
   }
 
-  return (await response.json()) as ZetroReadResponse
+  const payload = (await response.json()) as ZetroReadResponse & { error?: string }
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO read screen failed.")
+  }
+  return payload
 }
 
 export async function searchZetroGuide(query: string) {
@@ -235,7 +266,11 @@ export async function searchZetroGuide(query: string) {
     throw new Error(`ZETRO guide search failed with status ${response.status}.`)
   }
 
-  return (await response.json()) as ZetroSearchResponse
+  const payload = (await response.json()) as ZetroSearchResponse & { error?: string }
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO guide search failed.")
+  }
+  return payload
 }
 
 export async function getZetroApiConnection(session: AuthSession) {
@@ -248,7 +283,11 @@ export async function getZetroApiConnection(session: AuthSession) {
     throw new Error(`ZETRO API connection failed with status ${response.status}.`)
   }
 
-  return (await response.json()) as ZetroApiConnectionResponse
+  const payload = (await response.json()) as ZetroApiConnectionResponse & { error?: string }
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO API connection failed.")
+  }
+  return payload
 }
 
 export async function testZetroApiConnection(
@@ -266,7 +305,11 @@ export async function testZetroApiConnection(
     throw new Error(`ZETRO API test failed with status ${response.status}.`)
   }
 
-  return (await response.json()) as ZetroApiConnectionTestResponse
+  const payload = (await response.json()) as ZetroApiConnectionTestResponse
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO API test failed.")
+  }
+  return payload
 }
 
 export async function saveZetroApiConnection(
@@ -403,7 +446,28 @@ export async function learnZetroDocs(session: AuthSession, query?: string) {
     throw new Error(`ZETRO learn failed with status ${response.status}.`)
   }
 
-  return (await response.json()) as ZetroLearnResponse
+  const payload = (await response.json()) as ZetroLearnResponse
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO learn failed.")
+  }
+  return payload
+}
+
+export async function getZetroQueryInsights(session: AuthSession) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/query-insights`, {
+    cache: "no-store",
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session) },
+  })
+
+  if (!response.ok) {
+    throw new Error(`ZETRO query insights failed with status ${response.status}.`)
+  }
+
+  const payload = (await response.json()) as ZetroQueryInsightsResponse
+  if (!payload.ok) {
+    throw new Error("Only super-admin can review ZETRO query insights.")
+  }
+  return payload
 }
 
 export function zetroAudience(session: AuthSession) {

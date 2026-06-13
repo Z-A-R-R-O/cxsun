@@ -13,7 +13,7 @@ export class MonthsCommonService {
   private readonly definition = monthsCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(MonthsCommonRepository) private readonly records: MonthsCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

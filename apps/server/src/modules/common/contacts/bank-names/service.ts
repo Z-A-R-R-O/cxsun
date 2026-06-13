@@ -13,7 +13,7 @@ export class BankNamesCommonService {
   private readonly definition = bankNamesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(BankNamesCommonRepository) private readonly records: BankNamesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

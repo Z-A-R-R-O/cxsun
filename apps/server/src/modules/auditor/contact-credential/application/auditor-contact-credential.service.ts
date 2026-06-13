@@ -7,7 +7,7 @@ import { AuditorContactCredentialRepository } from '../infrastructure/persistenc
 @Injectable()
 export class AuditorContactCredentialService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AuditorContactCredentialRepository) private readonly credentials: AuditorContactCredentialRepository,
   ) {}
 

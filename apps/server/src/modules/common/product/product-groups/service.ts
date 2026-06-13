@@ -13,7 +13,7 @@ export class ProductGroupsCommonService {
   private readonly definition = productGroupsCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(ProductGroupsCommonRepository) private readonly records: ProductGroupsCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

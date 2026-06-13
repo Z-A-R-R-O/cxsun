@@ -12,7 +12,7 @@ import { SalesEntryEventBus } from './sales-entry-event-bus.js'
 @Injectable()
 export class SalesEntryService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(SalesEntryRepository) private readonly salesEntries: SalesEntryRepository,
     @Inject(QuotationEntryRepository) private readonly quotationEntries: QuotationEntryRepository,
     @Inject(SalesEntryEventBus) private readonly events: SalesEntryEventBus,

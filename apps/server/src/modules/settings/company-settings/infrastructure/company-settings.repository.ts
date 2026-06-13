@@ -6,7 +6,7 @@ import type { CompanySettingInput, CompanySettingKey, CompanySettingRecord } fro
 
 @Injectable()
 export class CompanySettingsRepository {
-  constructor(@Inject(TenantContextService) private readonly tenantContext: TenantContextService) {}
+  constructor(@Inject(() => TenantContextService) private readonly tenantContext: TenantContextService) {}
 
   async get(headers: TenantRequestHeaders, companyId: string, key: CompanySettingKey) {
     const context = await this.tenantContext.resolve(headers, 'company.manage')

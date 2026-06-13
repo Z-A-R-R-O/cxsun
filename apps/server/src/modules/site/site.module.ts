@@ -1,7 +1,6 @@
 import 'reflect-metadata'
 import { Module } from '../../core/decorators/module.js'
 import { DomainResolutionEngine } from '../../core/tenant-domain/application/domain-resolution.engine.js'
-import { TenantContextService } from '../../core/tenant/tenant-context.service.js'
 import { TenantRepository } from '../../core/tenant/infrastructure/tenant.repository.js'
 import { TenantDomainRepository } from '../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
 import { MasterQueueService } from '../../infrastructure/queue/master-queue.service.js'
@@ -19,7 +18,6 @@ import { SiteSliderController } from './slider/interface/site-slider.controller.
     AuthRepository,
     TenantRepository,
     TenantDomainRepository,
-    TenantContextService,
     MasterQueueService,
     DomainResolutionEngine,
     SiteSliderEventBus,

@@ -13,7 +13,7 @@ export class ContactMasterService {
   private readonly definition = contactMasterDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(ContactMasterRepository) private readonly records: ContactMasterRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

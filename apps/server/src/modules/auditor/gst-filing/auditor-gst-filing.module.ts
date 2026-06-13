@@ -1,5 +1,4 @@
 import { Module } from '../../../core/decorators/module.js'
-import { TenantContextService } from '../../../core/tenant/tenant-context.service.js'
 import { MasterQueueService } from '../../../infrastructure/queue/master-queue.service.js'
 import { TenantRepository } from '../../../core/tenant/infrastructure/tenant.repository.js'
 import { TenantDomainRepository } from '../../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
@@ -14,7 +13,6 @@ import { AuditorGstFilingsV1Controller } from './interface/http/auditor-gst-fili
     AuthRepository,
     TenantRepository,
     TenantDomainRepository,
-    TenantContextService,
     MasterQueueService,
     AuditorGstFilingRepository,
     AuditorGstFilingService,

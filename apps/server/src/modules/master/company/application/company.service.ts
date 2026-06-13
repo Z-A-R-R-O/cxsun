@@ -9,7 +9,7 @@ import { CompanyRepository } from '../infrastructure/company.repository.js'
 @Injectable()
 export class CompanyService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(CompanyRepository) private readonly companies: CompanyRepository,
   ) {}
 

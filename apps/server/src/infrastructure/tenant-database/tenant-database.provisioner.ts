@@ -3,6 +3,8 @@ import { getDatabase } from '../database/connection.js'
 import { provisionTenantDatabase } from './tenant-database.connection.js'
 import type { Tenant } from '../../core/tenant/domain/tenant.types.js'
 
+const TENANT_PROVISION_TIMEOUT_MS = 10_000
+
 export interface TenantProvisionResult {
   tenant: string
   database: string
@@ -22,18 +24,16 @@ export class TenantDatabaseProvisioner {
       .orderBy('code', 'asc')
       .execute() as Tenant[]
 
-    const results: TenantProvisionResult[] = []
-
-    for (const tenant of tenants) {
-      results.push(await this.provision(tenant))
-    }
-
-    return results
+    return Promise.all(tenants.map((tenant) => this.provision(tenant)))
   }
 
   async provision(tenant: Tenant): Promise<TenantProvisionResult> {
     try {
-      await provisionTenantDatabase(tenant)
+      await withTimeout(
+        provisionTenantDatabase(tenant),
+        TENANT_PROVISION_TIMEOUT_MS,
+        `Tenant database provisioning timed out after ${TENANT_PROVISION_TIMEOUT_MS}ms.`,
+      )
       return { tenant: tenant.slug, database: tenant.db_name, ok: true }
     } catch (error) {
       return {
@@ -44,4 +44,20 @@ export class TenantDatabaseProvisioner {
       }
     }
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      (value) => {
+        clearTimeout(timeout)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timeout)
+        reject(error)
+      },
+    )
+  })
 }

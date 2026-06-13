@@ -57,13 +57,14 @@ export class Container {
 
     if (injectTokens.length > 0) {
       return injectTokens.map((token) => {
-        if (!token) {
+        const resolvedToken = resolveInjectToken(token)
+        if (!resolvedToken) {
           throw new Error(
             `Missing @Inject() for a parameter of ${target.name}. ` +
               'Add @Inject(ServiceName) to each constructor parameter.',
           )
         }
-        return this.get(token)
+        return this.get(resolvedToken)
       })
     }
 
@@ -80,4 +81,11 @@ export class Container {
       return this.get(param)
     })
   }
+}
+
+function resolveInjectToken(token: any): ClassProvider | undefined {
+  if (typeof token === 'function' && !token.prototype) {
+    return token()
+  }
+  return token
 }

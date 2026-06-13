@@ -16,7 +16,7 @@ import { TConnectRepository } from '../infrastructure/tconnect.repository.js'
 @Injectable()
 export class TConnectService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(TConnectRepository) private readonly tConnect: TConnectRepository,
     @Inject(TConnectPublicRepository) private readonly publicMarketplace: TConnectPublicRepository,
   ) {}

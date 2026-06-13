@@ -88,6 +88,11 @@ const superAdminNav = [
     defaultOpen: true,
     items: [
       { title: "Base", url: "#", icon: Bot, page: "app-agent-os-base" },
+      { title: "Providers", url: "#", icon: Database, page: "app-agent-os-providers" },
+      { title: "Knowledge", url: "#", icon: Database, page: "app-agent-os-knowledge" },
+      { title: "Agents", url: "#", icon: Bot, page: "app-agent-os-agents" },
+      { title: "Queries", url: "#", icon: Send, page: "app-agent-os-queries" },
+      { title: "Updates", url: "#", icon: ListRestart, page: "app-agent-os-updates" },
     ],
   },
   {

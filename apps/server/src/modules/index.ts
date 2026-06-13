@@ -44,13 +44,13 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
 
 @Module({
   imports: [
+    AuthModule,
     HomeModule,
     HealthModule,
     SiteModule,
     SystemUpdateModule,
     QueueManagerModule,
     DatabaseManagerModule,
-    AuthModule,
     TenantModule,
     TenantDomainModule,
     AppSetupModule,

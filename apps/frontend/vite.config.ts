@@ -15,6 +15,10 @@ const defaultAllowedHosts = [
   'www.tenkasisports.com',
   'tirupurdirect.com',
   'www.tirupurdirect.com',
+  'tirupurconnect.com',
+  'www.tirupurconnect.com',
+  '.logicx.in',
+  '.techmedia.in',
   'thetirupurtextiles.com',
   'www.thetirupurtextiles.com',
   'dealodeal.com',
@@ -71,7 +75,11 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       tailwindcss(),
       react(),
-      babel({ presets: [reactCompilerPreset()] }),
+      babel({
+        include: /apps[\\/]frontend[\\/]src[\\/].*\.[jt]sx?$/,
+        presets: [reactCompilerPreset()],
+        sourceMap: false,
+      }),
     ],
     build: {
       outDir: '../../build/frontend',

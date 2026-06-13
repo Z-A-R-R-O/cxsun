@@ -65,14 +65,16 @@ Current dashboard rule: status cards and the multi-agent stack must come from ba
 
 Current chat rule: ZETRO conversations persist through `conversations` and `agent_logs`. The chat window should expose full-window history, dated saved chats, load previous chat, new chat from history, clear current chat, clear all history, rotating empty-state prompts, bottom model selection, and automatic scroll-to-latest without adding a duplicate chat storage table.
 
-Current behavior rule: ZETRO has restricted user mode and super-admin mode. Tenant admins, managers, staff, users, and non-super platform roles get approved user/policy docs only, no model/provider/API details, no recommended technical updates, and no internal `assist/` or broad roadmap context. Only `super-admin` can see provider setup, model controls, docs indexing, recommended updates, Agent OS setup context, and global history. Restricted legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions must stay general and direct the user to qualified professional review for final decisions.
+Current behavior rule: ZETRO has restricted user mode and super-admin mode. Tenant admins, managers, staff, users, and non-super platform roles get approved user/policy docs only, no model/provider/API details, no recommended technical updates, and no internal `assist/` or broad roadmap context. Runtime retrieval is restricted to `ZRO/ZETRO` docs only. Only `super-admin` can see provider setup, model controls, docs indexing, recommended updates, Agent OS setup context, and global history. Restricted legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions must stay general and direct the user to qualified professional review for final decisions.
+
+Current business-data rule: ZETRO may answer approved read-only tenant queries for sales summaries, purchase summaries, and customer/supplier/contact-filtered summaries. Every business-data answer must resolve authenticated tenant context, filter by tenant, avoid mutation, and log the mapped intent for super-admin review.
 
 Dedicated ZETRO docs live under `ZRO/ZETRO/docs`:
 
-- `user`: product help and workflow guidance.
+- `user`: product help, workflow guidance, and safe business-query examples.
 - `admin`: super-admin provider, docs indexing, and console behavior.
 - `policy`: audience behavior, data boundaries, restrictions, and refusal rules.
-- `system`: indexing/source classification notes.
+- `system`: indexing/source classification notes and read-only query tool contracts.
 
 ## Suggested Backend Placement
 

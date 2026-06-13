@@ -13,7 +13,7 @@ export class WarehousesCommonService {
   private readonly definition = warehousesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(WarehousesCommonRepository) private readonly records: WarehousesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

@@ -7,7 +7,7 @@ import type { CrmDealInput, CrmLeadInput, CrmPipelineInput, CrmPipelineStageInpu
 @Injectable()
 export class CrmService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(CrmRepository) private readonly crm: CrmRepository,
   ) {}
 

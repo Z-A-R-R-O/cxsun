@@ -10,7 +10,7 @@ import { PurchaseReceiptEventBus } from './purchase-receipt-event-bus.js'
 @Injectable()
 export class PurchaseReceiptService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(PurchaseReceiptRepository) private readonly purchaseReceipts: PurchaseReceiptRepository,
     @Inject(PurchaseReceiptEventBus) private readonly events: PurchaseReceiptEventBus,
   ) {}

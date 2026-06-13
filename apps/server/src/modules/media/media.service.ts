@@ -22,7 +22,7 @@ const storageRoot = path.resolve(
 @Injectable()
 export class MediaService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(MediaRepository) private readonly media: MediaRepository,
     @Inject(MasterQueueService) private readonly queue: MasterQueueService,
   ) {}

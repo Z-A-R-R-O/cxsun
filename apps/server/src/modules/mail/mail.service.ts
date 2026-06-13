@@ -9,7 +9,7 @@ import type { MailComposeInput, MailSettingsInput } from './mail.types.js'
 @Injectable()
 export class MailService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(MailRepository) private readonly mail: MailRepository,
     @Inject(MasterQueueService) private readonly queue: MasterQueueService,
   ) {}

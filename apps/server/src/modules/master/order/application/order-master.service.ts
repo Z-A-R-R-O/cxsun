@@ -13,7 +13,7 @@ export class OrderMasterService {
   private readonly definition = orderMasterDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(OrderMasterRepository) private readonly records: OrderMasterRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

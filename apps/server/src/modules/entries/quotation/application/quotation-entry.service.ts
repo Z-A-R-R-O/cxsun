@@ -14,7 +14,7 @@ type ConsolidatedSalesItem = NonNullable<SalesEntryInput['items']>[number]
 @Injectable()
 export class QuotationEntryService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(QuotationEntryRepository) private readonly quotationEntries: QuotationEntryRepository,
     @Inject(SalesEntryRepository) private readonly salesEntries: SalesEntryRepository,
     @Inject(QuotationEntryEventBus) private readonly events: QuotationEntryEventBus,

@@ -9,7 +9,7 @@ import type { PaymentEntryInput } from './payment-entry.types.js'
 @Injectable()
 export class PaymentEntryService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(PaymentEntryRepository) private readonly payments: PaymentEntryRepository,
     @Inject(EntryDocumentMailService) private readonly documentMail: EntryDocumentMailService,
   ) {}

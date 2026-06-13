@@ -68,6 +68,21 @@ export AUTO_SEED_TENANT_DOMAINS="${AUTO_SEED_TENANT_DOMAINS:-false}"
 export SKIP_MARIADB_WAIT="${SKIP_MARIADB_WAIT:-true}"
 export HEALTH_WAIT_SECONDS="${HEALTH_WAIT_SECONDS:-900}"
 
+log_step() {
+  printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
+}
+
+run_step() {
+  label="$1"
+  shift
+
+  log_step "START: $label"
+  step_started_at="$(date +%s)"
+  "$@"
+  step_finished_at="$(date +%s)"
+  echo "DONE: $label ($((step_finished_at - step_started_at))s)"
+}
+
 echo "Using compose file: $COMPOSE_FILE"
 echo "Repository: $GIT_REPO_URL"
 echo "Branch: $GIT_BRANCH"
@@ -305,13 +320,13 @@ fi
 
 echo "Building Docker image cxsun:v1"
 if [ "$FRESH_INSTALL" = "true" ]; then
-  docker compose -f "$COMPOSE_FILE" build --no-cache cxsun
+  run_step "Docker image build without cache" docker compose -f "$COMPOSE_FILE" build --no-cache cxsun
 else
-  docker compose -f "$COMPOSE_FILE" build cxsun
+  run_step "Docker image build" docker compose -f "$COMPOSE_FILE" build cxsun
 fi
 restore_storage_volume
 cleanup_storage_backup
-seed_workspace_volume
+run_step "Seed app workspace volume" seed_workspace_volume
 
 echo "Checking CXMedia"
 if docker ps --format '{{.Names}}' | grep -Fx cxmedia >/dev/null 2>&1; then
@@ -326,7 +341,7 @@ else
 fi
 
 echo "Starting CXSun"
-docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps cxsun
+run_step "Start CXSun container" docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps cxsun
 
 echo "Waiting for backend health"
 LOG_FOLLOW_PID=""
@@ -359,6 +374,10 @@ for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
     echo "Backend health check failed after ${HEALTH_WAIT_SECONDS}s." >&2
     docker compose -f "$COMPOSE_FILE" logs --tail=160 cxsun || true
     exit 1
+  fi
+
+  if [ "$attempt" -eq 1 ] || [ $((attempt % 6)) -eq 0 ]; then
+    echo "Waiting for backend health... attempt ${attempt}/${HEALTH_ATTEMPTS}"
   fi
 
   sleep 5

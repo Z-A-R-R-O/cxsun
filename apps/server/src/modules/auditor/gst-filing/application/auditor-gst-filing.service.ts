@@ -8,7 +8,7 @@ import type { AuditorGstFilingUpsertInput } from '../domain/entities/auditor-gst
 @Injectable()
 export class AuditorGstFilingService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AuditorGstFilingRepository) private readonly filings: AuditorGstFilingRepository,
   ) {}
 

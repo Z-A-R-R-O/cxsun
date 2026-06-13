@@ -15,7 +15,7 @@ import type {
 @Injectable()
 export class FrappeService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(FrappeRepository) private readonly frappe: FrappeRepository,
     @Inject(MasterQueueService) private readonly queue: MasterQueueService,
   ) {}

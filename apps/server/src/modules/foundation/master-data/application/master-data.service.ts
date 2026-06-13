@@ -10,7 +10,7 @@ import { MasterRecordEventBus } from '../../master-record/application/services/m
 @Injectable()
 export class MasterDataService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(MasterRecordRepository) private readonly records: MasterRecordRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

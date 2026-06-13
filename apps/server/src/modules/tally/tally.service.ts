@@ -28,7 +28,7 @@ type AnyRow = Record<string, any>
 @Injectable()
 export class TallyService {
   constructor(
-    @Inject(TenantContextService) private readonly tenants: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenants: TenantContextService,
     @Inject(TallyRepository) private readonly tally: TallyRepository,
     @Inject(MasterQueueService) private readonly queue: MasterQueueService,
     @Inject(ContactMasterRepository) private readonly contacts: ContactMasterRepository,

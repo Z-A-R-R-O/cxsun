@@ -8,7 +8,7 @@ import { StockLedgerEventBus } from './stock-ledger-event-bus.js'
 @Injectable()
 export class StockLedgerService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(StockLedgerRepository) private readonly stockLedger: StockLedgerRepository,
     @Inject(StockLedgerEventBus) private readonly events: StockLedgerEventBus,
   ) {}

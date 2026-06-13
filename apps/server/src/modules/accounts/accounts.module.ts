@@ -1,5 +1,4 @@
 import { Module } from '../../core/decorators/module.js'
-import { TenantContextService } from '../../core/tenant/tenant-context.service.js'
 import { AuthRepository } from '../auth/infrastructure/auth.repository.js'
 import { TenantRepository } from '../../core/tenant/infrastructure/tenant.repository.js'
 import { TenantDomainRepository } from '../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
@@ -16,7 +15,6 @@ import { DocumentNumberRepository } from '../settings/document-settings/infrastr
     AuthRepository,
     TenantRepository,
     TenantDomainRepository,
-    TenantContextService,
     DocumentNumberRepository,
     AccountsEngineRepository,
     AccountsEntryPostingService,

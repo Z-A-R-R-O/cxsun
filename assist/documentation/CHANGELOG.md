@@ -2,13 +2,28 @@
 
 ## Version State
 
-- **Current version:** `1.0.94`
-- **Release tag:** `v-1.0.94`
-- **Changelog label:** `v 1.0.94`
+- **Current version:** `1.0.95`
+- **Release tag:** `v-1.0.95`
+- **Changelog label:** `v 1.0.95`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.95
+
+### [v 1.0.95] 2026-06-13 3:01 pm - deploy build observability and startup logs
+
+- Bumped workspace version to 1.0.95
+- Added a timed active build runner so `npm run build:active` prints backend, frontend, and total build durations.
+- Added frontend build phase logging for the TypeScript project build and Vite production bundle.
+- Scoped the frontend React Compiler Babel pass to `apps/frontend/src` and disabled Babel source-map generation for that pass.
+- Added timed deploy steps to `update.sh`, including backup, Git sync, install, migration, build, and restart phases.
+- Removed the redundant `npm update --workspaces` before `npm ci` in `update.sh` to avoid slow lockfile-discarded install work.
+- Added timed cloud reinstall steps for Docker image build, workspace seeding, container start, dependency install, database setup, build cleanup, and active build.
+- Added backend/frontend process IDs and recurring backend health-wait progress logs during container startup.
+- Verified active production build timing locally: backend build around 11s, frontend TypeScript around 23s, Vite bundle around 36s, total around 70s.
+- Verified shell syntax for `update.sh`, `.container/setup-cloud.sh`, and `.container/entrypoint.sh`.
 
 ## v-1.0.94
 
@@ -23,6 +38,12 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Added server-side Agent OS guards so status, chat, provider setup, docs indexing, and history endpoints use the verified auth token role instead of trusting client headers.
 - Tightened full ZETRO access to `super-admin` only; tenant admins/managers and non-super platform roles now receive the same restricted user behavior.
 - Added ZETRO to the super-admin side menu and wired it to the existing `/sa/app-agent-os-base` page.
+- Locked ZETRO runtime documentation search to the dedicated `ZRO/ZETRO` docs boundary.
+- Added approved read-only tenant query handling for sales and purchase summaries, including contact/customer/supplier filters.
+- Added super-admin query-insights review for recent client questions, mapped intents, and repeated query patterns.
+- Added strict client-chat boundaries against source code, files, tables, prompts, provider/model details, event bus details, and unrelated topics.
+- Split the super-admin ZETRO base screen into focused pages for Base, Providers, Knowledge, Agents, Queries, and Updates.
+- Fixed ZETRO fetch flow failures by removing circular tenant-context DI metadata reads, bounding tenant provisioning during startup, and making Learn/API test payload errors surface correctly in the frontend.
 - Forced public docs/search into public audience mode and blocked normal users from global conversation history until user-scoped memory exists.
 - Verified backend and frontend typechecks after the role-aware docs and behavior changes.
 

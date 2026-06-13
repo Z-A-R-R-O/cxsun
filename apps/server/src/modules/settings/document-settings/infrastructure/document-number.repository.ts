@@ -10,7 +10,7 @@ type DynamicDatabase = Record<string, Record<string, unknown>>
 
 @Injectable()
 export class DocumentNumberRepository {
-  constructor(@Inject(TenantContextService) private readonly tenantContext: TenantContextService) {}
+  constructor(@Inject(() => TenantContextService) private readonly tenantContext: TenantContextService) {}
 
   async list(headers: TenantRequestHeaders, contextInput: DocumentNumberContext) {
     const context = await this.tenantContext.resolve(headers, 'company.manage')

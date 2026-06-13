@@ -10,7 +10,7 @@ import { GstComplianceRepository } from '../infrastructure/gst-compliance.reposi
 @Injectable()
 export class GstComplianceService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(GstComplianceRepository) private readonly compliance: GstComplianceRepository,
   ) {}
 

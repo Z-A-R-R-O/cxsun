@@ -45,8 +45,10 @@ Scope:
 - Read-only.
 - Uses dedicated `ZRO/ZETRO/docs` user and policy docs for user-facing answers.
 - Uses admin/system docs only for the `super-admin` audience.
-- Uses developer `assist` and broad ZRO planning docs only for super-admin implementation surfaces.
+- Runtime retrieval is restricted to `ZRO/ZETRO` docs only; `assist` and broad ZRO planning files are not chat knowledge sources.
 - No record mutation.
+- Business data answers use approved read-only tenant query tools only.
+- Sales and purchase summaries must resolve through the authenticated tenant context and filter by tenant.
 - Logs model, prompt category, retrieval chunks, answer status, and errors.
 - Hides model, provider, API, prompt, log, roadmap, and developer details from all non-super-admin users, including tenant admins.
 - Keeps legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions to general workflow guidance with qualified professional review for final decisions.
@@ -63,6 +65,8 @@ ZETRO uses a dedicated docs boundary at `ZRO/ZETRO/docs`:
 | `docs/system` | Super-admin only | Indexing and implementation notes. |
 
 All non-super-admin roles see one ZETRO assistant and must not see model names, provider names, API status, recommended technical updates, internal ZRO planning, or `assist/` developer notes. Only `super-admin` can see setup and model/provider controls.
+
+ZETRO can answer approved tenant business-data questions such as sales summaries, purchase summaries, and contact-filtered summaries. Unknown data questions must be refused or mapped to the nearest safe supported query.
 
 ## MVP v2 - Site Operator Agent
 

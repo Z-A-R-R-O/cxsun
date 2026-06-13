@@ -9,7 +9,7 @@ import { auditorClientDefinition } from '../domain/value-objects/auditor-client.
 @Injectable()
 export class AuditorClientService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AuditorClientRepository) private readonly records: AuditorClientRepository,
   ) {}
 

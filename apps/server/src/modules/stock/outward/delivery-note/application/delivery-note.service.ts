@@ -10,7 +10,7 @@ import { DeliveryNoteEventBus } from './delivery-note-event-bus.js'
 @Injectable()
 export class DeliveryNoteService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(DeliveryNoteRepository) private readonly deliveryNotes: DeliveryNoteRepository,
     @Inject(DeliveryNoteEventBus) private readonly events: DeliveryNoteEventBus,
   ) {}

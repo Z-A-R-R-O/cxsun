@@ -11,7 +11,7 @@ import { PurchaseEntryEventBus } from './purchase-entry-event-bus.js'
 @Injectable()
 export class PurchaseEntryService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(PurchaseEntryRepository) private readonly purchaseEntries: PurchaseEntryRepository,
     @Inject(PurchaseEntryEventBus) private readonly events: PurchaseEntryEventBus,
     @Inject(EntryDocumentMailService) private readonly documentMail: EntryDocumentMailService,

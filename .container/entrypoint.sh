@@ -42,6 +42,17 @@ log_step() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
 }
 
+run_step() {
+  label="$1"
+  shift
+
+  log_step "START: $label"
+  step_started_at="$(date +%s)"
+  "$@"
+  step_finished_at="$(date +%s)"
+  echo "DONE: $label ($((step_finished_at - step_started_at))s)"
+}
+
 mkdir -p "$(dirname "$APP_DIR")"
 
 if [ ! -d "$APP_DIR/.git" ]; then
@@ -250,37 +261,34 @@ if [ "$QUEUE_RUNTIME_ENABLED" != "false" ]; then
   done
 fi
 
-log_step "Installing dependencies"
 if [ -f package-lock.json ]; then
-  npm ci --no-audit --fund=false
+  run_step "Installing dependencies with npm ci" npm ci --no-audit --fund=false
 else
-  npm install --no-audit --fund=false
+  run_step "Installing dependencies with npm install" npm install --no-audit --fund=false
 fi
 
-log_step "Running database setup"
-npm -w apps/server run db:setup
+run_step "Running database setup" npm -w apps/server run db:setup
 
 if [ "$INSTALL_RUN_TESTS" = "true" ]; then
-  log_step "Running tenant safety tests"
-  npm run test:tenant-static
-  npm run test:tenant-isolation
+  run_step "Running tenant static safety test" npm run test:tenant-static
+  run_step "Running tenant isolation safety test" npm run test:tenant-isolation
 else
   log_step "Skipping tenant safety tests during install"
 fi
 
-log_step "Cleaning previous build output"
-rm -rf build apps/server/dist apps/frontend/dist
+run_step "Cleaning previous build output" rm -rf build apps/server/dist apps/frontend/dist
 
-log_step "Building CXSun"
-npm run build:active
+run_step "Building CXSun" npm run build:active
 
 log_step "Starting backend on port $SERVER_PORT"
 PORT="$SERVER_PORT" HOST="${HOST:-0.0.0.0}" npm -w apps/server run start &
 SERVER_PID="$!"
+echo "Backend process PID: $SERVER_PID"
 
 log_step "Starting frontend preview on port $FRONTEND_PORT"
 VITE_PORT="$FRONTEND_PORT" npm -w apps/frontend run preview -- --host 0.0.0.0 --port "$FRONTEND_PORT" &
 FRONTEND_PID="$!"
+echo "Frontend preview process PID: $FRONTEND_PID"
 
 shutdown() {
   echo "Stopping CXSun processes"
@@ -304,6 +312,10 @@ for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
     echo "Backend health failed after ${HEALTH_WAIT_SECONDS}s" >&2
     shutdown
     exit 1
+  fi
+
+  if [ "$attempt" -eq 1 ] || [ $((attempt % 10)) -eq 0 ]; then
+    echo "Waiting for backend health... attempt ${attempt}/${HEALTH_ATTEMPTS}"
   fi
 
   sleep 2

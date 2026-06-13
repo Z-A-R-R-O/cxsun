@@ -11,7 +11,7 @@ import { ExportSalesEntryEventBus } from './export-sales-entry-event-bus.js'
 @Injectable()
 export class ExportSalesEntryService {
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(ExportSalesEntryRepository) private readonly exportSalesEntries: ExportSalesEntryRepository,
     @Inject(ExportSalesEntryEventBus) private readonly events: ExportSalesEntryEventBus,
     @Inject(EntryDocumentMailService) private readonly documentMail: EntryDocumentMailService,

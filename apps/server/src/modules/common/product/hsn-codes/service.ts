@@ -13,7 +13,7 @@ export class HsnCodesCommonService {
   private readonly definition = hsnCodesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(HsnCodesCommonRepository) private readonly records: HsnCodesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

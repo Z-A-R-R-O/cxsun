@@ -13,7 +13,7 @@ export class StockRejectionTypesCommonService {
   private readonly definition = stockRejectionTypesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(StockRejectionTypesCommonRepository) private readonly records: StockRejectionTypesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

@@ -10,7 +10,7 @@ import { AuthRepository, type RequiredAdminUserInput, type RequiredPlatformUserI
 export class UserManagerService {
   constructor(
     @Inject(AuthRepository) private readonly users: AuthRepository,
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
 
   listAdminUsers(headers: TenantRequestHeaders) {

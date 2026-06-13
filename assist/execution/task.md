@@ -45,6 +45,11 @@
 - [x] Polish ZETRO chat box with adaptive glass UI, signature hero, rotating empty-state prompt, bottom model picker, and auto-scroll to newest messages.
 - [x] Split ZETRO behavior into restricted user/super-admin audiences with hidden model/provider details for all non-super-admin roles and super-admin-only recommended updates.
 - [x] Add legal/compliance/secret restriction behavior and dedicated policy docs.
-- [ ] Add RAG ingestion/search for trusted platform docs.
+- [x] Restrict ZETRO runtime search to the dedicated `ZRO/ZETRO` docs boundary.
+- [x] Add tenant-aware read-only sales and purchase summary query tools.
+- [x] Add super-admin query-insights review for repeated client questions and mapped intents.
+- [x] Split the super-admin ZETRO base screen into focused pages for Base, Providers, Knowledge, Agents, Queries, and Updates.
+- [x] Fix ZETRO fetch/learn flow errors by restoring backend startup, bounding tenant provisioning, and surfacing failed Learn/API payloads.
+- [ ] Expand approved read-only tenant query tools after review patterns are clear.
 - [ ] Verify with platform FAQ prompts after docs are indexed.
 - [x] Verify a live provider response through the saved OpenRouter connection.

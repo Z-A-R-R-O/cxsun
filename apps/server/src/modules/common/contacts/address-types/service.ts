@@ -13,7 +13,7 @@ export class AddressTypesCommonService {
   private readonly definition = addressTypesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AddressTypesCommonRepository) private readonly records: AddressTypesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

@@ -1,4 +1,6 @@
 import { Injectable } from '../../core/decorators/injectable.js'
+import { Inject } from '../../core/decorators/inject.js'
+import { TenantContextService, type TenantRequestHeaders, type TenantRuntimeContext } from '../../core/tenant/tenant-context.service.js'
 import { getDatabase } from '../../infrastructure/database/connection.js'
 import { settings } from '../../framework/config/index.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
@@ -51,6 +53,8 @@ type ZetroAudienceInput = {
 
 @Injectable()
 export class AgentOsService {
+  constructor(@Inject(() => TenantContextService) private readonly tenantContext: TenantContextService) {}
+
   async status(input: ZetroAudienceInput = {}) {
     const audience = resolveZetroAudience(input)
     const adminAudience = isAdminAudience(audience)
@@ -124,7 +128,7 @@ export class AgentOsService {
       sources: documents.map((document) => ({
         id: document.id,
         label: document.label,
-        path: document.path,
+        path: adminAudience ? document.path : '',
         purpose: document.purpose,
         category: document.category,
         title: document.title,
@@ -310,6 +314,53 @@ export class AgentOsService {
       .executeTakeFirst()
 
     return { ok: true, cleared: Number(result.numUpdatedRows ?? 0) }
+  }
+
+  async queryInsights() {
+    const rows = await getDatabase()
+      .selectFrom('agent_logs')
+      .select(['id', 'event_type', 'input_summary', 'output_summary', 'metadata', 'status', 'created_at'])
+      .where('agent_id', '=', 'zetro-helper')
+      .where('event_type', 'in', ['chat.business_query', 'chat.restricted', 'chat.out_of_scope', 'chat.openrouter', 'chat.missing_api_key'])
+      .orderBy('created_at', 'desc')
+      .limit(500)
+      .execute()
+
+    const intentCounts = new Map<string, number>()
+    const questionCounts = new Map<string, number>()
+    const toolCounts = new Map<string, number>()
+    const mappedRows = rows.map((row) => {
+      const metadata = parseJsonRecord(row.metadata)
+      const businessQuery = recordValue(metadata.businessQuery)
+      const normalizedQuestion = normalizeQuestion(typeof metadata.fullInput === 'string' ? metadata.fullInput : row.input_summary ?? '')
+      const intent = stringValue(businessQuery.intent) ?? stringValue(metadata.queryIntent) ?? row.event_type
+      const tool = stringValue(businessQuery.tool) ?? stringValue(metadata.queryTool) ?? null
+      increment(intentCounts, intent)
+      increment(questionCounts, normalizedQuestion)
+      if (tool) increment(toolCounts, tool)
+
+      return {
+        id: Number(row.id),
+        event_type: row.event_type,
+        intent,
+        tool,
+        question: typeof metadata.fullInput === 'string' ? metadata.fullInput : row.input_summary ?? '',
+        normalized_question: normalizedQuestion,
+        tenant: stringValue(businessQuery.tenantSlug) ?? null,
+        role: stringValue(metadata.audience) ?? null,
+        status: row.status,
+        created_at: row.created_at,
+      }
+    })
+    const recent = mappedRows.slice(0, 50)
+
+    return {
+      ok: true,
+      recent,
+      intent_counts: topCounts(intentCounts),
+      question_counts: topCounts(questionCounts),
+      tool_counts: topCounts(toolCounts),
+    }
   }
 
   async testApiConnection(input: ZetroApiConnectionInput) {
@@ -508,7 +559,10 @@ export class AgentOsService {
       ok: true,
       query,
       audience,
-      results: searchZetroMarkdownDocuments(query, parseLimit(input.limit), { audience }),
+      results: searchZetroMarkdownDocuments(query, parseLimit(input.limit), { audience }).map((result) => ({
+        ...result,
+        path: isAdminAudience(audience) ? result.path : '',
+      })),
     }
   }
 
@@ -589,7 +643,7 @@ export class AgentOsService {
     }
   }
 
-  async chat(input: ZetroChatInput) {
+  async chat(input: ZetroChatInput, tenantHeaders: TenantRequestHeaders = {}) {
     const audience = resolveZetroAudience(input, 'user')
     const adminAudience = isAdminAudience(audience)
     const message = input.message?.trim() ?? ''
@@ -598,6 +652,8 @@ export class AgentOsService {
     }
 
     const restrictedReply = restrictedQuestionReply(message, audience)
+    const boundaryReply = zetroBoundaryReply(message, audience)
+    const businessQuery = resolveZetroBusinessQuery(message)
     const providerConfig = await resolveProviderForInput({ providerKey: input.providerKey, model: input.model })
     const model = normalizeModel(input.model, providerConfig.models, providerConfig.defaultModel)
     const database = getDatabase()
@@ -610,6 +666,26 @@ export class AgentOsService {
     const conversationId = existingConversation?.id ?? await createConversation(database, conversationUuid, title, model, providerConfig.providerKey)
     const startedAt = Date.now()
     const localContext = searchZetroMarkdownDocuments(message, 4, { audience })
+
+    if (boundaryReply) {
+      await writeAgentLog({
+        conversationId: Number(conversationId),
+        eventType: 'chat.out_of_scope',
+        message,
+        model,
+        reply: boundaryReply,
+        latencyMs: Date.now() - startedAt,
+        status: 'blocked',
+        metadata: { provider: providerConfig.providerKey, source: 'universal-chat', audience, localContext, queryIntent: 'restricted.boundary' },
+      })
+
+      return {
+        ok: true,
+        conversation_uuid: conversationUuid,
+        ...(adminAudience ? { model } : {}),
+        message: boundaryReply,
+      }
+    }
 
     if (restrictedReply) {
       await writeAgentLog({
@@ -628,6 +704,35 @@ export class AgentOsService {
         conversation_uuid: conversationUuid,
         ...(adminAudience ? { model } : {}),
         message: restrictedReply,
+      }
+    }
+
+    if (businessQuery) {
+      const result = await this.runZetroBusinessQuery(businessQuery, tenantHeaders)
+      await writeAgentLog({
+        conversationId: Number(conversationId),
+        eventType: 'chat.business_query',
+        message,
+        model,
+        reply: result.reply,
+        latencyMs: Date.now() - startedAt,
+        status: result.ok ? 'ok' : 'blocked',
+        errorMessage: result.ok ? undefined : result.error,
+        metadata: {
+          provider: providerConfig.providerKey,
+          source: 'tenant-readonly-tool',
+          audience,
+          businessQuery: result.metadata,
+          queryIntent: businessQuery.intent,
+          queryTool: businessQuery.tool,
+        },
+      })
+
+      return {
+        ok: true,
+        conversation_uuid: conversationUuid,
+        ...(adminAudience ? { model } : {}),
+        message: result.reply,
       }
     }
 
@@ -740,6 +845,81 @@ export class AgentOsService {
       }
     }
   }
+
+  private async runZetroBusinessQuery(query: ZetroBusinessQuery, tenantHeaders: TenantRequestHeaders) {
+    let context: TenantRuntimeContext
+    try {
+      context = await this.tenantContext.resolve(tenantHeaders)
+    } catch {
+      return {
+        ok: false,
+        error: 'tenant_context_unavailable',
+        reply: 'I can answer workspace business data only after tenant access is verified. Please sign in again or select the correct workspace.',
+        metadata: {
+          ...query,
+          tenantResolved: false,
+        },
+      }
+    }
+
+    const defaults = await resolveZetroTenantDefaults(context)
+    const result = await readZetroBusinessSummary(context, query, defaults)
+    return {
+      ok: true,
+      reply: formatZetroBusinessSummary(result),
+      metadata: {
+        ...query,
+        tenantResolved: true,
+        tenantSlug: context.tenant.slug,
+        tenantId: context.tenant.id,
+        userRole: context.user.role,
+        defaultCompanyId: defaults.companyId,
+        defaultAccountingYearId: defaults.accountingYearId,
+        entryCount: result.entryCount,
+      },
+    }
+  }
+}
+
+interface ZetroBusinessQuery {
+  intent: 'sales.summary' | 'sales.summary.by_contact' | 'purchase.summary' | 'purchase.summary.by_contact'
+  tool: 'sales.summary' | 'purchase.summary'
+  domain: 'sales' | 'purchase'
+  partyName?: string
+  period: ZetroQueryPeriod
+}
+
+interface ZetroQueryPeriod {
+  label: string
+  start?: string
+  end?: string
+}
+
+interface ZetroTenantDefaults {
+  companyId?: number
+  accountingYearId?: number
+  accountingYearName?: string
+}
+
+interface ZetroBusinessSummary {
+  domain: 'sales' | 'purchase'
+  intent: ZetroBusinessQuery['intent']
+  partyName?: string
+  period: ZetroQueryPeriod
+  tenantName: string
+  entryCount: number
+  grandTotal: number
+  paidAmount: number
+  balanceAmount: number
+  recent: Array<{
+    documentNo: string
+    documentDate: string
+    partyName: string
+    grandTotal: number
+    balanceAmount: number
+    status: string
+    paymentStatus: string
+  }>
 }
 
 function resolveZetroAudience(input: ZetroAudienceInput = {}, fallback: ZetroMarkdownAudience = 'admin'): ZetroMarkdownAudience {
@@ -821,9 +1001,265 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : undefined
 }
 
+function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
+  const text = message.toLowerCase()
+  const asksSummary = /\b(summary|summarise|summarize|total|details|report|outstanding|pending|balance)\b/.test(text)
+  const asksSales = /\b(sales|sale|invoice|customer)\b/.test(text)
+  const asksPurchase = /\b(purchase|purchases|supplier|vendor)\b/.test(text)
+  if (!asksSummary || (!asksSales && !asksPurchase)) return null
+
+  const domain: 'sales' | 'purchase' = asksPurchase && !asksSales ? 'purchase' : 'sales'
+  const partyName = extractPartyName(message, domain)
+  const tool = domain === 'sales' ? 'sales.summary' : 'purchase.summary'
+  return {
+    domain,
+    tool,
+    intent: `${tool}${partyName ? '.by_contact' : ''}` as ZetroBusinessQuery['intent'],
+    partyName,
+    period: resolveQueryPeriod(message),
+  }
+}
+
+function zetroBoundaryReply(message: string, audience: ZetroMarkdownAudience) {
+  const text = message.toLowerCase()
+  const internalPattern = /\b(source code|codebase|repo|repository|file path|folder|schema|database table|db table|event bus|queue internals|prompt|system prompt|model name|provider key|api key|secret|implementation|architecture|stack trace|change code|edit code|modify code|update file|delete file|terminal|shell command|migration|controller|service class|module internals|action shape|workflow internals)\b/
+  const unrelatedPattern = /\b(movie|recipe|cricket|football|dating|politics|celebrity|game cheat|essay writing|homework)\b/
+
+  if (!internalPattern.test(text) && !unrelatedPattern.test(text)) return null
+
+  const setupLine = isAdminAudience(audience)
+    ? ' Super-admin can review ZETRO setup from the approved console, but client chat should stay focused on workspace help and business data.'
+    : ' For setup or access changes, please contact the super-admin.'
+
+  return [
+    'That request is outside my allowed ZETRO scope.',
+    'I can help with approved workspace guidance, sales summaries, purchase summaries, contact-related summaries, accounts/GST workflow guidance, and safe product usage.',
+    setupLine,
+  ].join(' ')
+}
+
+function extractPartyName(message: string, domain: 'sales' | 'purchase') {
+  const partyWords = domain === 'sales' ? 'customer|contact|party|client|for|of' : 'supplier|vendor|contact|party|for|of'
+  const match = message.match(new RegExp(`(?:${partyWords})\\s+(.+?)(?:\\s+(?:sales|sale|purchase|purchases|summary|details|report|total|from|for\\s+this|this\\s+month|last\\s+month|today|yesterday)|[?.!,]|$)`, 'i'))
+  const value = match?.[1]?.trim()
+  if (!value) return undefined
+  const cleaned = value
+    .replace(/\b(this|last|month|year|summary|details|report|sales|purchase|customer|supplier|contact|party|client|vendor)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned.length >= 2 ? cleaned.slice(0, 80) : undefined
+}
+
+function resolveQueryPeriod(message: string): ZetroQueryPeriod {
+  const text = message.toLowerCase()
+  const today = new Date()
+  const yyyyMmDd = (date: Date) => date.toISOString().slice(0, 10)
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+  const yearStart = new Date(today.getFullYear(), 0, 1)
+  const yearEnd = new Date(today.getFullYear(), 11, 31)
+
+  if (/\btoday\b/.test(text)) return { label: 'today', start: yyyyMmDd(today), end: yyyyMmDd(today) }
+  if (/\byesterday\b/.test(text)) {
+    const yesterday = new Date(today)
+    yesterday.setDate(today.getDate() - 1)
+    return { label: 'yesterday', start: yyyyMmDd(yesterday), end: yyyyMmDd(yesterday) }
+  }
+  if (/\blast month\b/.test(text)) return { label: 'last month', start: yyyyMmDd(lastMonthStart), end: yyyyMmDd(lastMonthEnd) }
+  if (/\bthis month|current month\b/.test(text)) return { label: 'this month', start: yyyyMmDd(monthStart), end: yyyyMmDd(monthEnd) }
+  if (/\bthis year|current year\b/.test(text)) return { label: 'this year', start: yyyyMmDd(yearStart), end: yyyyMmDd(yearEnd) }
+  return { label: 'current accounting year' }
+}
+
+async function resolveZetroTenantDefaults(context: TenantRuntimeContext): Promise<ZetroTenantDefaults> {
+  const defaultCompany = await context.database
+    .selectFrom('default_companies')
+    .select(['company_id', 'accounting_year_id'])
+    .where('tenant_id', '=', context.tenant.id)
+    .where('is_active', '=', true)
+    .executeTakeFirst()
+
+  if (defaultCompany?.accounting_year_id) {
+    const year = await context.database
+      .selectFrom('accounting_years')
+      .select(['id', 'name'])
+      .where('id', '=', Number(defaultCompany.accounting_year_id))
+      .executeTakeFirst()
+    return {
+      companyId: Number(defaultCompany.company_id),
+      accountingYearId: Number(defaultCompany.accounting_year_id),
+      accountingYearName: year?.name,
+    }
+  }
+
+  const year = await context.database
+    .selectFrom('accounting_years')
+    .select(['id', 'name'])
+    .where('is_current_year', '=', true)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst()
+
+  return {
+    companyId: defaultCompany?.company_id ? Number(defaultCompany.company_id) : undefined,
+    accountingYearId: year?.id ? Number(year.id) : undefined,
+    accountingYearName: year?.name,
+  }
+}
+
+async function readZetroBusinessSummary(
+  context: TenantRuntimeContext,
+  query: ZetroBusinessQuery,
+  defaults: ZetroTenantDefaults,
+): Promise<ZetroBusinessSummary> {
+  const table = query.domain === 'sales' ? 'sales_entries' : 'purchase_entries'
+  const dateColumn = query.domain === 'sales' ? 'invoice_date' : 'entry_date'
+  const documentColumn = query.domain === 'sales' ? 'invoice_no' : 'entry_no'
+  const partyColumn = query.domain === 'sales' ? 'customer_name' : 'supplier_name'
+  const conditions = [
+    sql`tenant_id = ${context.tenant.id}`,
+    sql`deleted_at IS NULL`,
+  ]
+
+  if (defaults.companyId) conditions.push(sql`company_id = ${defaults.companyId}`)
+  if (defaults.accountingYearId) conditions.push(sql`accounting_year_id = ${defaults.accountingYearId}`)
+  if (query.period.start) conditions.push(sql`${sql.raw(dateColumn)} >= ${query.period.start}`)
+  if (query.period.end) conditions.push(sql`${sql.raw(dateColumn)} <= ${query.period.end}`)
+  if (query.partyName) conditions.push(sql`${sql.raw(partyColumn)} LIKE ${`%${query.partyName}%`}`)
+
+  const whereSql = sql.join(conditions, sql` AND `)
+  const summaryResult = await sql<{
+    entry_count: string | number | null
+    grand_total: string | number | null
+    paid_amount: string | number | null
+    balance_amount: string | number | null
+  }>`
+    SELECT
+      COUNT(*) AS entry_count,
+      COALESCE(SUM(grand_total), 0) AS grand_total,
+      COALESCE(SUM(paid_amount), 0) AS paid_amount,
+      COALESCE(SUM(balance_amount), 0) AS balance_amount
+    FROM ${sql.raw(table)}
+    WHERE ${whereSql}
+  `.execute(context.database)
+
+  const recentResult = await sql<{
+    document_no: string
+    document_date: string
+    party_name: string
+    grand_total: string | number
+    balance_amount: string | number
+    status: string
+    payment_status: string
+  }>`
+    SELECT
+      ${sql.raw(documentColumn)} AS document_no,
+      ${sql.raw(dateColumn)} AS document_date,
+      ${sql.raw(partyColumn)} AS party_name,
+      grand_total,
+      balance_amount,
+      status,
+      payment_status
+    FROM ${sql.raw(table)}
+    WHERE ${whereSql}
+    ORDER BY ${sql.raw(dateColumn)} DESC, id DESC
+    LIMIT 5
+  `.execute(context.database)
+
+  const summary = summaryResult.rows[0]
+  return {
+    domain: query.domain,
+    intent: query.intent,
+    partyName: query.partyName,
+    period: {
+      label: defaults.accountingYearName && query.period.label === 'current accounting year'
+        ? defaults.accountingYearName
+        : query.period.label,
+      start: query.period.start,
+      end: query.period.end,
+    },
+    tenantName: context.tenant.name,
+    entryCount: numberValue(summary?.entry_count),
+    grandTotal: numberValue(summary?.grand_total),
+    paidAmount: numberValue(summary?.paid_amount),
+    balanceAmount: numberValue(summary?.balance_amount),
+    recent: recentResult.rows.map((row) => ({
+      documentNo: row.document_no,
+      documentDate: String(row.document_date),
+      partyName: row.party_name,
+      grandTotal: numberValue(row.grand_total),
+      balanceAmount: numberValue(row.balance_amount),
+      status: row.status,
+      paymentStatus: row.payment_status,
+    })),
+  }
+}
+
+function formatZetroBusinessSummary(summary: ZetroBusinessSummary) {
+  const title = summary.domain === 'sales' ? 'Sales summary' : 'Purchase summary'
+  const party = summary.partyName ? ` for ${summary.partyName}` : ''
+  const lines = [
+    `**${title}${party}**`,
+    `Period: ${summary.period.label}${summary.period.start ? ` (${summary.period.start} to ${summary.period.end})` : ''}`,
+    `Entries: ${summary.entryCount}`,
+    `Total: ${formatMoney(summary.grandTotal)}`,
+    `Paid: ${formatMoney(summary.paidAmount)}`,
+    `Balance: ${formatMoney(summary.balanceAmount)}`,
+  ]
+
+  if (!summary.entryCount) {
+    lines.push('', 'No matching records were found for this tenant and period.')
+    return lines.join('\n')
+  }
+
+  if (summary.recent.length) {
+    lines.push('', '**Recent documents**')
+    for (const row of summary.recent) {
+      lines.push(`- ${row.documentDate} / ${row.documentNo} / ${row.partyName}: ${formatMoney(row.grandTotal)} (${row.paymentStatus}, balance ${formatMoney(row.balanceAmount)})`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function numberValue(value: unknown) {
+  const number = Number(value ?? 0)
+  return Number.isFinite(number) ? number : 0
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    currency: 'INR',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: 'currency',
+  }).format(value)
+}
+
+function normalizeQuestion(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+}
+
+function increment(map: Map<string, number>, key: string) {
+  if (!key) return
+  map.set(key, (map.get(key) ?? 0) + 1)
+}
+
+function topCounts(map: Map<string, number>) {
+  return [...map.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 20)
+    .map(([key, count]) => ({ key, count }))
+}
+
 function parseLimit(value: number | string | undefined) {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 20) : 8
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 function parseJsonRecord(value: string | null | undefined): Record<string, unknown> {
@@ -954,7 +1390,7 @@ function zetroCapabilities(apiConnected: boolean, counts: ZetroCountSnapshot) {
       label: 'Knowledge',
       value: counts.knowledge > 0 ? `${counts.knowledge} chunks` : 'Not indexed',
       state: counts.knowledge > 0 ? 'active' : 'setup',
-      detail: counts.knowledge > 0 ? 'ZRO and assist docs are available for retrieval.' : 'Run Learn docs from the dashboard.',
+      detail: counts.knowledge > 0 ? 'Approved ZETRO docs are available for retrieval.' : 'Run Learn docs from the dashboard.',
     },
     {
       key: 'router',
@@ -1011,7 +1447,7 @@ function zetroAgents(apiConnected: boolean, knowledgeCount: number) {
       stage: 'MVP v1',
       model_policy: 'Uses the active saved provider with free models first.',
       next_action: helperReady
-        ? knowledgeReady ? 'Keep answers grounded with indexed ZRO and assist context.' : 'Run Learn docs to ground answers in project context.'
+        ? knowledgeReady ? 'Keep answers grounded with indexed ZETRO context.' : 'Run Learn docs to ground answers in approved ZETRO context.'
         : 'Connect and test an API provider key.',
     },
     {
@@ -1087,7 +1523,7 @@ function zetroNextSteps(apiConnected: boolean, knowledgeCount: number) {
 
   if (knowledgeCount === 0) {
     return [
-      'Run Learn docs for ZRO and assist markdown',
+      'Run Learn docs for approved ZETRO markdown',
       'Verify Helper Agent answers with citations',
       'Prepare Operator tool registry',
     ]
@@ -1535,8 +1971,8 @@ async function recommendedUpdates(apiConnected: boolean, hasSavedProviders: bool
 
   if (knowledgeCount === 0) {
     updates.push({
-      title: 'Index project docs into knowledge base',
-      detail: 'Run Learn from the ZETRO dashboard to index ZRO and assist markdown docs. This grounds ZETRO answers in your project context.',
+      title: 'Index ZETRO docs into knowledge base',
+      detail: 'Run Learn from the ZETRO dashboard to index approved ZETRO markdown docs. This grounds ZETRO answers in the dedicated ZETRO documentation boundary.',
       priority: 'high',
     })
   } else {
@@ -1550,7 +1986,7 @@ async function recommendedUpdates(apiConnected: boolean, hasSavedProviders: bool
   if (conversationCount === 0 && apiConnected) {
     updates.push({
       title: 'Send your first chat message',
-      detail: 'Open the ZETRO chat window and ask a question about the platform or project docs.',
+      detail: 'Open the ZETRO chat window and ask a question about approved workspace guidance or a supported business summary.',
       priority: 'medium',
     })
   }
@@ -1566,7 +2002,7 @@ async function recommendedUpdates(apiConnected: boolean, hasSavedProviders: bool
   if (apiConnected && conversationCount > 0 && knowledgeCount === 0) {
     updates.push({
       title: 'Index docs to improve chat answers',
-      detail: 'Chat is working but ZETRO lacks local project context. Run Learn to index ZRO and assist markdown for grounded answers.',
+      detail: 'Chat is working but ZETRO lacks indexed ZETRO context. Run Learn to index approved ZETRO markdown for grounded answers.',
       priority: 'medium',
     })
   }
@@ -1886,10 +2322,10 @@ function zetroMessages(message: string, localContext: ReturnType<typeof searchZe
 function zetroSystemPrompt(localContext: ReturnType<typeof searchZetroMarkdownDocuments>, audience: ZetroMarkdownAudience) {
   const shared = [
     'You are ZETRO, the Versatile Agent OS assistant for this platform.',
-    'Current phase: read-only Helper Agent. You can explain, search provided project context, plan, and recommend next steps. You cannot execute platform actions or mutate records yet.',
+    'Current phase: read-only Helper Agent. You can explain, search approved ZETRO context, plan safe next steps, and answer approved read-only business summaries. You cannot execute platform actions or mutate records.',
     'Write polished, compact answers. Prefer 2-5 short bullets or short paragraphs. Do not dump internal status unless the user asks for status.',
     'Use markdown sparingly: bold labels, bullets, inline code, and source lines are fine. Avoid long tables unless the user asks.',
-    'Do not say knowledge ingestion is unavailable when local project context is provided. If context is provided, use it naturally.',
+    'Do not say knowledge ingestion is unavailable when approved ZETRO context is provided. If context is provided, use it naturally.',
     'When you use provided project markdown context, end with one concise source line like: Source: path/to/file.md / Heading.',
   ]
 

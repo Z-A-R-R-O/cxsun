@@ -8,11 +8,11 @@ ZETRO search is audience-filtered.
 - Policy docs: safe rules that may guide every surface.
 - Admin docs: setup and operations docs for super-admin only.
 - System docs: indexing, provider, and implementation behavior for super-admin only.
-- Developer docs: `assist/` and broad ZRO planning context, used only by super-admin implementation surfaces.
+- Developer docs: not used by ZETRO runtime retrieval. Developer planning files stay outside chat knowledge.
 
 ## Runtime Behavior
 
-The backend should search only the source classes allowed by the verified audience. User chat must not receive excerpts from `assist/` or broad roadmap docs. Only super-admin chat can use broader context when needed.
+The backend should search only the source classes allowed by the verified audience. Runtime retrieval is restricted to `ZRO/ZETRO` docs. User chat must not receive excerpts from `assist/`, broad roadmap docs, source files, or implementation notes.
 
 ## Learn Behavior
 

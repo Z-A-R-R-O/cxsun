@@ -1,5 +1,4 @@
 import { Module } from '../../../../core/decorators/module.js'
-import { TenantContextService } from '../../../../core/tenant/tenant-context.service.js'
 import { MasterQueueService } from '../../../../infrastructure/queue/master-queue.service.js'
 import { AuthRepository } from '../../../auth/infrastructure/auth.repository.js'
 import { MasterRecordEventBus } from '../../../foundation/master-record/application/services/master-record-event-bus.js'
@@ -15,7 +14,6 @@ import { SizesCommonV1Controller } from './controller.js'
     AuthRepository,
     TenantRepository,
     TenantDomainRepository,
-    TenantContextService,
     MasterQueueService,
     MasterRecordEventBus,
     SizesCommonRepository,

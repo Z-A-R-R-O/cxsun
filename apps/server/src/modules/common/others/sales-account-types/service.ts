@@ -14,7 +14,7 @@ export class SalesAccountTypesCommonService {
   private readonly definition = salesAccountTypesCommonDefinition
 
   constructor(
-    @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(() => TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(SalesAccountTypesCommonRepository) private readonly records: SalesAccountTypesCommonRepository,
     @Inject(MasterRecordEventBus) private readonly eventBus: MasterRecordEventBus,
   ) {}

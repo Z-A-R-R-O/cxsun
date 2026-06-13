@@ -11,9 +11,11 @@ import { Input } from "src/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { cn } from "src/lib/utils"
-import { getAgentOsStatus, isZetroAdminRole, learnZetroDocs, saveZetroApiConnection, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
+import { getAgentOsStatus, getZetroQueryInsights, isZetroAdminRole, learnZetroDocs, saveZetroApiConnection, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
 
-export function AgentOsPage({ session }: { session: AuthSession }) {
+export type AgentOsView = "base" | "providers" | "knowledge" | "agents" | "queries" | "updates"
+
+export function AgentOsPage({ session, view = "base" }: { session: AuthSession; view?: AgentOsView }) {
   const adminMode = isZetroAdminRole(session.selectedTenant.role)
   const [apiKeyDraft, setApiKeyDraft] = useState("")
   const [providerKey, setProviderKey] = useState("openrouter")
@@ -25,6 +27,11 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
   const statusQuery = useQuery({
     queryKey: ["agent-os-status", session.selectedTenant.slug],
     queryFn: () => getAgentOsStatus(session),
+  })
+  const queryInsightsQuery = useQuery({
+    enabled: adminMode,
+    queryKey: ["zetro-query-insights", session.selectedTenant.slug],
+    queryFn: () => getZetroQueryInsights(session),
   })
   const status = statusQuery.data ?? null
   const platformConnections = adminMode ? status?.provider_connections.length ? status.provider_connections : fallbackProviders : []
@@ -39,6 +46,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
   const premiumModelCount = selectedProviderModels.filter((model) => model.tier === "premium").length
   const modelChanged = Boolean(activeProvider?.default_model && defaultModel && defaultModel !== activeProvider.default_model)
   const selectedProviderIsActive = Boolean(activeProvider?.is_active)
+  const pageMeta = zetroPageMeta(view)
 
   useEffect(() => {
     if (initialisedRef.current || !status) return
@@ -103,7 +111,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
   const apiLearnMutation = useMutation({
     mutationFn: () => learnZetroDocs(session),
     onSuccess: (response) => {
-      toast.success("ZETRO learned project docs", {
+      toast.success("ZETRO learned approved docs", {
         description: `Indexed ${response.learned} chunks from ${response.source_count} markdown sources.`,
       })
       void statusQuery.refetch()
@@ -117,22 +125,24 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
 
   return (
     <MasterListPageFrame
-      title="ZETRO"
-      description="Universal AI chat base for helper knowledge, safe tools, workflows, planning, analytics, and memory."
-      technicalName="page.agent-os.base"
+      title={pageMeta.title}
+      description={pageMeta.description}
+      technicalName={`page.agent-os.${view}`}
       action={
         <div className="flex items-center gap-2">
-          <Button
-            className="rounded-md"
-            disabled={apiLearnMutation.isPending}
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={() => apiLearnMutation.mutate()}
-          >
-            <Database className={cn("size-4", apiLearnMutation.isPending && "animate-pulse")} />
-            {apiLearnMutation.isPending ? "Learning..." : "Learn docs"}
-          </Button>
+          {adminMode && view === "knowledge" ? (
+            <Button
+              className="rounded-md"
+              disabled={apiLearnMutation.isPending}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => apiLearnMutation.mutate()}
+            >
+              <Database className={cn("size-4", apiLearnMutation.isPending && "animate-pulse")} />
+              {apiLearnMutation.isPending ? "Learning..." : "Learn docs"}
+            </Button>
+          ) : null}
           <Button className="rounded-md" variant="outline" type="button" onClick={() => void statusQuery.refetch()}>
             <RefreshCw className={cn("size-4", statusQuery.isFetching && "animate-spin")} />
             Refresh
@@ -153,22 +163,25 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
+      <div className="grid gap-4">
+        {view === "base" || view === "providers" || view === "knowledge" ? (
+          <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Base foundation</CardTitle>
+              <CardTitle>{pageMeta.cardTitle}</CardTitle>
               <Badge variant={status?.ok ? "default" : "secondary"}>{status?.mode ?? "base"}</Badge>
             </div>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <TableStat label="Conversations" value={status?.tables.conversations ?? 0} />
-              <TableStat label="Agent logs" value={status?.tables.agent_logs ?? 0} />
-              <TableStat label="Knowledge docs" value={status?.tables.knowledge_documents ?? 0} />
-            </div>
+            {view === "base" || view === "knowledge" ? (
+              <div className="grid gap-3 md:grid-cols-3">
+                <TableStat label="Conversations" value={status?.tables.conversations ?? 0} />
+                <TableStat label="Agent logs" value={status?.tables.agent_logs ?? 0} />
+                <TableStat label="Knowledge docs" value={status?.tables.knowledge_documents ?? 0} />
+              </div>
+            ) : null}
 
-            {adminMode ? (
+            {view === "providers" && adminMode ? (
               <>
             <div className="rounded-md border border-border/70 bg-background p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -399,7 +412,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
               </DetailsToggle>
             </div>
               </>
-            ) : (
+            ) : view === "providers" ? (
               <div className="rounded-md border border-border/70 bg-background p-4">
                 <div className="flex items-start gap-3">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -413,8 +426,9 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
                   </div>
                 </div>
               </div>
-            )}
-            <div className="rounded-md border border-border/70 bg-muted/20 p-4">
+            ) : null}
+            {view === "base" || view === "knowledge" ? (
+              <div className="rounded-md border border-border/70 bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Database className="size-4 text-muted-foreground" />
                 Master database tables
@@ -422,8 +436,10 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 The base keeps Agent OS platform records in the master database. Tenant business actions will still resolve through tenant context when Operator tools are added.
               </p>
-            </div>
-            <div className="rounded-md border border-border/70 bg-background p-4">
+              </div>
+            ) : null}
+            {view === "base" || view === "knowledge" ? (
+              <div className="rounded-md border border-border/70 bg-background p-4">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <GitBranch className="size-4 text-muted-foreground" />
                 Next dynamic steps
@@ -436,11 +452,13 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
+        ) : null}
 
-        <div className="grid h-fit gap-4">
+        {view === "agents" ? (
           <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
             <CardHeader>
               <CardTitle>Multi-agent stack</CardTitle>
@@ -451,8 +469,9 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
               ))}
             </CardContent>
           </Card>
+        ) : null}
 
-          {adminMode ? <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
+          {view === "updates" && adminMode ? <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
             <CardHeader>
               <CardTitle>Recommended updates</CardTitle>
             </CardHeader>
@@ -473,10 +492,87 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
               ))}
             </CardContent>
           </Card> : null}
-        </div>
+
+          {view === "queries" && adminMode ? (
+            <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
+              <CardHeader>
+                <CardTitle>Client query review</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <InsightCountList
+                    emptyLabel="No mapped queries yet"
+                    items={queryInsightsQuery.data?.intent_counts ?? []}
+                    title="Mapped intents"
+                  />
+                  <InsightCountList
+                    emptyLabel="No repeated questions yet"
+                    items={queryInsightsQuery.data?.question_counts ?? []}
+                    title="Repeated questions"
+                  />
+                  <InsightCountList
+                    emptyLabel="No tools called yet"
+                    items={queryInsightsQuery.data?.tool_counts ?? []}
+                    title="Query tools"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Recent questions</div>
+                  {(queryInsightsQuery.data?.recent ?? []).slice(0, 8).map((item) => (
+                    <div key={item.id} className="rounded-md border border-border/70 bg-background p-3">
+                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="truncate">{item.intent}</span>
+                        <span>{item.status}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-sm leading-5">{item.question}</p>
+                    </div>
+                  ))}
+                  {!queryInsightsQuery.data?.recent.length ? (
+                    <p className="text-sm leading-6 text-muted-foreground">Mapped client questions will appear here after users ask ZETRO for business summaries.</p>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
       </div>
     </MasterListPageFrame>
   )
+}
+
+function zetroPageMeta(view: AgentOsView) {
+  const meta: Record<AgentOsView, { title: string; description: string; cardTitle: string }> = {
+    base: {
+      title: "ZETRO Base",
+      description: "Core status, records, and next steps for the ZETRO assistant foundation.",
+      cardTitle: "Base foundation",
+    },
+    providers: {
+      title: "ZETRO Providers",
+      description: "Connect and manage OpenRouter, GPT, Gemini, OpenCode Zen, and compatible AI providers.",
+      cardTitle: "API providers",
+    },
+    knowledge: {
+      title: "ZETRO Knowledge",
+      description: "Index and monitor the approved ZETRO documentation system used by assistant answers.",
+      cardTitle: "Knowledge base",
+    },
+    agents: {
+      title: "ZETRO Agents",
+      description: "Review the helper stack and staged agent responsibilities.",
+      cardTitle: "Agent stack",
+    },
+    queries: {
+      title: "ZETRO Queries",
+      description: "Review client questions, mapped intents, repeated asks, and safe query-tool usage.",
+      cardTitle: "Client query review",
+    },
+    updates: {
+      title: "ZETRO Updates",
+      description: "Track recommended setup and product updates for the assistant.",
+      cardTitle: "Recommended updates",
+    },
+  }
+  return meta[view]
 }
 
 const fallbackRequiredEnv = [
@@ -743,6 +839,21 @@ function AgentRow({ agent }: { agent: ZetroAgentStatus }) {
         </div>
       </div>
     </article>
+  )
+}
+
+function InsightCountList({ emptyLabel, items, title }: { emptyLabel: string; items: Array<{ key: string; count: number }>; title: string }) {
+  const visibleItems = items.length ? items : [{ key: emptyLabel, count: 0 }]
+  return (
+    <div className="grid gap-2">
+      <div className="text-xs font-semibold uppercase text-muted-foreground">{title}</div>
+      {visibleItems.slice(0, 6).map((item) => (
+        <div key={item.key} className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-background px-3 py-2 text-sm">
+          <span className="min-w-0 truncate">{item.key}</span>
+          <Badge className="rounded-md" variant="outline">{item.count}</Badge>
+        </div>
+      ))}
+    </div>
   )
 }
 

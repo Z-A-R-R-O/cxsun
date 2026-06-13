@@ -189,10 +189,20 @@ function dashboardPath(basePath: string, page: DashboardPage) {
   return page === "overview" ? basePath : `${basePath}/${page}`
 }
 
+const agentOsPages: DashboardPage[] = [
+  "app-agent-os-base",
+  "app-agent-os-providers",
+  "app-agent-os-knowledge",
+  "app-agent-os-agents",
+  "app-agent-os-queries",
+  "app-agent-os-updates",
+]
+
 function dashboardPageFromPath(basePath: string, pathname = window.location.pathname): DashboardPage {
   const [, root, page] = pathname.split("/")
   const expectedRoot = basePath.replace(/^\//, "")
   if (root !== expectedRoot) return "overview"
+  if (agentOsPages.includes(page as DashboardPage)) return page as DashboardPage
   if (appModulePages.includes(page as DashboardPage)) return page as DashboardPage
   if (page === "app-tally-settings") return page as DashboardPage
   if (
@@ -234,7 +244,7 @@ function defaultPageForApp(appId: DashboardAppId): DashboardPage {
 const crossSurfaceAppPages: DashboardPage[] = ["app-agent-os-base"]
 
 const pageAccess: Record<DashboardMode, DashboardPage[]> = {
-  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company-industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager", ...crossSurfaceAppPages],
+  "super-admin": ["overview", "setup", "tenant", "tenant-domain", "industry", "company-industry", "company", "system-update", "gst-api", "gst-api-test", "queue-manager", "database-manager", "user-manager", ...agentOsPages],
   admin: ["overview", "company", "helpdesk", "bugs", "system-update", ...crossSurfaceAppPages],
   tenant: ["overview", "company", "tenant-roles", ...appModulePages],
 }
@@ -261,6 +271,12 @@ const pageLabels: Partial<Record<DashboardPage, string>> = {
   "helpdesk": "Helpdesk",
   "bugs": "Bugs",
   "tenant-roles": "Tenant Roles",
+  "app-agent-os-base": "Base",
+  "app-agent-os-providers": "Providers",
+  "app-agent-os-knowledge": "Knowledge",
+  "app-agent-os-agents": "Agents",
+  "app-agent-os-queries": "Queries",
+  "app-agent-os-updates": "Updates",
 }
 
 function pushDashboardPage(basePath: string, page: DashboardPage) {
@@ -915,8 +931,8 @@ export function DashboardView({
             <FrappePage session={session} view="desk" />
           ) : visiblePage === "app-frappe-sync-jobs" ? (
             <FrappePage session={session} view="jobs" />
-          ) : visiblePage === "app-agent-os-base" ? (
-            <AgentOsPage session={session} />
+          ) : agentOsPages.includes(visiblePage) ? (
+            <AgentOsPage session={session} view={agentOsViewFromPage(visiblePage)} />
           ) : visiblePage === "app-billing-settings" ? (
             <SalesSettingsPage session={session} />
           ) : visiblePage === "app-billing-document-settings" ? (
@@ -1147,6 +1163,15 @@ function getBreadcrumbLabel({ appId, mode, page }: { appId: DashboardAppId; mode
   if (appMenuLabel) return appMenuLabel
   if (mode === "admin" && page === "company") return "Helpdesk"
   return pageLabels[page] ?? dashboardTitles[mode]
+}
+
+function agentOsViewFromPage(page: DashboardPage) {
+  if (page === "app-agent-os-providers") return "providers"
+  if (page === "app-agent-os-knowledge") return "knowledge"
+  if (page === "app-agent-os-agents") return "agents"
+  if (page === "app-agent-os-queries") return "queries"
+  if (page === "app-agent-os-updates") return "updates"
+  return "base"
 }
 
 function appGroupDescription(title: string) {
