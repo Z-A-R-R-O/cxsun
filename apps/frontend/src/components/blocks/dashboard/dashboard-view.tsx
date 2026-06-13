@@ -136,6 +136,9 @@ const SupplierStatementReportPage = lazy(() =>
 const GstStatementReportPage = lazy(() =>
   import('src/features/report/billing-statement-page').then((module) => ({ default: module.GstStatementReportPage })),
 )
+const QuotationReportPage = lazy(() =>
+  import('src/features/report/billing-statement-page').then((module) => ({ default: module.QuotationReportPage })),
+)
 const MediaManagerPage = lazy(() =>
   import('src/features/media/media-page').then((module) => ({ default: module.MediaManagerPage })),
 )
@@ -857,6 +860,8 @@ export function DashboardView({
             <ReceiptPage initialEntryUuid={focusedBillingEntry?.type === "receipt" ? focusedBillingEntry.id : null} session={session} />
           ) : visiblePage === "app-billing-payments" ? (
             <PaymentPage initialEntryUuid={focusedBillingEntry?.type === "payment" ? focusedBillingEntry.id : null} session={session} />
+          ) : visiblePage === "app-billing-quotation-report" ? (
+            <QuotationReportPage session={session} />
           ) : visiblePage === "app-billing-customer-statement" ? (
             <CustomerStatementReportPage session={session} />
           ) : visiblePage === "app-billing-supplier-statement" ? (

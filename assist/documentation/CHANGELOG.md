@@ -2,13 +2,25 @@
 
 ## Version State
 
-- **Current version:** `1.0.95`
-- **Release tag:** `v-1.0.95`
-- **Changelog label:** `v 1.0.95`
+- **Current version:** `1.0.96`
+- **Release tag:** `v-1.0.96`
+- **Changelog label:** `v 1.0.96`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.96
+
+### [v 1.0.96] 2026-06-13 3:35 pm - billing quotation report
+
+- Bumped workspace version to 1.0.96
+- Added a Billing Quotation Report under Billing > Report.
+- Added customer, date range, and billed/unbilled/all status filters for quotation reporting.
+- Added billed and unbilled quotation sections with generated Sales invoice references for billed quotations.
+- Added printable quotation report summary cards and detailed quotation totals for quantity, taxable value, tax, and grand total.
+- Wired the report into the dashboard route and Billing report menu.
+- Verified with frontend typecheck and active production build.
 
 ## v-1.0.95
 
@@ -22,6 +34,7 @@ Historical changelog entries are immutable. A version bump may update this `Vers
 - Removed the redundant `npm update --workspaces` before `npm ci` in `update.sh` to avoid slow lockfile-discarded install work.
 - Added timed cloud reinstall steps for Docker image build, workspace seeding, container start, dependency install, database setup, build cleanup, and active build.
 - Added backend/frontend process IDs and recurring backend health-wait progress logs during container startup.
+- Fixed the cloud `db:setup` startup blocker by removing top-level circular imports between database connection, tenant database access, AuthRepository, TenantContextService, and common modules.
 - Verified active production build timing locally: backend build around 11s, frontend TypeScript around 23s, Vite bundle around 36s, total around 70s.
 - Verified shell syntax for `update.sh`, `.container/setup-cloud.sh`, and `.container/entrypoint.sh`.
 

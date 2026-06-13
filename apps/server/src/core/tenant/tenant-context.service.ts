@@ -1,7 +1,6 @@
 import { Injectable } from '../decorators/injectable.js'
 import { ForbiddenException, NotFoundException, UnauthorizedException } from '../exceptions/http.exception.js'
 import { getDatabase } from '../../infrastructure/database/connection.js'
-import { getTenantDatabase } from '../../infrastructure/tenant-database/tenant-database.connection.js'
 import type { TenantDatabaseSchema } from '../../infrastructure/tenant-database/tenant-database.schema.js'
 import type { Tenant } from './domain/tenant.types.js'
 import { verifyJwt } from '../../infrastructure/auth/jwt.js'
@@ -80,7 +79,7 @@ export class TenantContextService {
       throw new UnauthorizedException('Tenant session does not match this domain.')
     }
 
-    const database = getTenantDatabase(tenant)
+    const database = await getTenantDatabaseForContext(tenant)
 
     if (tenant.status !== 'active' && !isSuperAdminToken) {
       throw new ForbiddenException('Tenant is not active.')
@@ -215,6 +214,11 @@ function isTokenFresh(auth: { iat?: number }, updatedAt?: Date | string) {
 function timestampSeconds(value: Date | string) {
   const timestamp = value instanceof Date ? value.getTime() : Date.parse(value)
   return Number.isFinite(timestamp) ? Math.floor(timestamp / 1000) : 0
+}
+
+async function getTenantDatabaseForContext(tenant: Tenant) {
+  const { getTenantDatabase } = await import('../../infrastructure/tenant-database/tenant-database.connection.js')
+  return getTenantDatabase(tenant)
 }
 
 async function assertPolicies({

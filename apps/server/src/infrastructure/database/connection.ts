@@ -2,7 +2,6 @@ import { Kysely, MysqlDialect, sql } from 'kysely'
 import { createPool, type PoolOptions } from 'mysql2'
 import { createConnection } from 'mysql2/promise'
 import type { DatabaseSchema } from './schema.js'
-import { platformDatabaseModules } from './platform-modules.js'
 import { dbConfig } from '../../framework/config/index.js'
 
 let db: Kysely<DatabaseSchema> | null = null
@@ -40,6 +39,7 @@ export async function initializeDatabase() {
 export async function migratePlatformDatabase() {
   await ensureMasterDatabase()
   const database = getDatabase()
+  const { platformDatabaseModules } = await import('./platform-modules.js')
 
   for (const databaseModule of platformDatabaseModules) {
     await databaseModule.migrate(database)
@@ -49,6 +49,7 @@ export async function migratePlatformDatabase() {
 export async function seedPlatformDatabase() {
   await ensureMasterDatabase()
   const database = getDatabase()
+  const { platformDatabaseModules } = await import('./platform-modules.js')
 
   for (const databaseModule of platformDatabaseModules) {
     await databaseModule.seed?.(database)

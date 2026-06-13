@@ -10,13 +10,14 @@ import { Input } from "src/components/ui/input"
 import { MasterListPageFrame } from "src/components/blocks/lists/master-list"
 import { cn } from "src/lib/utils"
 import type { AuthSession } from "src/features/auth/auth-client"
-import { getDefaultCompanyContext, listCompanies, type CompanyRecord } from "src/features/company/company-client"
+import { getDefaultCompanyContext, listCompanies, type CompanyRecord, type DefaultCompanyContext } from "src/features/company/company-client"
 import { LetterheadBuilder } from "src/features/company/letterhead-builder"
 import { listContacts, type ContactRecord } from "src/features/contact/contact-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
 import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
 import { listPaymentEntries, type PaymentEntry } from "src/features/payment/payment-client"
 import { listPurchaseEntries, type PurchaseEntry } from "src/features/purchase/purchase-client"
+import { listQuotationEntries, type QuotationEntry } from "src/features/quotation/quotation-client"
 import { listReceiptEntries, type ReceiptEntry } from "src/features/receipt/receipt-client"
 import { listSalesEntries, type SalesEntry } from "src/features/sales/sales-client"
 import { defaultSoftwareSettingsState, type DutiesTaxSettings, type SoftwareSettingsState } from "src/features/settings/software-settings"
@@ -85,6 +86,35 @@ interface GstTotals {
   igst: number
   sgst: number
   taxable: number
+  total: number
+}
+
+interface QuotationReportFilters {
+  fromDate: string
+  partyKey: string
+  status: "all" | "billed" | "unbilled"
+  toDate: string
+}
+
+interface QuotationReportRow {
+  contactKey: string
+  customer: string
+  date: string
+  invoiceNo: string
+  invoiceReference: string
+  isBilled: boolean
+  quantity: number
+  status: string
+  taxable: number
+  tax: number
+  total: number
+}
+
+interface QuotationReportTotals {
+  count: number
+  quantity: number
+  taxable: number
+  tax: number
   total: number
 }
 
@@ -180,6 +210,79 @@ export function GstStatementReportPage({ session }: { session: AuthSession }) {
           </GstReportCard>
         </div>
       </GstReportPrintSheet>
+    </MasterListPageFrame>
+  )
+}
+
+export function QuotationReportPage({ session }: { session: AuthSession }) {
+  const [filters, setFilters] = useState<QuotationReportFilters>(() => ({
+    fromDate: defaultFinancialYearStart(),
+    partyKey: "",
+    status: "all",
+    toDate: todayDate(),
+  }))
+  const [softwareSettings, setSoftwareSettings] = useState<SoftwareSettingsState>(defaultSoftwareSettingsState)
+
+  const companiesQuery = useQuery({ queryKey: ["quotation-report-companies", session.selectedTenant.slug], queryFn: () => listCompanies(session) })
+  const contactsQuery = useQuery({ queryKey: ["quotation-report-contacts", session.selectedTenant.slug], queryFn: () => listContacts(session) })
+  const defaultContextQuery = useQuery({ queryKey: ["quotation-report-default-company-context", session.selectedTenant.slug], queryFn: () => getDefaultCompanyContext(session) })
+  const quotationQuery = useQuery({ queryKey: ["quotation-report-entries", session.selectedTenant.slug], queryFn: () => listQuotationEntries(session) })
+
+  const company = useMemo(() => pickCompany(companiesQuery.data ?? []), [companiesQuery.data])
+  const parties = useMemo(() => quotationParties(quotationQuery.data ?? []), [quotationQuery.data])
+  const rows = useMemo(
+    () => buildQuotationReportRows(quotationQuery.data ?? [], filters, defaultContextQuery.data ?? null),
+    [defaultContextQuery.data, filters, quotationQuery.data],
+  )
+  const billedRows = rows.filter((row) => row.isBilled)
+  const unbilledRows = rows.filter((row) => !row.isBilled)
+  const isLoading = companiesQuery.isLoading || contactsQuery.isLoading || defaultContextQuery.isLoading || quotationQuery.isLoading
+  const selectedParty = parties.find((party) => party.key === filters.partyKey) ?? null
+  const selectedContact = selectedParty ? findContactForParty(contactsQuery.data ?? [], selectedParty) : null
+
+  useEffect(() => {
+    if (!company) return
+    const controller = new AbortController()
+    void loadCompanySoftwareSettingsFromServer(session, company.id, { signal: controller.signal })
+      .then((settings) => {
+        if (!controller.signal.aborted) setSoftwareSettings(settings)
+      })
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [company, session])
+
+  useEffect(() => {
+    const startDate = defaultContextQuery.data?.accountingYearStartDate?.slice(0, 10)
+    const endDate = defaultContextQuery.data?.accountingYearEndDate?.slice(0, 10)
+    if (!startDate) return
+    setFilters((current) => ({
+      ...current,
+      fromDate: current.fromDate === defaultFinancialYearStart() ? startDate : current.fromDate,
+      toDate: endDate && current.toDate === todayDate() ? endDate : current.toDate,
+    }))
+  }, [defaultContextQuery.data?.accountingYearEndDate, defaultContextQuery.data?.accountingYearStartDate])
+
+  return (
+    <MasterListPageFrame
+      action={<PrintButton />}
+      className="w-[calc(100%-2rem)] max-w-[1500px] sm:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)]"
+      description="Review billed and unbilled quotations with generated sales invoice references."
+      technicalName="page.billing.report.quotation"
+      title="Quotation Report"
+    >
+      <QuotationReportPrintStyle />
+      <QuotationReportFiltersCard filters={filters} isLoading={isLoading} partyOptions={parties} onChange={setFilters} />
+      <QuotationReportPrintSheet
+        company={company}
+        filters={filters}
+        letterheadSettings={softwareSettings.letterheadSettings}
+        selectedParty={selectedParty}
+        selectedPartyAddressLines={selectedPartyAddressLines(selectedParty, selectedContact)}
+      >
+        <QuotationReportSummary rows={rows} />
+        <QuotationReportTable rows={billedRows} title="Billed Quotations" />
+        <QuotationReportTable rows={unbilledRows} title="Unbilled Quotations" />
+      </QuotationReportPrintSheet>
     </MasterListPageFrame>
   )
 }
@@ -535,6 +638,166 @@ function StatementTable({
   )
 }
 
+function QuotationReportFiltersCard({
+  filters,
+  isLoading,
+  onChange,
+  partyOptions,
+}: {
+  filters: QuotationReportFilters
+  isLoading: boolean
+  onChange(nextFilters: QuotationReportFilters): void
+  partyOptions: readonly StatementParty[]
+}) {
+  return (
+    <Card className="rounded-md border-border/70 bg-card/95 p-3 shadow-sm print:hidden">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <PartyFilter label="Customer" options={partyOptions} value={filters.partyKey} onChange={(partyKey) => onChange({ ...filters, partyKey })} />
+        <select
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/20"
+          value={filters.status}
+          onChange={(event) => onChange({ ...filters, status: event.target.value as QuotationReportFilters["status"] })}
+        >
+          <option value="all">All quotations</option>
+          <option value="billed">Billed only</option>
+          <option value="unbilled">Unbilled only</option>
+        </select>
+        <Input aria-label="From date" className="h-9 rounded-md bg-background" type="date" value={filters.fromDate} onChange={(event) => onChange({ ...filters, fromDate: event.target.value })} />
+        <Input aria-label="To date" className="h-9 rounded-md bg-background" type="date" value={filters.toDate} onChange={(event) => onChange({ ...filters, toDate: event.target.value })} />
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        {isLoading ? "Loading quotation data..." : `${partyOptions.length} customer${partyOptions.length === 1 ? "" : "s"} from quotations`}
+      </div>
+    </Card>
+  )
+}
+
+function QuotationReportPrintSheet({
+  children,
+  company,
+  filters,
+  letterheadSettings,
+  selectedParty,
+  selectedPartyAddressLines,
+}: {
+  children: ReactNode
+  company: CompanyRecord | null
+  filters: QuotationReportFilters
+  letterheadSettings?: Partial<SoftwareSettingsState["letterheadSettings"]>
+  selectedParty: StatementParty | null
+  selectedPartyAddressLines: readonly string[]
+}) {
+  return (
+    <section className="quotation-report-print-sheet rounded-md border border-border/70 bg-card p-4 shadow-sm print:fixed print:inset-0 print:z-[9999] print:m-0 print:block print:overflow-visible print:border-0 print:bg-white print:p-0 print:text-black print:shadow-none">
+      <div className="print:mx-auto print:w-[198mm]">
+        <StatementLetterhead company={company} letterheadSettings={letterheadSettings} />
+        <div className="mb-3 rounded-md border border-border/70 text-sm print:rounded-none print:border-gray-400 print:text-[10px]">
+          <div className="grid min-h-[22mm] grid-cols-1 leading-tight sm:grid-cols-2 print:grid-cols-2">
+            <div className="min-w-0 px-3 py-3 text-left print:px-2 print:py-2">
+              <div className="font-bold">Quotation Report</div>
+              <div>
+                Period From -{formatNumericDate(filters.fromDate)}
+                <span className="mx-1">To</span>
+                {formatNumericDate(filters.toDate)}
+              </div>
+              <div>Status: {quotationStatusLabel(filters.status)}</div>
+            </div>
+            <div className="border-t border-border/70 px-3 py-3 text-left sm:border-l sm:border-t-0 print:border-l print:border-t-0 print:border-gray-400 print:px-2 print:py-2">
+              <div><span className="font-bold">Customer: {selectedParty?.name ?? "All customers"}</span></div>
+              {selectedPartyAddressLines.map((line) => (
+                <div key={line} className="uppercase">
+                  {line}
+                </div>
+              ))}
+              {selectedParty?.gstin ? <div>GSTIN/UIN&nbsp;&nbsp;: {selectedParty.gstin}</div> : null}
+            </div>
+          </div>
+        </div>
+        {children}
+        <div className="hidden text-right text-[10px] leading-none print:fixed print:bottom-[7mm] print:right-[5mm] print:block">Page No :1</div>
+      </div>
+    </section>
+  )
+}
+
+function QuotationReportSummary({ rows }: { rows: readonly QuotationReportRow[] }) {
+  const totals = quotationReportTotals(rows)
+  const billed = quotationReportTotals(rows.filter((row) => row.isBilled))
+  const unbilled = quotationReportTotals(rows.filter((row) => !row.isBilled))
+
+  return (
+    <div className="mb-3 grid gap-3 md:grid-cols-3 print:grid-cols-3">
+      <QuotationMetricCard label="Total Quotations" totals={totals} />
+      <QuotationMetricCard label="Billed" totals={billed} />
+      <QuotationMetricCard label="Unbilled" totals={unbilled} />
+    </div>
+  )
+}
+
+function QuotationMetricCard({ label, totals }: { label: string; totals: QuotationReportTotals }) {
+  return (
+    <div className="rounded-md border border-border/70 bg-muted/20 p-3 print:rounded-none print:border-gray-400 print:bg-white print:p-2">
+      <div className="text-xs font-semibold uppercase text-muted-foreground print:text-black">{label}</div>
+      <div className="mt-1 text-lg font-bold print:text-sm">{formatMoney(totals.total)}</div>
+      <div className="mt-1 text-xs text-muted-foreground print:text-black">
+        {totals.count} docs · Qty {formatQuantity(totals.quantity)} · Tax {formatMoney(totals.tax)}
+      </div>
+    </div>
+  )
+}
+
+function QuotationReportTable({ rows, title }: { rows: readonly QuotationReportRow[]; title: string }) {
+  const totals = quotationReportTotals(rows)
+
+  return (
+    <div className="mb-4 overflow-x-auto print:overflow-visible">
+      <div className="border border-b-0 border-border/70 bg-muted/40 px-3 py-2 text-sm font-semibold print:border-gray-400 print:bg-white print:px-1.5 print:py-1 print:text-[10px]">{title}</div>
+      <table className="w-full min-w-[980px] border-collapse text-sm print:min-w-0 print:text-[9px]">
+        <thead>
+          <tr className="bg-muted/60 print:bg-white">
+            {["Date", "Quotation", "Customer", "Sales Invoice", "Status", "Qty", "Taxable", "Tax", "Total"].map((header) => (
+              <th key={header} className={quotationCellClass(header, true)}>
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.invoiceNo}>
+              <td className={quotationCellClass("Date")}>{formatDate(row.date)}</td>
+              <td className={quotationCellClass("Quotation")}>{row.invoiceNo}</td>
+              <td className={quotationCellClass("Customer")}>{row.customer}</td>
+              <td className={quotationCellClass("Sales Invoice")}>{row.invoiceReference}</td>
+              <td className={quotationCellClass("Status")}>{row.status}</td>
+              <td className={quotationCellClass("Qty")}>{formatQuantity(row.quantity)}</td>
+              <td className={quotationCellClass("Taxable")}>{formatMoney(row.taxable)}</td>
+              <td className={quotationCellClass("Tax")}>{formatMoney(row.tax)}</td>
+              <td className={quotationCellClass("Total")}>{formatMoney(row.total)}</td>
+            </tr>
+          ))}
+          {!rows.length ? (
+            <tr>
+              <td className="border border-border/70 px-3 py-6 text-center text-muted-foreground print:border-gray-400" colSpan={9}>
+                No quotation records found.
+              </td>
+            </tr>
+          ) : null}
+          <tr className="bg-muted/30 font-bold print:bg-white">
+            <td className={quotationCellClass("Date")} colSpan={5}>
+              TOTALS.
+            </td>
+            <td className={quotationCellClass("Qty")}>{formatQuantity(totals.quantity)}</td>
+            <td className={quotationCellClass("Taxable")}>{formatMoney(totals.taxable)}</td>
+            <td className={quotationCellClass("Tax")}>{formatMoney(totals.tax)}</td>
+            <td className={quotationCellClass("Total")}>{formatMoney(totals.total)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function PrintButton() {
   return (
     <Button className="h-9 rounded-md print:hidden" type="button" onClick={() => window.print()}>
@@ -551,6 +814,18 @@ function StatementPrintStyle() {
       @media print {
         body * { visibility: hidden; }
         .statement-print-sheet, .statement-print-sheet * { visibility: visible; }
+      }
+    `}</style>
+  )
+}
+
+function QuotationReportPrintStyle() {
+  return (
+    <style>{`
+      @page { size: A4 portrait; margin: 7mm 5mm; }
+      @media print {
+        body * { visibility: hidden; }
+        .quotation-report-print-sheet, .quotation-report-print-sheet * { visibility: visible; }
       }
     `}</style>
   )
@@ -943,6 +1218,10 @@ function supplierParties(entries: readonly PurchaseEntry[]) {
   return uniqueParties(entries.map((entry) => ({ address: entry.billing_address, gstin: entry.supplier_gstin, id: entry.supplier_id, name: entry.supplier_name })))
 }
 
+function quotationParties(entries: readonly QuotationEntry[]) {
+  return uniqueParties(entries.map((entry) => ({ address: entry.billing_address, gstin: entry.customer_gstin, id: entry.customer_id, name: entry.customer_name })))
+}
+
 function uniqueParties(parties: readonly { address?: string | null; gstin?: string | null; id: string | null; name: string }[]) {
   const byKey = new Map<string, StatementParty>()
   for (const party of parties) {
@@ -1019,6 +1298,71 @@ function statementCellClass(header: string, isHeader = false) {
 
 function sum(rows: readonly StatementRow[], key: "credit" | "debit") {
   return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0)
+}
+
+function buildQuotationReportRows(entries: readonly QuotationEntry[], filters: QuotationReportFilters, context: DefaultCompanyContext | null): QuotationReportRow[] {
+  return entries
+    .filter((entry) => isEntryActive(entry))
+    .filter((entry) => !context?.companyId || Number(entry.company_id) === Number(context.companyId))
+    .filter((entry) => !context?.accountingYearId || Number(entry.accounting_year_id) === Number(context.accountingYearId))
+    .filter((entry) => inDateRange(entry.invoice_date, filters.fromDate, filters.toDate))
+    .filter((entry) => !filters.partyKey || partyKey(entry.customer_id, entry.customer_name) === filters.partyKey || normalizePartyName(entry.customer_name) === normalizePartyName(filters.partyKey))
+    .filter((entry) => {
+      if (filters.status === "all") return true
+      const billed = isQuotationBilled(entry)
+      return filters.status === "billed" ? billed : !billed
+    })
+    .map((entry) => ({
+      contactKey: partyKey(entry.customer_id, entry.customer_name),
+      customer: entry.customer_name || "Unknown customer",
+      date: entry.invoice_date,
+      invoiceNo: entry.invoice_no,
+      invoiceReference: entry.generated_sales_invoice_no || entry.generated_sales_invoice_uuid || "",
+      isBilled: isQuotationBilled(entry),
+      quantity: quotationQuantity(entry),
+      status: isQuotationBilled(entry) ? "Billed" : entry.status || "Unbilled",
+      taxable: Number(entry.taxable_total ?? 0),
+      tax: Number(entry.tax_total ?? 0),
+      total: Number(entry.grand_total ?? 0),
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date) || left.invoiceNo.localeCompare(right.invoiceNo))
+}
+
+function isEntryActive(entry: { deleted_at?: string | null; is_active?: boolean | number }) {
+  return !entry.deleted_at && entry.is_active !== false && entry.is_active !== 0
+}
+
+function isQuotationBilled(entry: QuotationEntry) {
+  return Boolean(entry.generated_sales_invoice_no || entry.generated_sales_invoice_uuid || entry.status === "invoiced")
+}
+
+function quotationQuantity(entry: QuotationEntry) {
+  return entry.items.reduce((total, item) => total + Number(item.quantity ?? 0), 0)
+}
+
+function quotationReportTotals(rows: readonly QuotationReportRow[]): QuotationReportTotals {
+  return {
+    count: rows.length,
+    quantity: rows.reduce((total, row) => total + row.quantity, 0),
+    taxable: rows.reduce((total, row) => total + row.taxable, 0),
+    tax: rows.reduce((total, row) => total + row.tax, 0),
+    total: rows.reduce((total, row) => total + row.total, 0),
+  }
+}
+
+function quotationCellClass(header: string, isHeader = false) {
+  const isAmount = ["Qty", "Taxable", "Tax", "Total"].includes(header)
+  return cn("border border-border/70 px-3 py-2 print:border-gray-400 print:px-1.5 print:py-1", isHeader ? "font-semibold" : "", isAmount ? "text-right tabular-nums" : "text-left")
+}
+
+function quotationStatusLabel(status: QuotationReportFilters["status"]) {
+  if (status === "billed") return "Billed"
+  if (status === "unbilled") return "Unbilled"
+  return "All quotations"
+}
+
+function formatQuantity(value: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(Number(value ?? 0))
 }
 
 function formatDate(value?: string | null) {

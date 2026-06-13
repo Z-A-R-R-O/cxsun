@@ -1,7 +1,6 @@
 import { Injectable } from '../../../core/decorators/injectable.js'
 import { hashPassword } from '../../../infrastructure/auth/password-hash.js'
 import { getDatabase } from '../../../infrastructure/database/connection.js'
-import { getTenantDatabase } from '../../../infrastructure/tenant-database/tenant-database.connection.js'
 import type { Tenant } from '../../../core/tenant/domain/tenant.types.js'
 import type { AdminUserRecord, PlatformUserStatus, PlatformUserUpsertInput, TenantUserRecord, TenantUserSummary } from '../domain/auth.types.js'
 
@@ -148,7 +147,7 @@ export class AuthRepository {
     for (const tenant of tenants) {
       let userCount = 0
       try {
-        const row = await getTenantDatabase(tenant)
+        const row = await (await getTenantDatabaseForAuth(tenant))
           .selectFrom('users')
           .select(({ fn }) => fn.count<number>('id').as('user_count'))
           .executeTakeFirst()
@@ -174,7 +173,7 @@ export class AuthRepository {
     const tenant = await this.findTenantById(tenantId)
     if (!tenant) return []
 
-    const rows = await getTenantDatabase(tenant)
+    const rows = await (await getTenantDatabaseForAuth(tenant))
       .selectFrom('user_tenants')
       .innerJoin('users', 'users.id', 'user_tenants.user_id')
       .select([
@@ -212,7 +211,7 @@ export class AuthRepository {
     const tenant = await this.findTenantById(tenantId)
     if (!tenant) return undefined
 
-    return getTenantDatabase(tenant)
+    return (await getTenantDatabaseForAuth(tenant))
       .selectFrom('users')
       .select(['id', 'name', 'email', 'status'])
       .where('id', '=', userId)
@@ -223,7 +222,7 @@ export class AuthRepository {
     const tenant = await this.findTenantById(tenantId)
     if (!tenant) return undefined
 
-    let query = getTenantDatabase(tenant).selectFrom('users').select(['id']).where('email', '=', email)
+    let query = (await getTenantDatabaseForAuth(tenant)).selectFrom('users').select(['id']).where('email', '=', email)
     if (excludeUserId) query = query.where('id', '!=', excludeUserId)
     return query.executeTakeFirst()
   }
@@ -232,7 +231,7 @@ export class AuthRepository {
     const tenant = await this.findTenantById(input.tenant_id)
     if (!tenant) return undefined
 
-    const database = getTenantDatabase(tenant)
+    const database = await getTenantDatabaseForAuth(tenant)
     let userId = input.user_id
 
     if (userId) {
@@ -338,4 +337,9 @@ function nextLocalUuid() {
 
 function dateString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value
+}
+
+async function getTenantDatabaseForAuth(tenant: Tenant) {
+  const { getTenantDatabase } = await import('../../../infrastructure/tenant-database/tenant-database.connection.js')
+  return getTenantDatabase(tenant)
 }
