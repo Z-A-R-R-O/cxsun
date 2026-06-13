@@ -36,6 +36,8 @@ export interface PurchaseEntryItem {
   tax_rate: number
   tax_amount?: number
   line_total?: number
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
   sort_order?: number
 }
 
@@ -85,6 +87,10 @@ export interface PurchaseEntry {
   eway_part: string | null
   notes: string | null
   terms: string | null
+  accounting_posting_mode?: string | null
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
+  accounting_posted_at?: string | null
   is_active: boolean | number
   created_at: string
   updated_at: string
@@ -132,6 +138,9 @@ export function emptyPurchaseEntry(): PurchaseEntryInput {
     eway_part: "part-b",
     notes: "",
     terms: "Supplier bill accepted subject to goods, rate, quantity, and quality verification.",
+    accounting_posting_mode: "auto",
+    accounting_category: "purchase",
+    accounting_ledger_id: null,
     is_active: true,
     items: [],
   }
@@ -151,6 +160,8 @@ export function emptyPurchaseItem(): PurchaseEntryItem {
     rate: 0,
     discount_amount: 0,
     tax_rate: 0,
+    accounting_category: null,
+    accounting_ledger_id: null,
   }
 }
 

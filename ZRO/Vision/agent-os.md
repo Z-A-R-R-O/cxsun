@@ -164,11 +164,11 @@ Shared memory:
 | Router | Current free/reasoning-capable OpenRouter model when available. |
 | Helper | Current free chat/instruct OpenRouter model, with saved premium providers optional. |
 | Planner | Gemini/OpenRouter model when configured. |
-| Workflow | Reasoning-capable OpenRouter/OpenAI-compatible model when configured. |
-| Analytics | Qwen/OpenRouter/OpenAI-compatible model when configured. |
+| Workflow | Reasoning-capable OpenRouter/OpenCode/OpenAI-compatible model when configured. |
+| Analytics | Qwen/OpenRouter/OpenCode/OpenAI-compatible model when configured. |
 | Fallback | First currently available free OpenRouter text model. |
 
-Implementation note: do not hardcode free model names. OpenRouter `:free` slugs change, so ZETRO must refresh them from the live model catalog and keep premium models configurable through saved API connections or env fallback.
+Implementation note: do not hardcode free model names. OpenRouter `:free` slugs change, so ZETRO must refresh them from the live model catalog and keep premium models configurable through saved API connections or env fallback. OpenCode Zen is available as an OpenAI-compatible provider for its `/chat/completions` model set, with editable model IDs in the API panel.
 
 ## Database Structure
 

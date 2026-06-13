@@ -23,9 +23,11 @@ import {
 import { cn } from "src/lib/utils"
 import { capturePrintDocument } from "src/shared/print/capture-print-document"
 import type { AuthSession } from "src/features/auth/auth-client"
-import { listCompanies, type CompanyBankAccount, type CompanyRecord } from "src/features/company/company-client"
+import { listCompanies, type CompanyRecord } from "src/features/company/company-client"
 import { LetterheadBuilder } from "src/features/company/letterhead-builder"
 import { emptyContact, upsertContact, type ContactInput, type ContactRecord } from "src/features/contact/contact-client"
+import { LedgerAutocompleteLookup } from "src/features/accounts/accounts-book-page"
+import { listAllAccountLedgers, type AccountLedger } from "src/features/accounts/accounts-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
 import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { listMasterDataRecords } from "src/features/master-data/infrastructure/master-data-client"
@@ -412,9 +414,9 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   const [contactCreateInitialName, setContactCreateInitialName] = useState<string | null>(null)
   const contactsQuery = useQuery({ queryKey: ["receipt-contact-lookups", session.selectedTenant.slug], queryFn: () => listReceiptContactLookups(session) })
   const contactTypesQuery = useQuery({ queryKey: ["receipt-contact-types", session.selectedTenant.slug], queryFn: () => listMasterDataRecords(session, "contactTypes") })
-  const companyQuery = useQuery({ queryKey: ["receipt-company-bank", session.selectedTenant.slug], queryFn: () => listCompanies(session) })
+  const ledgersQuery = useQuery({ queryKey: ["receipt-money-ledgers", session.selectedTenant.slug], queryFn: () => listAllAccountLedgers(session) })
   const nextReceiptQuery = useQuery({ enabled: !entry, queryKey: ["document-number-next-preview", session.selectedTenant.slug, "receipt"], queryFn: () => nextDocumentNumberSetting(session, "receipt"), refetchOnMount: "always" })
-  const bankAccounts = ((companyQuery.data ?? []).find((company) => company.isPrimary) ?? companyQuery.data?.[0])?.bankAccounts ?? []
+  const ledgers = ledgersQuery.data ?? []
   const customerContacts = useMemo(() => filterStockContactLookupOptions(contactsQuery.data ?? [], contactTypesQuery.data ?? [], "customer"), [contactsQuery.data, contactTypesQuery.data])
 
   useEffect(() => {
@@ -423,7 +425,7 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   }, [draft.receipt_no, entry, nextReceiptQuery.data?.preview])
 
   const tabs: AnimatedTab[] = [
-    { value: "details", label: "Details", content: <ReceiptDetailsTab bankAccounts={bankAccounts} contacts={customerContacts} form={draft} onCreateContact={setContactCreateInitialName} session={session} setForm={setDraft} /> },
+    { value: "details", label: "Details", content: <ReceiptDetailsTab contacts={customerContacts} form={draft} ledgers={ledgers} onCreateContact={setContactCreateInitialName} session={session} setForm={setDraft} /> },
     { value: "allocations", label: "Allocations", content: <ReceiptAllocationsTab form={draft} setForm={setDraft} /> },
   ]
 
@@ -469,10 +471,9 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
   )
 }
 
-function ReceiptDetailsTab({ bankAccounts, contacts, form, onCreateContact, session, setForm }: { bankAccounts: CompanyBankAccount[]; contacts: ReceiptLookupOption[]; form: ReceiptEntryInput; onCreateContact(name: string): void; session: AuthSession; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
+function ReceiptDetailsTab({ contacts, form, ledgers, onCreateContact, session, setForm }: { contacts: ReceiptLookupOption[]; form: ReceiptEntryInput; ledgers: AccountLedger[]; onCreateContact(name: string): void; session: AuthSession; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
   const needsBank = isBankTransferMode(form.receipt_mode ?? "cash")
-  const bankOptions = useMemo(() => bankAccounts.filter((bank) => bank.isActive).sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary)), [bankAccounts])
-  const selectedBank = bankOptions.find((bank) => String(bank.id ?? bank.accountNumber) === String(form.bank_account_id ?? ""))
+  const moneyLedgers = useMemo(() => ledgers.filter((ledger) => ledger.account_type === (needsBank ? "bank" : "cash") && isActiveLedger(ledger)), [ledgers, needsBank])
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -496,22 +497,21 @@ function ReceiptDetailsTab({ bankAccounts, contacts, form, onCreateContact, sess
         <Field label="Date" type="date" value={String(form.receipt_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, receipt_date: value }))} />
         <div className="grid gap-2">
           <Label className="text-sm font-medium text-muted-foreground">Mode</Label>
-          <Select value={form.receipt_mode ?? "cash"} onValueChange={(value) => setForm((current) => ({ ...current, bank_account_id: null, ledger_name: isBankTransferMode(value) ? null : "Cash", receipt_mode: value }))}>
+          <Select value={form.receipt_mode ?? "cash"} onValueChange={(value) => setForm((current) => ({ ...current, bank_account_id: null, ledger_id: null, ledger_name: null, receipt_mode: value }))}>
             <SelectTrigger className="h-11 min-h-11 w-full rounded-md bg-background px-3 text-left font-normal"><SelectValue /></SelectTrigger>
             <SelectContent align="start" position="popper" className="w-[var(--radix-select-trigger-width)]">{receiptModeOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        {needsBank ? (
-          <BankAutocompleteLookup
-            label="Deposit in bank"
-            options={bankOptions}
-            placeholder="Search company bank account"
-            selectedId={form.bank_account_id ?? null}
-            selectedLabel={selectedBank ? companyBankAccountLabel(selectedBank) : ""}
-            onPick={(bank) => setForm((current) => ({ ...current, bank_account_id: String(bank.id ?? bank.accountNumber), ledger_name: companyBankAccountLabel(bank) }))}
-            onTextChange={(value) => setForm((current) => ({ ...current, bank_account_id: null, ledger_name: value }))}
-          />
-        ) : null}
+        <LedgerAutocompleteLookup
+          createLabel="Create ledger in Accounts"
+          label={needsBank ? "Deposit in bank ledger *" : "Cash ledger *"}
+          options={moneyLedgers}
+          placeholder={needsBank ? "Search bank ledger" : "Search cash ledger"}
+          selectedId={form.ledger_id ?? null}
+          selectedLabel={form.ledger_name ?? ""}
+          onPick={(ledger) => setForm((current) => ({ ...current, bank_account_id: null, ledger_id: String(ledger.id), ledger_name: ledger.name }))}
+          onTextChange={(value) => setForm((current) => ({ ...current, bank_account_id: null, ledger_id: null, ledger_name: value }))}
+        />
         <TextField label="Notes" value={form.notes ?? ""} onChange={(value) => setForm((current) => ({ ...current, notes: value }))} />
       </div>
     </div>
@@ -732,29 +732,6 @@ function normalizeContactCode(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)
 }
 
-function BankAutocompleteLookup({ label, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { label: string; onPick(option: CompanyBankAccount): void; onTextChange(value: string): void; options: CompanyBankAccount[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
-  const lookupOptions = options.map((bank) => ({ id: String(bank.id ?? bank.accountNumber), label: companyBankAccountLabel(bank), bank }))
-  const [isOpen, setIsOpen] = useState(false)
-  const [query, setQuery] = useState(selectedLabel)
-  const filteredOptions = lookupOptions.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()))
-
-  useEffect(() => {
-    if (!isOpen) setQuery(selectedLabel)
-  }, [isOpen, selectedLabel])
-
-  return (
-    <div className="relative z-10 grid w-full gap-2 focus-within:z-[90]">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
-      <Input className="h-11 rounded-md" placeholder={placeholder} value={query} onBlur={() => window.setTimeout(() => { setIsOpen(false); setQuery(selectedLabel) }, 120)} onChange={(event) => { setQuery(event.target.value); setIsOpen(true); onTextChange(event.target.value) }} onFocus={() => setIsOpen(true)} />
-      {isOpen && filteredOptions.length ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[100] max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-2xl" onMouseDown={(event) => event.preventDefault()}>
-          {filteredOptions.map((option) => <button key={option.id} type="button" className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted" onMouseDown={(event) => { event.preventDefault(); setQuery(option.label); onPick(option.bank); setIsOpen(false) }}><span className="truncate">{option.label}</span>{selectedId === option.id ? <Check className="size-4 text-emerald-600" /> : <span className="size-4" />}</button>)}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function DecimalInput({ onChange, placeholder, value }: { onChange(value: string): void; placeholder?: string; value: string }) {
   const [displayValue, setDisplayValue] = useState(value)
   const [isFocused, setIsFocused] = useState(false)
@@ -872,19 +849,13 @@ function isActive(entry: ReceiptEntry) {
   return entry.is_active === true || entry.is_active === 1
 }
 
+function isActiveLedger(ledger: AccountLedger) {
+  return ledger.is_active === true || ledger.is_active === 1
+}
+
 function lookupName(option: ReceiptLookupOption) {
   const name = typeof option.record.name === "string" ? option.record.name.trim() : ""
   return name || option.label
-}
-
-function companyBankAccountLabel(bank: CompanyBankAccount) {
-  const suffix = [bank.accountNumber ? maskAccountNumber(bank.accountNumber) : "", bank.branch ?? ""].filter(Boolean).join(" / ")
-  return suffix ? `${bank.bankName || "Bank"} - ${suffix}` : bank.bankName || "Bank"
-}
-
-function maskAccountNumber(value: string) {
-  const trimmed = value.trim()
-  return trimmed.length <= 4 ? trimmed : `****${trimmed.slice(-4)}`
 }
 
 function modeLabel(value: string) {

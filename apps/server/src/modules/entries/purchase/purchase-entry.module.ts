@@ -12,6 +12,8 @@ import { DocumentNumberRepository } from '../../settings/document-settings/infra
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
+import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
+import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
 
 @Module({
   controllers: [PurchaseEntryV1Controller],
@@ -26,6 +28,8 @@ import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
     PrintHtmlPdfService,
     PurchaseEntryEventBus,
     DocumentNumberRepository,
+    AccountsEngineRepository,
+    AccountsEntryPostingService,
     PurchaseEntryRepository,
     PurchaseEntryService,
   ],

@@ -2,11 +2,66 @@
 
 ## Version State
 
-- **Current version:** `1.0.91`
-- **Release tag:** `v-1.0.91`
-- **Changelog label:** `v 1.0.91`
+- **Current version:** `1.0.93`
+- **Release tag:** `v-1.0.93`
+- **Changelog label:** `v 1.0.93`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
+
+---
+
+## v-1.0.93
+
+### [v 1.0.93] 2026-06-13 9:32 am - ZETRO OpenCode API connection
+
+- Bumped workspace version to 1.0.93
+- Added OpenCode Zen as a first-class ZETRO API provider alongside OpenRouter, OpenAI/GPT, Gemini, and custom OpenAI-compatible providers.
+- Added `OPENCODE_API_KEY` and `OPENCODE_BASE_URL` environment fallbacks, with the default base URL set to `https://opencode.ai/zen/v1`.
+- Added OpenCode Zen to the ZETRO dashboard AI platform manager with editable base URL and model IDs.
+- Updated ZRO and assist Agent OS docs to record the OpenCode provider path and current `/chat/completions` transport boundary.
+- Verified backend and frontend TypeScript surfaces after the provider addition.
+
+## v-1.0.92
+
+### [v 1.0.92] 2026-06-11 - Dynamic Sales Types and Accounts menu polish
+
+- Bumped workspace package/display versions to 1.0.92 to match the documented release state.
+- Added tenant-maintained Sales Types as a common master with `Sales Account` as the default normal sales type.
+- Wired Sales entry posting to use dynamic Sales Type names while preserving old saved sales category compatibility.
+- Updated the Sales form to load Sales Type options dynamically instead of hard-coded Fabric/Garment/Export sales values.
+- Reordered the Accounts side menu so Accounting appears first and Books contains Cash Book, Bank Book, Chart of Accounts, and Day Book.
+- Verified the logged-in browser flow for Sales Types and the Sales form dynamic dropdown.
+
+### [v 1.0.92] 2026-06-11 - Accounts pending posting completion
+
+- Split Receipt and Payment posting into cash/bank, customer/supplier, TDS, discount, and round-off ledger lines instead of net-only postings.
+- Added posting-backed Accounts Cash Book and Bank Book APIs and frontend pages while keeping Billing legacy book screens intact.
+- Added client-facing Sales/Purchase posting controls for Auto Post and category selection using business labels.
+- Updated Accounts chart/report labels so Customers, Suppliers, Sales, Purchases, and Taxes are shown instead of auditor-only group names where appropriate.
+- Verified with backend/frontend typechecks, backend build, frontend build, and diff hygiene.
+
+### [v 1.0.92] 2026-06-11 - Tally-like Accounts posting bridge
+
+- Added optional accounting posting mode, category, and ledger override fields to Sales and Purchase entries/items without replacing existing entry behavior.
+- Added Tally-like Sales and Purchase source posting into Accounts vouchers, voucher lines, and ledger postings.
+- Added default programmatic ledgers for Fabric Sales, Garment Sales, Export Sales, Fabric Purchase, Garment Purchase, Accessories Purchase, GST, and Round Off fallback handling.
+- Added source posting audit records and monthly posting rollups for report/dashboard-friendly totals.
+- Added backend posting rollup rebuild trigger at `POST /api/v1/accounts/postings/rebuild`.
+- Wired Sales/Purchase create, update, suspend, and restore flows to create, replace, or cancel source-linked postings.
+- Verified with server typecheck/build and frontend typecheck.
+
+### [v 1.0.92] 2026-06-10 1:56 pm - Accounts Indian accounting engine
+
+- Bumped workspace version to 1.0.92
+- Verified current Accounts backend/frontend module and dashboard wiring.
+- Replaced `apps/server/src/modules/accounts/ACCOUNTS.md` with a detailed Indian accounting engine plan.
+- Added account groups migration and Indian default chart of accounts seeding.
+- Added normalized account vouchers, voucher lines, and postings tables.
+- Added balanced manual journal/contra posting APIs with debit-credit validation.
+- Added Day Book, Ledger Statement, Trial Balance, Profit & Loss, and Balance Sheet backend report APIs.
+- Added the frontend Accounts overview, chart, voucher, and report desk pages with dashboard routing.
+- Wired Receipt and Payment entries into Accounts with source-linked posted vouchers and active/deactivated postings.
+- Ran backend typecheck and build.
 
 ---
 

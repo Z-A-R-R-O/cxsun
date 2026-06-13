@@ -60,6 +60,11 @@ export async function migratePurchaseEntryTables(database: TenantDatabase) {
     )
   `).execute(database)
 
+  await sql.raw(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS accounting_posting_mode VARCHAR(40) NOT NULL DEFAULT 'auto' AFTER terms`).execute(database)
+  await sql.raw(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS accounting_category VARCHAR(80) NULL AFTER accounting_posting_mode`).execute(database)
+  await sql.raw(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS accounting_ledger_id BIGINT UNSIGNED NULL AFTER accounting_category`).execute(database)
+  await sql.raw(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS accounting_posted_at DATETIME NULL AFTER accounting_ledger_id`).execute(database)
+
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS purchase_entry_items (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -86,6 +91,9 @@ export async function migratePurchaseEntryTables(database: TenantDatabase) {
       INDEX idx_purchase_entry_items_parent (purchase_entry_id, sort_order)
     )
   `).execute(database)
+
+  await sql.raw(`ALTER TABLE purchase_entry_items ADD COLUMN IF NOT EXISTS accounting_category VARCHAR(80) NULL AFTER line_total`).execute(database)
+  await sql.raw(`ALTER TABLE purchase_entry_items ADD COLUMN IF NOT EXISTS accounting_ledger_id BIGINT UNSIGNED NULL AFTER accounting_category`).execute(database)
 
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS purchase_entry_comments (

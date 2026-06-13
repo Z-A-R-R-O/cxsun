@@ -2256,6 +2256,64 @@ User prompt:
 
 > write log in changelog and version update
 
+## 2026-06-10 - Session prep
+
+User prompt:
+
+> read assist/readme and prepare for work
+
+## 2026-06-10 - Accounts module Indian standard plan
+
+User prompt:
+
+> in this we want to work on accounts module properly find account module and build this to Indian standard
+>
+> accounting engine + modules before work write detail plan inside
+>
+> apps/server/src/modules/accounts/ACCOUNTS.md verify existing and write fresh for accounts
+>
+> we have already create bank book and cash book and not wired with entries
+>
+> leave entries receipt and payment as it is now dont touch , first work on accounts completely and then we wire entries
+
+## 2026-06-10 - Accounts frontend desk next slice
+
+User prompt:
+
+> ok next
+
+## 2026-06-10 - Continue last Accounts work
+
+User prompt:
+
+> collect last worked from assist/readme and continue for work
+
+## 2026-06-11 - Tally-like double-entry Accounts posting
+
+User prompt:
+
+> ok fine your are genius , make this proper implement in our account system and also make implement in entries posting to appropriate ledger and voucher
+>
+> in entries / sales make this as auto post as sales voucher like wise purchase also as main voucher and ledger  Sales Account and purchase account
+>
+> and also classify in some sub group
+>
+> for garment there may fabric sales , fabric purchase , garment sales , garment purchase , accessories purchase , export sales  make these also reality if no sub leger or group make it as normal sales ledger
+>
+> tenant or client can decide how to behave so set clear fields in entries
+>
+> one more thing do not disturb existing entries add as additional fields if required or separate table connecting to this
+>
+> make audit trial for all entries and voucher posting real and make extra tables for report live posting
+>
+> for an example if we want monthly sales report we want to go to sales and collect all invoice and consolidate and then get report , in frontend dashboard to show totals we want to calculate cr and dr or all records instead of these again and again sum total and get every records count make additional posting tables and make it easier and these tables are only programmatic not manual edits and also provide recalculate in queue option at backend with manual tigger recalculate if want from super-admin
+>
+> in this accounting language is belongs to auditor but nor client does not know and not interest in this for an eg
+>
+> sundry creditors is accounts language name but client knows as supplier like wise sundry debtors is named customers like wise follow these for frontend
+>
+> if any doubt we can clarify and then work
+
 ## 2026-06-11 - Versatile Agent OS plan
 
 User prompt:

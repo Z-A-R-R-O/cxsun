@@ -27,6 +27,7 @@ import { paymentTermsCommonDefinition } from './others/payment-terms/definition.
 import { accountingYearCommonDefinition } from './others/accounting-year/definition.js'
 import { monthsCommonDefinition } from './others/months/definition.js'
 import { stockRejectionTypesCommonDefinition } from './orders/stock-rejection-types/definition.js'
+import { salesAccountTypesCommonDefinition } from './others/sales-account-types/definition.js'
 import type { MasterDataModuleDefinition } from '../foundation/master-record/domain/value-objects/master-data-definition.js'
 
 export const commonModuleDefinitions: MasterDataModuleDefinition[] = [
@@ -59,6 +60,7 @@ export const commonModuleDefinitions: MasterDataModuleDefinition[] = [
   accountingYearCommonDefinition,
   monthsCommonDefinition,
   stockRejectionTypesCommonDefinition,
+  salesAccountTypesCommonDefinition,
 ]
 
 export const commonModuleFolderContracts = [
@@ -91,4 +93,5 @@ export const commonModuleFolderContracts = [
   { key: 'accountingYear', group: 'others', module: 'accounting-year', moduleClass: 'AccountingYearCommonModule', migration: 'migrateAccountingYearCommonTable' },
   { key: 'months', group: 'others', module: 'months', moduleClass: 'MonthsCommonModule', migration: 'migrateMonthsCommonTable' },
   { key: 'stockRejectionTypes', group: 'orders', module: 'stock-rejection-types', moduleClass: 'StockRejectionTypesCommonModule', migration: 'migrateStockRejectionTypesCommonTable' },
+  { key: 'salesAccountTypes', group: 'others', module: 'sales-account-types', moduleClass: 'SalesAccountTypesCommonModule', migration: 'migrateSalesAccountTypesCommonTable' },
 ] as const

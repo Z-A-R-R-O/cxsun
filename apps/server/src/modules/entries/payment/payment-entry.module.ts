@@ -6,6 +6,8 @@ import { TenantRepository } from '../../../core/tenant/infrastructure/tenant.rep
 import { TenantDomainRepository } from '../../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
 import { MailRepository } from '../../mail/mail.repository.js'
+import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
+import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 import { PaymentEntryController } from './payment-entry.controller.js'
@@ -24,6 +26,8 @@ import { PaymentEntryService } from './payment-entry.service.js'
     EntryDocumentMailService,
     PrintHtmlPdfService,
     DocumentNumberRepository,
+    AccountsEngineRepository,
+    AccountsEntryPostingService,
     PaymentEntryRepository,
     PaymentEntryService,
   ],

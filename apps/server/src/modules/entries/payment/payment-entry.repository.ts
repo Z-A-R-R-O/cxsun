@@ -4,6 +4,7 @@ import { Inject } from '../../../core/decorators/inject.js'
 import { Injectable } from '../../../core/decorators/injectable.js'
 import { dispatchPublicUuid } from '../../../shared/helpers/public-uuid.js'
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
+import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
 import type { TenantRuntimeContext } from '../../../core/tenant/tenant-context.service.js'
 import type { PaymentAllocation, PaymentEntry, PaymentEntryInput } from './payment-entry.types.js'
 
@@ -11,7 +12,10 @@ type DynamicDatabase = Record<string, Record<string, unknown>>
 
 @Injectable()
 export class PaymentEntryRepository {
-  constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
+  constructor(
+    @Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository,
+    @Inject(AccountsEntryPostingService) private readonly accountPostings: AccountsEntryPostingService,
+  ) {}
 
   async list(context: TenantRuntimeContext) {
     const companyId = await this.defaultCompanyId(context)
@@ -56,6 +60,7 @@ export class PaymentEntryRepository {
     await this.addActivityById(context, id, 'created', `You created ${normalized.entry.payment_no}`)
     const entry = await this.find(context, String(id))
     if (!entry) throw new BadRequestException('Payment was created but could not be read back.')
+    await this.accountPostings.postPayment(context, entry)
     return entry
   }
 
@@ -73,6 +78,7 @@ export class PaymentEntryRepository {
     await this.addActivityById(context, existing.id, 'updated', `You last edited ${normalized.entry.payment_no}`)
     const entry = await this.find(context, String(existing.id))
     if (!entry) throw new BadRequestException('Payment was updated but could not be read back.')
+    await this.accountPostings.postPayment(context, entry)
     return entry
   }
 
@@ -85,6 +91,7 @@ export class PaymentEntryRepository {
       .where('tenant_id', '=', context.tenant.id)
       .where('id', '=', existing.id)
       .execute()
+    await this.accountPostings.cancelSource(context, 'payment', existing.uuid)
     return true
   }
 
@@ -95,7 +102,9 @@ export class PaymentEntryRepository {
       .where('tenant_id', '=', context.tenant.id)
       .where(this.idColumn(idOrUuid), '=', this.idValue(idOrUuid))
       .execute()
-    return this.find(context, idOrUuid)
+    const entry = await this.find(context, idOrUuid)
+    if (entry) await this.accountPostings.postPayment(context, entry)
+    return entry
   }
 
   async addComment(context: TenantRuntimeContext, idOrUuid: string, body: string) {
@@ -128,6 +137,7 @@ export class PaymentEntryRepository {
     const netAmount = roundMoney(amount - tdsAmount - discountAmount + roundOff)
     const allocations = (input.allocations ?? []).map((allocation, index) => normalizeAllocation(allocation, index)).filter((allocation) => allocation.document_no || allocation.allocated_amount > 0)
     const allocatedAmount = roundMoney(allocations.reduce((sum, allocation) => sum + allocation.allocated_amount, 0))
+    const moneyLedger = await this.resolveMoneyLedger(context, input.payment_mode, input.ledger_id)
 
     return {
       entry: {
@@ -138,8 +148,8 @@ export class PaymentEntryRepository {
         party_id: emptyAsNull(input.party_id),
         party_name: input.party_name.trim(),
         party_type: emptyAsNull(input.party_type) ?? 'supplier',
-        ledger_id: emptyAsNull(input.ledger_id),
-        ledger_name: emptyAsNull(input.ledger_name) ?? (input.payment_mode === 'cash' ? 'Cash' : null),
+        ledger_id: String(moneyLedger.id),
+        ledger_name: moneyLedger.name,
         payment_mode: emptyAsNull(input.payment_mode) ?? 'cash',
         bank_account_id: emptyAsNull(input.bank_account_id),
         reference_no: emptyAsNull(input.reference_no),
@@ -166,6 +176,22 @@ export class PaymentEntryRepository {
       .insertInto('payment_entry_allocations')
       .values(allocations.map((allocation, index) => ({ ...allocation, payment_entry_id: paymentEntryId, sort_order: index + 1 })))
       .execute()
+  }
+
+  private async resolveMoneyLedger(context: TenantRuntimeContext, mode: string | null | undefined, ledgerIdInput: string | null | undefined) {
+    const accountType = String(mode ?? 'cash').toLowerCase() === 'cash' ? 'cash' : 'bank'
+    const ledgerId = Number(ledgerIdInput ?? 0)
+    let query = this.database(context)
+      .selectFrom('account_ledgers')
+      .select(['id', 'name'])
+      .where('tenant_id', '=', context.tenant.id)
+      .where('account_type', '=', accountType)
+      .where('deleted_at', 'is', null)
+    if (ledgerId) query = query.where('id', '=', ledgerId)
+    else query = query.orderBy('id', 'asc')
+    const ledger = await query.executeTakeFirst()
+    if (!ledger) throw new BadRequestException(`${accountType === 'cash' ? 'Cash' : 'Bank'} ledger is required.`)
+    return { id: Number(ledger.id), name: String(ledger.name) }
   }
 
   private async toEntry(context: TenantRuntimeContext, row: Record<string, unknown>): Promise<PaymentEntry> {

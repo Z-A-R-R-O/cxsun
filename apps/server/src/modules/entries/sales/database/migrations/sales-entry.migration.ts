@@ -61,6 +61,10 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
   await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_type VARCHAR(80) NULL AFTER terms`).execute(database)
   await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_ref_no VARCHAR(255) NULL AFTER source_type`).execute(database)
   await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS source_quotation_uuids JSON NULL AFTER source_ref_no`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS accounting_posting_mode VARCHAR(40) NOT NULL DEFAULT 'auto' AFTER source_quotation_uuids`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS accounting_category VARCHAR(80) NULL AFTER accounting_posting_mode`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS accounting_ledger_id BIGINT UNSIGNED NULL AFTER accounting_category`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entries ADD COLUMN IF NOT EXISTS accounting_posted_at DATETIME NULL AFTER accounting_ledger_id`).execute(database)
 
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS sales_entry_items (
@@ -88,6 +92,9 @@ export async function migrateSalesEntryTables(database: TenantDatabase) {
       INDEX idx_sales_entry_items_parent (sales_entry_id, sort_order)
     )
   `).execute(database)
+
+  await sql.raw(`ALTER TABLE sales_entry_items ADD COLUMN IF NOT EXISTS accounting_category VARCHAR(80) NULL AFTER line_total`).execute(database)
+  await sql.raw(`ALTER TABLE sales_entry_items ADD COLUMN IF NOT EXISTS accounting_ledger_id BIGINT UNSIGNED NULL AFTER accounting_category`).execute(database)
 
   await sql.raw(`
     CREATE TABLE IF NOT EXISTS sales_entry_comments (

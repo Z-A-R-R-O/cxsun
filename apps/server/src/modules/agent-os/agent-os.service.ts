@@ -709,7 +709,7 @@ export interface ZetroModel {
   requiresKey: boolean
 }
 
-type ZetroProviderKey = 'openrouter' | 'openai' | 'gemini' | 'custom'
+type ZetroProviderKey = 'openrouter' | 'openai' | 'gemini' | 'opencode' | 'custom'
 type ZetroProviderKind = 'openai-compatible' | 'gemini'
 
 interface ProviderRuntimeConfig {
@@ -1100,6 +1100,7 @@ function providerCatalog() {
     providerDefaults('openrouter'),
     providerDefaults('openai'),
     providerDefaults('gemini'),
+    providerDefaults('opencode'),
     providerDefaults('custom'),
   ]
 }
@@ -1146,6 +1147,16 @@ function providerDefaults(providerKey: string) {
       premiumModels: 'gemini-2.5-pro',
       requiredEnv: ['GEMINI_API_KEY'],
     },
+    opencode: {
+      providerKey: 'opencode',
+      providerName: 'OpenCode Zen',
+      providerKind: 'openai-compatible',
+      baseUrl: settings.zetro.openCodeBaseUrl.replace(/\/$/, ''),
+      defaultModel: 'deepseek-v4-flash-free',
+      freeModels: 'deepseek-v4-flash-free,mimo-v2.5-free,north-mini-code-free,nemotron-3-ultra-free,big-pickle',
+      premiumModels: 'kimi-k2.6,kimi-k2.5,glm-5.1,glm-5,deepseek-v4-pro,deepseek-v4-flash,minimax-m2.7,minimax-m2.5,grok-build-0.1',
+      requiredEnv: ['OPENCODE_API_KEY', 'OPENCODE_BASE_URL'],
+    },
     custom: {
       providerKey: 'custom',
       providerName: 'Custom / OpenAI Compatible',
@@ -1163,6 +1174,7 @@ function providerDefaults(providerKey: string) {
 function envApiKeyForProvider(providerKey: ZetroProviderKey) {
   if (providerKey === 'openai') return settings.zetro.openAiApiKey
   if (providerKey === 'gemini') return settings.zetro.geminiApiKey
+  if (providerKey === 'opencode') return settings.zetro.openCodeApiKey
   if (providerKey === 'custom') return settings.zetro.customAiApiKey
   return settings.zetro.openRouterApiKey
 }
@@ -1170,6 +1182,7 @@ function envApiKeyForProvider(providerKey: ZetroProviderKey) {
 function envNameForProvider(providerKey: ZetroProviderKey) {
   if (providerKey === 'openai') return 'OPENAI_API_KEY'
   if (providerKey === 'gemini') return 'GEMINI_API_KEY'
+  if (providerKey === 'opencode') return 'OPENCODE_API_KEY'
   if (providerKey === 'custom') return 'CUSTOM_AI_API_KEY'
   return 'OPENROUTER_API_KEY'
 }
@@ -1264,7 +1277,7 @@ function isStaleOpenRouterModelFailure(message?: string | null) {
 }
 
 function normalizeProviderKey(value?: string): ZetroProviderKey {
-  if (value === 'openai' || value === 'gemini' || value === 'custom') return value
+  if (value === 'openai' || value === 'gemini' || value === 'opencode' || value === 'custom') return value
   return 'openrouter'
 }
 

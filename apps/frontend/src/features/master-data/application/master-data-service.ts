@@ -28,6 +28,7 @@ export const pageModuleMap: Partial<Record<DashboardPage, string>> = {
   "app-billing-warehouse": "warehouses",
   "app-billing-destination": "destinations",
   "app-billing-payment-term": "paymentTerms",
+  "app-billing-sales-type": "salesAccountTypes",
   "app-billing-accounting-year": "accountingYear",
   "app-billing-month": "months",
   "app-billing-stock-rejection-type": "stockRejectionTypes",

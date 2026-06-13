@@ -64,6 +64,8 @@ export const settings = {
     appTitle: envString('OPENROUTER_APP_TITLE', 'CXSun ZETRO'),
     openAiApiKey: envOptionalString('OPENAI_API_KEY'),
     geminiApiKey: envOptionalString('GEMINI_API_KEY'),
+    openCodeApiKey: envOptionalString('OPENCODE_API_KEY'),
+    openCodeBaseUrl: envString('OPENCODE_BASE_URL', 'https://opencode.ai/zen/v1'),
     customAiApiKey: envOptionalString('CUSTOM_AI_API_KEY'),
     requestTimeoutMs: envNumber('ZETRO_REQUEST_TIMEOUT_MS', 30000),
     maxTokens: envNumber('ZETRO_MAX_TOKENS', 700),

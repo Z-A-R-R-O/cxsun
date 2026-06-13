@@ -5,6 +5,7 @@ import { Inject } from '../../core/decorators/inject.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import type { TenantRuntimeContext } from '../../core/tenant/tenant-context.service.js'
 import { DocumentNumberRepository } from '../settings/document-settings/infrastructure/document-number.repository.js'
+import { AccountsEntryPostingService } from './accounts-entry-posting.service.js'
 import type { AccountBookEntry, AccountBookEntryInput, AccountBookType, AccountLedgerInput, AccountLedgerType } from './accounts.types.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
@@ -12,7 +13,10 @@ type AccountBookTable = 'cash_books' | 'bank_books'
 
 @Injectable()
 export class AccountsRepository {
-  constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
+  constructor(
+    @Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository,
+    @Inject(AccountsEntryPostingService) private readonly accountPostings: AccountsEntryPostingService,
+  ) {}
 
   async ledgers(context: TenantRuntimeContext, type?: AccountLedgerType) {
     await this.ensureDefaultLedgers(context)
@@ -133,6 +137,7 @@ export class AccountsRepository {
     await this.rebalanceLedger(context, normalized.ledger_id)
     const entry = await this.findEntry(context, bookType, String(Number(result.insertId)))
     if (!entry) throw new BadRequestException('Entry was saved but could not be read back.')
+    await this.accountPostings.postBookEntry(context, bookType, entry)
     await this.addActivityById(context, bookType, Number(entry.id), 'created', `You created ${entry.voucher_no}`)
     return entry
   }
@@ -151,6 +156,7 @@ export class AccountsRepository {
     if (Number(existing.ledger_id) !== normalized.ledger_id) await this.rebalanceLedger(context, normalized.ledger_id)
     const entry = await this.findEntry(context, bookType, String(existing.id))
     if (!entry) throw new BadRequestException('Entry was updated but could not be read back.')
+    await this.accountPostings.postBookEntry(context, bookType, entry)
     await this.addActivityById(context, bookType, Number(entry.id), 'updated', `You last edited ${entry.voucher_no}`)
     return entry
   }
@@ -165,6 +171,7 @@ export class AccountsRepository {
       .where('tenant_id', '=', context.tenant.id)
       .execute()
     await this.rebalanceLedger(context, Number(existing.ledger_id))
+    await this.accountPostings.cancelSource(context, bookType === 'cash' ? 'cash_book' : 'bank_book', existing.uuid)
     await this.addActivityById(context, bookType, Number(existing.id), 'deleted', `You suspended ${existing.voucher_no}`)
     return true
   }
@@ -179,6 +186,7 @@ export class AccountsRepository {
     const entry = await this.findEntry(context, bookType, idOrUuid)
     if (entry) {
       await this.rebalanceLedger(context, Number(entry.ledger_id))
+      await this.accountPostings.postBookEntry(context, bookType, entry)
       await this.addActivityById(context, bookType, Number(entry.id), 'restored', `You restored ${entry.voucher_no}`)
     }
     return entry
@@ -215,6 +223,17 @@ export class AccountsRepository {
       .where('deleted_at', 'is', null)
       .executeTakeFirst()
     if (!ledger) throw new BadRequestException(`${bookType === 'cash' ? 'Cash' : 'Bank'} ledger is required.`)
+    const oppositeLedgerId = Number(input.party_id ?? 0)
+    if (!oppositeLedgerId) throw new BadRequestException('Opposite ledger is required.')
+    if (oppositeLedgerId === ledgerId) throw new BadRequestException('Opposite ledger must be different from the cash or bank ledger.')
+    const oppositeLedger = await this.database(context)
+      .selectFrom('account_ledgers')
+      .select(['id', 'name'])
+      .where('tenant_id', '=', context.tenant.id)
+      .where('id', '=', oppositeLedgerId)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst()
+    if (!oppositeLedger) throw new BadRequestException('Opposite ledger was not found.')
     const amount = roundMoney(input.amount ?? 0)
     if (amount <= 0) throw new BadRequestException('Amount must be greater than zero.')
     const direction = input.direction === 'out' ? 'out' : 'in'
@@ -227,11 +246,13 @@ export class AccountsRepository {
       voucher_no: voucherNo,
       voucher_date: input.voucher_date || today(),
       direction,
-      party_id: emptyAsNull(input.party_id),
-      party_name: emptyAsNull(input.party_name),
+      party_id: String(oppositeLedgerId),
+      party_name: emptyAsNull(input.party_name) ?? String(oppositeLedger.name),
       particulars: emptyAsNull(input.particulars),
       narration: emptyAsNull(input.narration),
       reference_no: emptyAsNull(input.reference_no),
+      source_module: emptyAsNull(input.source_module),
+      source_uuid: emptyAsNull(input.source_uuid),
       amount,
       balance_after: 0,
       status: input.status || 'draft',

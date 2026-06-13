@@ -79,6 +79,8 @@ const salesPrintCopyOptions: readonly { label: string; value: SalesPrintCopy }[]
   { label: "Duplicate", value: "duplicate" },
   { label: "Office Copy", value: "triplicate" },
 ]
+
+const defaultSalesAccountType = "Sales Account"
 const salesStatusFilters = [
   { id: "all", label: "All sales" },
   { id: "draft", label: "draft" },
@@ -610,6 +612,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   const taxesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "taxes"], queryFn: () => listSalesCommonLookups(session, "taxes") })
   const unitsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "units"], queryFn: () => listSalesCommonLookups(session, "units") })
   const transportsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "transports"], queryFn: () => listMasterDataRecords(session, "transports") })
+  const salesAccountTypesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "salesAccountTypes"], queryFn: () => listMasterDataRecords(session, "salesAccountTypes") })
   const nextInvoiceQuery = useQuery({
     enabled: !entry,
     queryKey: ["document-number-next-preview", session.selectedTenant.slug, "sales"],
@@ -641,6 +644,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
                 onCreateContact={setContactCreateInitialName}
                 form={draft}
                 hsnCodes={hsnCodesQuery.data ?? []}
+                salesAccountTypes={salesAccountTypesQuery.data ?? []}
                 session={session}
                 setForm={setDraft}
                 softwareSettings={softwareSettings}
@@ -682,12 +686,13 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   )
 }
 
-function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, session, setForm, softwareSettings, taxes, totals, transports, units }: {
+function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, salesAccountTypes, session, setForm, softwareSettings, taxes, totals, transports, units }: {
   contacts: SalesLookupOption[]
   form: SalesEntryInput
   hsnCodes: SalesLookupOption[]
   onContactsRefresh(): void
   onCreateContact(name: string): void
+  salesAccountTypes: MasterDataRecord[]
   session: AuthSession
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
   softwareSettings: SoftwareSettingsState
@@ -699,6 +704,23 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
   const [itemDraft, setItemDraft] = useState<SalesEntryItem>(() => emptySalesItem())
   const addressLabels = useSalesAddressLabels(session)
+  const salesTypeOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const options: Array<{ value: string; label: string }> = []
+    for (const name of [
+      defaultSalesAccountType,
+      normalizeSalesAccountTypeValue(form.accounting_category),
+      ...salesAccountTypes
+        .filter((record) => record.is_active === true || record.is_active === 1)
+        .map((record) => getCommonRecordName(record)),
+    ]) {
+      const value = normalizeSalesAccountTypeValue(name)
+      if (!value || seen.has(value.toLowerCase())) continue
+      seen.add(value.toLowerCase())
+      options.push({ value, label: value === defaultSalesAccountType ? "Normal Sales" : value })
+    }
+    return options
+  }, [form.accounting_category, salesAccountTypes])
 
   function addItem() {
     if (!itemDraft.product_name.trim()) return
@@ -747,6 +769,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
           itemDraft={itemDraft}
           addressLabels={addressLabels}
           onCreateContact={onCreateContact}
+          salesTypeOptions={salesTypeOptions}
           session={session}
           setEditingItemIndex={setEditingItemIndex}
           setForm={setForm}
@@ -788,7 +811,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
   )
 }
 
-function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
+function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, salesTypeOptions, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
   addItem(): void
   addressLabels: SalesAddressLabels
   contacts: SalesLookupOption[]
@@ -799,6 +822,7 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
   hsnCodes: SalesLookupOption[]
   itemDraft: SalesEntryItem
   onCreateContact(name: string): void
+  salesTypeOptions: Array<{ value: string; label: string }>
   session: AuthSession
   setEditingItemIndex(value: number | null): void
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
@@ -872,6 +896,20 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
           <Field label="Invoice no" value={form.invoice_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, invoice_no: value }))} />
           <Field label="Date" type="date" value={String(form.invoice_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, invoice_date: value }))} />
           <SalesTypeField value={form.place_of_supply ?? "cgst-sgst"} onChange={(value) => setForm((current) => ({ ...current, place_of_supply: value }))} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField
+              label="Posting"
+              value={form.accounting_posting_mode ?? "auto"}
+              options={[{ value: "auto", label: "Auto Post" }, { value: "none", label: "Do Not Post" }]}
+              onChange={(value) => setForm((current) => ({ ...current, accounting_posting_mode: value }))}
+            />
+            <SelectField
+              label="Sales Type"
+              value={normalizeSalesAccountTypeValue(form.accounting_category) || defaultSalesAccountType}
+              options={salesTypeOptions}
+              onChange={(value) => setForm((current) => ({ ...current, accounting_category: value }))}
+            />
+          </div>
         </div>
       </div>
       <section className="space-y-5">
@@ -1786,6 +1824,20 @@ function Field({ centeredLabel = false, compact = false, decimalScale, label, nu
   )
 }
 
+function SelectField({ label, onChange, options, value }: { label: string; onChange(value: string): void; options: ReadonlyArray<{ value: string; label: string }>; value: string }) {
+  return (
+    <div className="grid gap-2">
+      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-11 rounded-md"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 function SignedDecimalInput({ className, decimalScale, onChange, value }: { className?: string; decimalScale?: number; onChange(value: string): void; value: string }) {
   const [displayValue, setDisplayValue] = useState(formatDecimalDisplay(value, decimalScale))
   const [isFocused, setIsFocused] = useState(false)
@@ -2080,6 +2132,7 @@ function buildSalesSaveInput(input: SalesEntryInput): SalesEntryInput {
 
   return {
     ...input,
+    accounting_category: normalizeSalesAccountTypeValue(input.accounting_category) || defaultSalesAccountType,
     balance_amount: roundMoney(totals.grandTotal - Number(input.paid_amount || 0)),
     discount_total: discountTotal,
     grand_total: totals.grandTotal,
@@ -2089,6 +2142,12 @@ function buildSalesSaveInput(input: SalesEntryInput): SalesEntryInput {
     tax_total: totals.gstTotal,
     taxable_total: totals.taxableAmount,
   }
+}
+
+function normalizeSalesAccountTypeValue(value: unknown) {
+  const text = String(value ?? "").trim()
+  if (!text || text === "sales" || text.toLowerCase() === "normal sales") return defaultSalesAccountType
+  return text
 }
 
 function buildSalesEinvoicePayload(input: SalesEntryInput) {
@@ -2181,6 +2240,8 @@ function normalizeSalesItem(item: SalesEntryItem, index: number, placeOfSupply: 
     discount_amount: Number(item.discount_amount || 0),
     hsn_code: item.hsn_code ?? "",
     line_total: amounts.total,
+    accounting_category: item.accounting_category ?? null,
+    accounting_ledger_id: item.accounting_ledger_id ?? null,
     po_no: item.po_no ?? "",
     product_name: item.product_name.trim(),
     quantity: Number(item.quantity || 0),

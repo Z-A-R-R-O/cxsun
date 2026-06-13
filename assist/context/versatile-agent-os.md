@@ -112,7 +112,7 @@ Do not skip `agent_logs`.
 
 ## Model Configuration
 
-Use saved provider connections first, then environment config as fallback. ZETRO supports OpenRouter, OpenAI/GPT, Gemini, and custom OpenAI-compatible providers through the API platform panel.
+Use saved provider connections first, then environment config as fallback. ZETRO supports OpenRouter, OpenAI/GPT, Gemini, OpenCode Zen, and custom OpenAI-compatible providers through the API platform panel.
 
 OpenRouter free model availability changes. For OpenRouter, refresh the free model list from the live `/api/v1/models` catalog and ignore stale saved defaults when a free slug has disappeared. Keep premium model IDs configurable by API panel/env.
 
@@ -121,6 +121,6 @@ Suggested defaults from the plan:
 - Router: a currently available free/reasoning model through OpenRouter.
 - Helper: a currently available free chat/instruct model through OpenRouter.
 - Planner: Gemini/OpenRouter model when configured.
-- Workflow: reasoning-capable OpenRouter/OpenAI-compatible model when configured.
-- Analytics: Qwen/OpenRouter/OpenAI-compatible model when configured.
+- Workflow: reasoning-capable OpenRouter/OpenCode/OpenAI-compatible model when configured.
+- Analytics: Qwen/OpenRouter/OpenCode/OpenAI-compatible model when configured.
 - Fallback: first currently available free OpenRouter text model.

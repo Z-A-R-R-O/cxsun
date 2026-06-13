@@ -36,6 +36,7 @@ import {
   Package,
   PackageSearch,
   Palette,
+  Plus,
   ReceiptText,
   Ruler,
   Scale,
@@ -171,7 +172,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
           { ...item("billing", "contacts-common", "Contacts", UsersRound), items: [item("billing", "contact-group", "Groups", ContactRound), item("billing", "contact-type", "Types", UserRoundCog), item("billing", "address-type", "Address Types", MapPin), item("billing", "bank-name", "Bank Names", Banknote)] },
           { ...item("billing", "product-common", "Product", Package), items: [item("billing", "product-group", "Product Groups", Layers3), item("billing", "category", "Product Categories", Shapes), item("billing", "product-type", "Product Types", PackageSearch), item("billing", "unit", "Units", Scale), item("billing", "hsn-code", "HSN Codes", Barcode), item("billing", "tax", "Taxes", BadgePercent), item("billing", "brand", "Brands", Tags), item("billing", "colour", "Colours", Palette), item("billing", "size", "Sizes", Ruler), item("billing", "style", "Styles", Brush)] },
           { ...item("billing", "orders-common", "Work Orders", ShoppingBag), items: [item("billing", "order-type", "Work Order Types", ReceiptText), item("billing", "transport", "Transports", Truck), item("billing", "warehouse", "Warehouses", Warehouse), item("billing", "destination", "Destinations", MapPinned), item("billing", "stock-rejection-type", "Stock Rejection Types", FileText)] },
-          { ...item("billing", "others-common", "Others", Settings), items: [item("billing", "currency", "Currencies", CircleDollarSign), item("billing", "priority", "Priorities", ListChecks), item("billing", "payment-term", "Payment Terms", CreditCard), item("billing", "month", "Months", CalendarDays)] },
+          { ...item("billing", "others-common", "Others", Settings), items: [item("billing", "currency", "Currencies", CircleDollarSign), item("billing", "priority", "Priorities", ListChecks), item("billing", "payment-term", "Payment Terms", CreditCard), item("billing", "sales-type", "Sales Types", Tags), item("billing", "month", "Months", CalendarDays)] },
         ],
       },
       { title: "Settings", icon: Settings, items: [item("billing", "settings", "Sales Settings", Settings), item("billing", "document-settings", "Document Settings", FileCog), item("billing", "accounting-year", "Accounting Year", CalendarDays)] },
@@ -212,7 +213,9 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-lime-700 text-white",
     icon: Landmark,
     menuGroups: [
-      { title: "Accounts", icon: Landmark, items: [item("accounts", "cash-book", "Cash Book", Banknote), item("accounts", "bank-book", "Bank Book", Landmark)] },
+      { title: "Accounting", icon: BookOpenText, items: [item("accounts", "voucher-new", "New Voucher", Plus), item("accounts", "journal-vouchers", "Journal", BookOpenText), item("accounts", "contra-vouchers", "Contra", Landmark), item("accounts", "opening-vouchers", "Opening Posting", ClipboardCheck), item("accounts", "vouchers", "All Vouchers", ClipboardList)] },
+      { title: "Books", icon: Landmark, items: [item("accounts", "cash-book", "Cash Book", Banknote), item("accounts", "bank-book", "Bank Book", Landmark), item("accounts", "chart", "Chart of Accounts", BookOpenText), item("accounts", "day-book", "Day Book", FileText)] },
+      { title: "Reports", icon: BarChart3, items: [item("accounts", "cash-posting", "Cash Posting", Banknote), item("accounts", "bank-posting", "Bank Posting", Landmark), item("accounts", "monthly-movement", "Monthly Movement", BarChart3), item("accounts", "trial-balance", "Trial Balance", Scale), item("accounts", "profit-loss", "Profit & Loss", BarChart3), item("accounts", "balance-sheet", "Balance Sheet", Landmark)] },
     ],
   }),
   withMenu({

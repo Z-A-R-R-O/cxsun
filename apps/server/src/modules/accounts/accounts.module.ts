@@ -4,6 +4,8 @@ import { AuthRepository } from '../auth/infrastructure/auth.repository.js'
 import { TenantRepository } from '../../core/tenant/infrastructure/tenant.repository.js'
 import { TenantDomainRepository } from '../../core/tenant-domain/infrastructure/tenant-domain.repository.js'
 import { AccountsController } from './accounts.controller.js'
+import { AccountsEntryPostingService } from './accounts-entry-posting.service.js'
+import { AccountsEngineRepository } from './accounts-engine.repository.js'
 import { AccountsRepository } from './accounts.repository.js'
 import { AccountsService } from './accounts.service.js'
 import { DocumentNumberRepository } from '../settings/document-settings/infrastructure/document-number.repository.js'
@@ -16,6 +18,8 @@ import { DocumentNumberRepository } from '../settings/document-settings/infrastr
     TenantDomainRepository,
     TenantContextService,
     DocumentNumberRepository,
+    AccountsEngineRepository,
+    AccountsEntryPostingService,
     AccountsRepository,
     AccountsService,
   ],

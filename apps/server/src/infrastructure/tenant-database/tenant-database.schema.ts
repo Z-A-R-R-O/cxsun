@@ -712,6 +712,17 @@ export interface TenantCommonPrioritiesTable {
   deleted_at: Date | null
 }
 
+export interface TenantCommonSalesAccountTypesTable {
+  id: Generated<number>
+  uuid: string
+  name: string
+  description: string | null
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
 export interface TenantExportSalesEntriesTable extends TenantSalesEntriesTable {
   currency_id: number | null
   currency_name: string | null
@@ -1041,6 +1052,7 @@ export interface TenantDatabaseSchema {
   common_payment_terms: TenantCommonPaymentTermsTable
   common_months: TenantCommonMonthsTable
   common_stock_rejection_types: TenantCommonStockRejectionTypesTable
+  common_sales_account_types: TenantCommonSalesAccountTypesTable
   sales_entries: TenantSalesEntriesTable
   sales_entry_items: TenantSalesEntryItemsTable
   sales_entry_comments: TenantSalesEntryCommentsTable

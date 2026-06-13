@@ -36,6 +36,8 @@ export interface SalesEntryItem {
   tax_rate: number
   tax_amount?: number
   line_total?: number
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
   sort_order?: number
 }
 
@@ -86,6 +88,10 @@ export interface SalesEntry {
   source_type?: string | null
   source_ref_no?: string | null
   source_quotation_uuids?: string[]
+  accounting_posting_mode?: string | null
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
+  accounting_posted_at?: string | null
   is_active: boolean | number
   created_at: string
   updated_at: string
@@ -134,6 +140,9 @@ export function emptySalesEntry(): SalesEntryInput {
     source_type: null,
     source_ref_no: null,
     source_quotation_uuids: [],
+    accounting_posting_mode: "auto",
+    accounting_category: "Sales Account",
+    accounting_ledger_id: null,
     is_active: true,
     items: [],
   }
@@ -153,6 +162,8 @@ export function emptySalesItem(): SalesEntryItem {
     rate: 0,
     discount_amount: 0,
     tax_rate: 0,
+    accounting_category: null,
+    accounting_ledger_id: null,
   }
 }
 

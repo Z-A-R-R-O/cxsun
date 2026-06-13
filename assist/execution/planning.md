@@ -1,7 +1,7 @@
 # Session Plan
 
 **Date:** 2026-06-11  
-**Version:** 1.0.91  
+**Version:** 1.0.93  
 **Focus:** ZETRO base scaffold.
 
 ## Objective
@@ -40,5 +40,5 @@ Create the first ZETRO base without disturbing existing site/dashboard flows: a 
 - OpenRouter free model IDs are refreshed from the live OpenRouter `/api/v1/models` catalog because `:free` slugs can disappear.
 - `ZETRO_FREE_MODELS` remains the fallback list when the live catalog cannot be reached.
 - Premium model IDs are exposed after free IDs from saved provider settings or `ZETRO_PREMIUM_MODELS`.
-- OpenRouter calls require a saved OpenRouter key or `OPENROUTER_API_KEY`; OpenAI, Gemini, and custom providers require their saved/API-panel keys.
+- OpenRouter calls require a saved OpenRouter key or `OPENROUTER_API_KEY`; OpenAI, Gemini, OpenCode Zen, and custom providers require their saved/API-panel keys.
 - ZETRO logs missing keys, provider failures, latency, model tier, and usage metadata in `agent_logs`.

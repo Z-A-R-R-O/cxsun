@@ -106,6 +106,9 @@ const CashBookPage = lazy(() =>
 const BankBookPage = lazy(() =>
   import('src/features/accounts/accounts-book-page').then((module) => ({ default: module.BankBookPage })),
 )
+const AccountsPage = lazy(() =>
+  import('src/features/accounts/accounts-page').then((module) => ({ default: module.AccountsPage })),
+)
 const PurchasePage = lazy(() =>
   import('src/features/purchase/purchase-page').then((module) => ({ default: module.PurchasePage })),
 )
@@ -297,6 +300,7 @@ function prefetchAppModules(appId: DashboardAppId) {
 
     if (appId === "accounts") {
       void import('src/features/accounts/accounts-book-page')
+      void import('src/features/accounts/accounts-page')
       return
     }
 
@@ -739,6 +743,8 @@ export function DashboardView({
             <SupportPage type="helpdesk" />
           ) : visiblePage === "company" ? (
             <CompanyPage session={session} />
+          ) : visiblePage === "app-accounts-overview" ? (
+            <AccountsPage session={session} view="overview" />
           ) : overviewApp ? (
             <DashboardHome
               activeApp={overviewApp}
@@ -789,10 +795,40 @@ export function DashboardView({
             <QuotationPage session={session} />
           ) : visiblePage === "app-billing-export-sales" && exportSalesEnabled ? (
             <ExportSalesPage session={session} />
-          ) : visiblePage === "app-accounts-cash-book" || visiblePage === "app-billing-cash-book" ? (
+          ) : visiblePage === "app-accounts-cash-book" ? (
             <CashBookPage session={session} />
-          ) : visiblePage === "app-accounts-bank-book" || visiblePage === "app-billing-bank-book" ? (
+          ) : visiblePage === "app-billing-cash-book" ? (
+            <CashBookPage session={session} />
+          ) : visiblePage === "app-accounts-bank-book" ? (
             <BankBookPage session={session} />
+          ) : visiblePage === "app-billing-bank-book" ? (
+            <BankBookPage session={session} />
+          ) : visiblePage === "app-accounts-cash-posting" ? (
+            <AccountsPage session={session} view="cash-posting" />
+          ) : visiblePage === "app-accounts-bank-posting" ? (
+            <AccountsPage session={session} view="bank-posting" />
+          ) : visiblePage === "app-accounts-chart" ? (
+            <AccountsPage session={session} view="chart" />
+          ) : visiblePage === "app-accounts-voucher-new" ? (
+            <AccountsPage session={session} view="voucher-new" />
+          ) : visiblePage === "app-accounts-journal-vouchers" ? (
+            <AccountsPage session={session} view="journal-vouchers" />
+          ) : visiblePage === "app-accounts-contra-vouchers" ? (
+            <AccountsPage session={session} view="contra-vouchers" />
+          ) : visiblePage === "app-accounts-opening-vouchers" ? (
+            <AccountsPage session={session} view="opening-vouchers" />
+          ) : visiblePage === "app-accounts-vouchers" ? (
+            <AccountsPage session={session} view="vouchers" />
+          ) : visiblePage === "app-accounts-day-book" ? (
+            <AccountsPage session={session} view="day-book" />
+          ) : visiblePage === "app-accounts-monthly-movement" ? (
+            <AccountsPage session={session} view="monthly-movement" />
+          ) : visiblePage === "app-accounts-trial-balance" ? (
+            <AccountsPage session={session} view="trial-balance" />
+          ) : visiblePage === "app-accounts-profit-loss" ? (
+            <AccountsPage session={session} view="profit-loss" />
+          ) : visiblePage === "app-accounts-balance-sheet" ? (
+            <AccountsPage session={session} view="balance-sheet" />
           ) : visiblePage === "app-billing-purchase" ? (
             <PurchasePage initialEntryUuid={focusedBillingEntry?.type === "purchase" ? focusedBillingEntry.id : null} session={session} />
           ) : visiblePage === "app-inventory-purchase" ? (

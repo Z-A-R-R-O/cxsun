@@ -24,7 +24,6 @@ import {
 import type { AuthSession } from "src/features/auth/auth-client"
 import { listCompanies, type CompanyRecord } from "src/features/company/company-client"
 import { LetterheadBuilder } from "src/features/company/letterhead-builder"
-import { listContacts, type ContactRecord } from "src/features/contact/contact-client"
 import { WorkOrderAutocomplete } from "src/features/master-data/interface/components/work-order-autocomplete"
 import { nextDocumentNumberSetting, type DocumentEntryKind } from "src/features/settings/document-settings-client"
 import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
@@ -35,6 +34,7 @@ import {
   emptyAccountBookEntry,
   listAccountBookEntries,
   listAccountLedgers,
+  listAllAccountLedgers,
   restoreAccountBookEntry,
   runAccountBookTool,
   upsertAccountLedger,
@@ -155,7 +155,7 @@ function AccountBookPage({ bookType, description, session, title }: { bookType: 
         filterValue="all"
         onFilterValueChange={() => undefined}
         onShowAllColumns={() => undefined}
-        searchPlaceholder={`Search ${title.toLowerCase()}, ledger, party, reference, narration`}
+        searchPlaceholder={`Search ${title.toLowerCase()}, ledger, reference, narration`}
         searchValue={searchValue}
         onSearchValueChange={(value) => {
           setSearchValue(value)
@@ -170,7 +170,7 @@ function AccountBookPage({ bookType, description, session, title }: { bookType: 
                 <ListHeader>Voucher</ListHeader>
                 <ListHeader>Date</ListHeader>
                 <ListHeader>Ledger</ListHeader>
-                <ListHeader>Party / Particulars</ListHeader>
+                <ListHeader>Ledger / Particulars</ListHeader>
                 <ListHeader className="text-right">Received</ListHeader>
                 <ListHeader className="text-right">Paid</ListHeader>
                 <ListHeader className="text-right">Balance</ListHeader>
@@ -356,7 +356,7 @@ function AccountBookPrintDocument({ bookType, company, entry, ledger, letterhead
       <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 border-b border-gray-400 px-2 py-2.5 text-[13px]">
         <PrintLine label="Voucher no">{entry.voucher_no}</PrintLine>
         <PrintLine label="Date">{formatDate(entry.voucher_date)}</PrintLine>
-        <PrintLine label="Party">{entry.party_name || "-"}</PrintLine>
+        <PrintLine label="Ledger">{entry.party_name || "-"}</PrintLine>
         <PrintLine label="Direction">{directionLabel(entry.direction)}</PrintLine>
         <PrintLine label="Reference">{entry.reference_no || "-"}</PrintLine>
       </div>
@@ -393,9 +393,10 @@ function AccountBookUpsertPage({ bookType, entry, isSaving, ledgers, onBack, onS
   const ledgerOptions = ledgers.filter((ledger) => ledger.account_type === bookType && isActive(ledger))
   const documentKind = documentKindForBook(bookType)
   const nextVoucherQuery = useQuery({ enabled: !entry, queryKey: ["document-number-next-preview", session.selectedTenant.slug, documentKind], queryFn: () => nextDocumentNumberSetting(session, documentKind), refetchOnMount: "always" })
-  const contactsQuery = useQuery({ queryKey: ["account-book-contacts", session.selectedTenant.slug], queryFn: () => listContacts(session) })
+  const allLedgersQuery = useQuery({ queryKey: ["account-ledgers-all", session.selectedTenant.slug], queryFn: () => listAllAccountLedgers(session) })
   const ledgerMutation = useMutation({ mutationFn: (name: string) => upsertAccountLedger(session, bookType, { name }) })
-  const canSave = Boolean(draft.ledger_id && Number(draft.amount ?? 0) > 0 && !isSaving)
+  const counterLedgerOptions = (allLedgersQuery.data ?? []).filter((ledger) => Number(ledger.id) !== Number(draft.ledger_id) && isActive(ledger))
+  const canSave = Boolean(draft.ledger_id && draft.party_id && Number(draft.amount ?? 0) > 0 && !isSaving)
 
   useEffect(() => {
     if (!draft.ledger_id && ledgerOptions[0]) setDraft((current) => ({ ...current, ledger_id: ledgerOptions[0].id }))
@@ -414,7 +415,7 @@ function AccountBookUpsertPage({ bookType, entry, isSaving, ledgers, onBack, onS
   }
 
   const tabs: AnimatedTab[] = [
-    { value: "details", label: "Details", content: <AccountBookDetailsTab bookType={bookType} contacts={contactsQuery.data ?? []} form={draft} isCreatingLedger={ledgerMutation.isPending} ledgerOptions={ledgerOptions} session={session} setForm={setDraft} onCreateLedger={createLedger} /> },
+    { value: "details", label: "Details", content: <AccountBookDetailsTab bookType={bookType} counterLedgerOptions={counterLedgerOptions} form={draft} isCreatingLedger={ledgerMutation.isPending} ledgerOptions={ledgerOptions} session={session} setForm={setDraft} onCreateLedger={createLedger} /> },
     { value: "notes", label: "Notes", content: <AccountBookNotesTab form={draft} setForm={setDraft} /> },
   ]
 
@@ -447,9 +448,9 @@ function AccountBookUpsertPage({ bookType, entry, isSaving, ledgers, onBack, onS
   )
 }
 
-function AccountBookDetailsTab({ bookType, contacts, form, isCreatingLedger, ledgerOptions, onCreateLedger, session, setForm }: { bookType: AccountBookType; contacts: ContactRecord[]; form: AccountBookEntryInput; isCreatingLedger: boolean; ledgerOptions: AccountLedger[]; onCreateLedger(name: string): Promise<void>; session: AuthSession; setForm: Dispatch<SetStateAction<AccountBookEntryInput>> }) {
+function AccountBookDetailsTab({ bookType, counterLedgerOptions, form, isCreatingLedger, ledgerOptions, onCreateLedger, session, setForm }: { bookType: AccountBookType; counterLedgerOptions: AccountLedger[]; form: AccountBookEntryInput; isCreatingLedger: boolean; ledgerOptions: AccountLedger[]; onCreateLedger(name: string): Promise<void>; session: AuthSession; setForm: Dispatch<SetStateAction<AccountBookEntryInput>> }) {
   const selectedLedger = ledgerOptions.find((ledger) => Number(ledger.id) === Number(form.ledger_id))
-  const selectedContact = contacts.find((contact) => String(contact.uuid) === String(form.party_id ?? "") || String(contact.id) === String(form.party_id ?? ""))
+  const selectedCounterLedger = counterLedgerOptions.find((ledger) => String(ledger.id) === String(form.party_id ?? ""))
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -465,16 +466,16 @@ function AccountBookDetailsTab({ bookType, contacts, form, isCreatingLedger, led
           onCreate={onCreateLedger}
           createLabel={isCreatingLedger ? "Creating ledger" : "Create ledger"}
         />
-        <ContactAutocompleteLookup
-          label="Party"
-          options={contacts}
-          placeholder="Search party"
+        <LedgerAutocompleteLookup
+          label="Ledger *"
+          options={counterLedgerOptions}
+          placeholder="Search ledger"
           selectedId={form.party_id ?? null}
-          selectedLabel={selectedContact?.name ?? form.party_name ?? ""}
-          onPick={(contact) => setForm((current) => ({ ...current, party_id: contact.uuid, party_name: contact.name }))}
+          selectedLabel={selectedCounterLedger?.name ?? form.party_name ?? ""}
+          onPick={(ledger) => setForm((current) => ({ ...current, party_id: String(ledger.id), party_name: ledger.name }))}
           onTextChange={() => setForm((current) => ({ ...current, party_id: null, party_name: null }))}
         />
-        <TextField label="Particulars" placeholder="Mention non-party details" value={form.particulars ?? ""} onChange={(value) => setForm((current) => ({ ...current, particulars: value }))} />
+        <TextField label="Particulars" placeholder="Optional voucher particulars" value={form.particulars ?? ""} onChange={(value) => setForm((current) => ({ ...current, particulars: value }))} />
         <DecimalInput value={String(form.amount ?? 0)} onChange={(value) => setForm((current) => ({ ...current, amount: parseDecimalInput(value) }))} label="Amount" />
         <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
       </div>
@@ -577,7 +578,7 @@ function DecimalInput({ label, onChange, value }: { label: string; onChange(valu
   )
 }
 
-function LedgerAutocompleteLookup({ createLabel = "Create ledger", label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { createLabel?: string; label: string; onCreate?(query: string): Promise<void>; onPick(option: AccountLedger): void; onTextChange(value: string): void; options: AccountLedger[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
+export function LedgerAutocompleteLookup({ createLabel = "Create ledger", label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { createLabel?: string; label: string; onCreate?(query: string): Promise<void>; onPick(option: AccountLedger): void; onTextChange(value: string): void; options: AccountLedger[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
   const lookupOptions = options.map((ledger) => ({ id: String(ledger.id), label: ledger.code ? `${ledger.code} - ${ledger.name}` : ledger.name, ledger }))
   const [activeIndex, setActiveIndex] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -629,55 +630,6 @@ function LedgerAutocompleteLookup({ createLabel = "Create ledger", label, onCrea
               <Plus className="size-4" />{createLabel} "{query.trim()}"
             </button>
           ) : null}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function ContactAutocompleteLookup({ label, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { label: string; onPick(option: ContactRecord): void; onTextChange(value: string): void; options: ContactRecord[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
-  const [query, setQuery] = useState(selectedLabel)
-  const normalizedQuery = query.trim().toLowerCase()
-  const filteredOptions = options.filter((option) => contactLabel(option).toLowerCase().includes(normalizedQuery) || option.name.toLowerCase().includes(normalizedQuery) || option.code.toLowerCase().includes(normalizedQuery))
-
-  useEffect(() => {
-    if (!isOpen) setQuery(selectedLabel)
-  }, [isOpen, selectedLabel])
-
-  function selectOption(option: ContactRecord) {
-    setQuery(option.name)
-    onPick(option)
-    setIsOpen(false)
-  }
-
-  return (
-    <div className="relative z-10 grid w-full gap-2 focus-within:z-[90]">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
-      <Input
-        role="combobox"
-        className="h-11 w-full rounded-md bg-background"
-        placeholder={placeholder}
-        value={query}
-        onBlur={() => window.setTimeout(() => { setIsOpen(false); setQuery(selectedLabel) }, 120)}
-        onChange={(event) => { setQuery(event.target.value); setIsOpen(true); setActiveIndex(0); onTextChange(event.target.value) }}
-        onFocus={() => setIsOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current + 1) % filteredOptions.length : 0) }
-          if (event.key === "ArrowUp") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current - 1 + filteredOptions.length) % filteredOptions.length : 0) }
-          if (event.key === "Enter" && filteredOptions[activeIndex]) { event.preventDefault(); selectOption(filteredOptions[activeIndex]) }
-          if (event.key === "Escape") { event.preventDefault(); setIsOpen(false); setQuery(selectedLabel) }
-        }}
-      />
-      {isOpen && filteredOptions.length ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[100] max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-2xl" onMouseDown={(event) => event.preventDefault()}>
-          {filteredOptions.map((option, index) => (
-            <button key={`${option.uuid}-${index}`} type="button" className={activeIndex === index ? "flex w-full items-center justify-between gap-3 rounded-md bg-muted px-3 py-2 text-left text-sm" : "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"} onMouseDown={(event) => { event.preventDefault(); selectOption(option) }}>
-              <span className="min-w-0 truncate">{contactLabel(option)}</span>
-              {selectedId === option.uuid || selectedId === String(option.id) ? <Check className="size-4 shrink-0 text-emerald-600" strokeWidth={3} /> : <span className="size-4 shrink-0" />}
-            </button>
-          ))}
         </div>
       ) : null}
     </div>
@@ -763,10 +715,6 @@ function directionLabel(value: string) {
 
 function documentKindForBook(bookType: AccountBookType): DocumentEntryKind {
   return bookType === "cash" ? "cashBook" : "bankBook"
-}
-
-function contactLabel(contact: ContactRecord) {
-  return [contact.code, contact.name].filter(Boolean).join(" - ") || contact.name
 }
 
 function sanitizeDecimalInput(value: string) {

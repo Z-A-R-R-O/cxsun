@@ -17,6 +17,8 @@ export interface PurchaseEntryItem {
   tax_rate: number
   tax_amount: number
   line_total: number
+  accounting_category: string | null
+  accounting_ledger_id: number | null
   sort_order: number
 }
 
@@ -86,6 +88,10 @@ export interface PurchaseEntry {
   eway_part: string | null
   notes: string | null
   terms: string | null
+  accounting_posting_mode: string
+  accounting_category: string | null
+  accounting_ledger_id: number | null
+  accounting_posted_at: Date | string | null
   is_active: boolean | number
   created_at: Date | string
   updated_at: Date | string

@@ -27,6 +27,7 @@ import { PaymentTermsCommonModule } from './others/payment-terms/index.js'
 import { AccountingYearCommonModule } from './others/accounting-year/index.js'
 import { MonthsCommonModule } from './others/months/index.js'
 import { StockRejectionTypesCommonModule } from './orders/stock-rejection-types/index.js'
+import { SalesAccountTypesCommonModule } from './others/sales-account-types/index.js'
 import { migrateCountriesCommonTable } from './location/countries/index.js'
 import { migrateStatesCommonTable } from './location/states/index.js'
 import { migrateDistrictsCommonTable } from './location/districts/index.js'
@@ -56,6 +57,7 @@ import { migratePaymentTermsCommonTable } from './others/payment-terms/index.js'
 import { migrateAccountingYearCommonTable } from './others/accounting-year/index.js'
 import { migrateMonthsCommonTable } from './others/months/index.js'
 import { migrateStockRejectionTypesCommonTable } from './orders/stock-rejection-types/index.js'
+import { migrateSalesAccountTypesCommonTable } from './others/sales-account-types/index.js'
 import { seedCountriesCommonTable } from './location/countries/index.js'
 import { seedStatesCommonTable } from './location/states/index.js'
 import { seedDistrictsCommonTable } from './location/districts/index.js'
@@ -85,6 +87,7 @@ import { seedPaymentTermsCommonTable } from './others/payment-terms/index.js'
 import { seedAccountingYearCommonTable } from './others/accounting-year/index.js'
 import { seedMonthsCommonTable } from './others/months/index.js'
 import { seedStockRejectionTypesCommonTable } from './orders/stock-rejection-types/index.js'
+import { seedSalesAccountTypesCommonTable } from './others/sales-account-types/index.js'
 import type { Kysely } from 'kysely'
 import type { TenantDatabaseSchema } from '../../infrastructure/tenant-database/tenant-database.schema.js'
 
@@ -120,6 +123,7 @@ export const commonModuleClasses = [
   AccountingYearCommonModule,
   MonthsCommonModule,
   StockRejectionTypesCommonModule,
+  SalesAccountTypesCommonModule,
 ]
 
 export async function migrateCommonModuleTables(database: Kysely<TenantDatabaseSchema>) {
@@ -152,6 +156,7 @@ export async function migrateCommonModuleTables(database: Kysely<TenantDatabaseS
   await migrateAccountingYearCommonTable(database)
   await migrateMonthsCommonTable(database)
   await migrateStockRejectionTypesCommonTable(database)
+  await migrateSalesAccountTypesCommonTable(database)
 }
 
 export async function seedCommonModuleTables(database: Kysely<TenantDatabaseSchema>) {
@@ -184,4 +189,5 @@ export async function seedCommonModuleTables(database: Kysely<TenantDatabaseSche
   await seedAccountingYearCommonTable(database)
   await seedMonthsCommonTable(database)
   await seedStockRejectionTypesCommonTable(database)
+  await seedSalesAccountTypesCommonTable(database)
 }

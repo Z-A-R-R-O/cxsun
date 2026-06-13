@@ -13,6 +13,8 @@ import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 import { QuotationEntryRepository } from '../quotation/infrastructure/persistence/quotation-entry.repository.js'
+import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
+import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
 
 @Module({
   controllers: [SalesEntryV1Controller],
@@ -27,6 +29,8 @@ import { QuotationEntryRepository } from '../quotation/infrastructure/persistenc
     PrintHtmlPdfService,
     SalesEntryEventBus,
     DocumentNumberRepository,
+    AccountsEngineRepository,
+    AccountsEntryPostingService,
     QuotationEntryRepository,
     SalesEntryRepository,
     SalesEntryService,

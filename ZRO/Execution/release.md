@@ -2,7 +2,7 @@
 
 ## Current Release
 
-- Project version: `1.0.91`
+- Project version: `1.0.93`
 - Target: CXSun active apps and documentation.
 - Runtime: Node.js 20+, npm 10+, MariaDB.
 

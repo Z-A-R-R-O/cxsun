@@ -5,6 +5,7 @@ import { Injectable } from '../../../../../core/decorators/injectable.js'
 import type { TenantRuntimeContext } from '../../../../../core/tenant/tenant-context.service.js'
 import { dispatchPublicUuid } from '../../../../../shared/helpers/public-uuid.js'
 import { DocumentNumberRepository } from '../../../../settings/document-settings/infrastructure/document-number.repository.js'
+import { AccountsEntryPostingService } from '../../../../accounts/accounts-entry-posting.service.js'
 import type { SalesEntry, SalesEntryItem } from '../../domain/entities/sales-entry.entity.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
@@ -24,6 +25,8 @@ export interface SalesEntryItemInput {
   rate?: number
   discount_amount?: number
   tax_rate?: number
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
 }
 
 export interface SalesEntryInput {
@@ -66,13 +69,19 @@ export interface SalesEntryInput {
   source_type?: string | null
   source_ref_no?: string | null
   source_quotation_uuids?: string[] | null
+  accounting_posting_mode?: string | null
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
   is_active?: boolean
   items?: SalesEntryItemInput[]
 }
 
 @Injectable()
 export class SalesEntryRepository {
-  constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
+  constructor(
+    @Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository,
+    @Inject(AccountsEntryPostingService) private readonly accountPostings: AccountsEntryPostingService,
+  ) {}
 
   async list(context: TenantRuntimeContext) {
     const companyId = await this.defaultCompanyId(context)
@@ -112,6 +121,8 @@ export class SalesEntryRepository {
     const id = Number(result.insertId)
     await this.replaceItems(context, id, normalized.items)
     await this.addActivityById(context, id, 'created', 'Sales entry created')
+    const entry = await this.find(context, String(id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postSales(context, entry))
     return this.find(context, String(id))
   }
 
@@ -129,6 +140,8 @@ export class SalesEntryRepository {
 
     await this.replaceItems(context, existing.id, normalized.items)
     await this.addActivityById(context, existing.id, 'updated', 'Sales entry updated')
+    const entry = await this.find(context, String(existing.id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postSales(context, entry))
     return this.find(context, String(existing.id))
   }
 
@@ -144,6 +157,7 @@ export class SalesEntryRepository {
       .execute()
 
     await this.addActivityById(context, existing.id, 'deleted', 'Sales entry suspended')
+    await this.accountPostings.cancelSource(context, 'sales', existing.uuid)
     return this.find(context, String(existing.id))
   }
 
@@ -159,6 +173,8 @@ export class SalesEntryRepository {
       .execute()
 
     await this.addActivityById(context, existing.id, 'restored', 'Sales entry restored')
+    const entry = await this.find(context, String(existing.id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postSales(context, entry))
     return this.find(context, String(existing.id))
   }
 
@@ -246,6 +262,9 @@ export class SalesEntryRepository {
         source_type: emptyAsNull(input.source_type),
         source_ref_no: emptyAsNull(input.source_ref_no),
         source_quotation_uuids: input.source_quotation_uuids?.length ? JSON.stringify(input.source_quotation_uuids) : null,
+        accounting_posting_mode: emptyAsNull(input.accounting_posting_mode) ?? 'auto',
+        accounting_category: emptyAsNull(input.accounting_category),
+        accounting_ledger_id: input.accounting_ledger_id ?? null,
         is_active: input.is_active ?? true,
       },
       items,
@@ -315,6 +334,10 @@ export class SalesEntryRepository {
       source_type: stringOrNull(row.source_type),
       source_ref_no: stringOrNull(row.source_ref_no),
       source_quotation_uuids: stringArrayFromJson(row.source_quotation_uuids),
+      accounting_posting_mode: String(row.accounting_posting_mode ?? 'auto'),
+      accounting_category: stringOrNull(row.accounting_category),
+      accounting_ledger_id: row.accounting_ledger_id === null || row.accounting_ledger_id === undefined ? null : Number(row.accounting_ledger_id),
+      accounting_posted_at: row.accounting_posted_at as Date | null,
       is_active: Boolean(row.is_active),
       created_at: row.created_at as Date,
       updated_at: row.updated_at as Date,
@@ -352,6 +375,16 @@ export class SalesEntryRepository {
         message,
         payload: JSON.stringify({ tenantId: context.tenant.id }),
       })
+      .execute()
+  }
+
+  private async markPosted(context: TenantRuntimeContext, salesEntryId: number, voucherId: number | void) {
+    if (!voucherId) return
+    await this.database(context)
+      .updateTable('sales_entries')
+      .set({ accounting_posted_at: new Date(), updated_at: new Date() })
+      .where('tenant_id', '=', context.tenant.id)
+      .where('id', '=', salesEntryId)
       .execute()
   }
 
@@ -498,6 +531,8 @@ function normalizeItem(input: SalesEntryItemInput, isCgstSgst: boolean): Normali
     tax_rate: taxRate,
     tax_amount: taxAmount,
     line_total: roundMoney(taxable + taxAmount),
+    accounting_category: emptyAsNull(input.accounting_category),
+    accounting_ledger_id: input.accounting_ledger_id ?? null,
   }
 }
 
@@ -525,6 +560,8 @@ function toItem(row: Record<string, unknown>): SalesEntryItem {
     tax_rate: numberValue(row.tax_rate),
     tax_amount: numberValue(row.tax_amount),
     line_total: numberValue(row.line_total),
+    accounting_category: stringOrNull(row.accounting_category),
+    accounting_ledger_id: row.accounting_ledger_id === null || row.accounting_ledger_id === undefined ? null : Number(row.accounting_ledger_id),
     sort_order: Number(row.sort_order ?? 0),
   }
 }

@@ -17,6 +17,8 @@ export interface SalesEntryItem {
   tax_rate: number
   tax_amount: number
   line_total: number
+  accounting_category: string | null
+  accounting_ledger_id: number | null
   sort_order: number
 }
 
@@ -87,6 +89,10 @@ export interface SalesEntry {
   source_type: string | null
   source_ref_no: string | null
   source_quotation_uuids: string[]
+  accounting_posting_mode: string
+  accounting_category: string | null
+  accounting_ledger_id: number | null
+  accounting_posted_at: Date | string | null
   is_active: boolean | number
   created_at: Date | string
   updated_at: Date | string

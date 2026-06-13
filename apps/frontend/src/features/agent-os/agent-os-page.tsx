@@ -173,7 +173,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
                   <div className="text-xs font-semibold uppercase text-muted-foreground">AI platforms</div>
                   <div className="mt-2 text-sm font-semibold">{platformDisplayName(activeProvider)}</div>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Connect OpenRouter, GPT, Gemini, or custom OpenAI-compatible providers. Each platform keeps its own key and model list.
+                    Connect OpenRouter, GPT, Gemini, OpenCode Zen, or custom OpenAI-compatible providers. Each platform keeps its own key and model list.
                   </p>
                 </div>
                 <Badge className="rounded-md" variant={selectedProviderIsActive ? "default" : "outline"}>
@@ -529,6 +529,26 @@ const fallbackProviders = [
     last_tested_at: null,
   },
   {
+    provider: "opencode",
+    provider_name: "OpenCode Zen",
+    provider_kind: "openai-compatible",
+    connected: false,
+    configured_by: null,
+    base_url: "https://opencode.ai/zen/v1",
+    app_title: "CXSun ZETRO",
+    default_model: "deepseek-v4-flash-free",
+    free_models: "deepseek-v4-flash-free,mimo-v2.5-free,north-mini-code-free,nemotron-3-ultra-free,big-pickle",
+    premium_models: "kimi-k2.6,kimi-k2.5,glm-5.1,glm-5,deepseek-v4-pro,deepseek-v4-flash,minimax-m2.7,minimax-m2.5,grok-build-0.1",
+    free_model_count: 5,
+    premium_model_count: 9,
+    required_env: ["OPENCODE_API_KEY", "OPENCODE_BASE_URL"],
+    is_active: false,
+    status: "not_configured",
+    last_test_status: null,
+    last_test_message: null,
+    last_tested_at: null,
+  },
+  {
     provider: "custom",
     provider_name: "Custom / OpenAI Compatible",
     provider_kind: "openai-compatible",
@@ -756,6 +776,7 @@ function platformDisplayName(provider: ZetroProviderConnection | null | undefine
   if (!provider) return "OpenRouter"
   if (provider.provider === "openai") return "OpenAI / GPT"
   if (provider.provider === "gemini") return "Google Gemini"
+  if (provider.provider === "opencode") return "OpenCode Zen"
   if (provider.provider === "custom") return "Custom API"
   return provider.provider_name
 }
@@ -778,6 +799,7 @@ function providerStatusText(provider: ZetroProviderConnection) {
 function platformIcon(providerKey: string): LucideIcon {
   if (providerKey === "openai") return BrainCircuit
   if (providerKey === "gemini") return Sparkles
+  if (providerKey === "opencode") return Bot
   if (providerKey === "custom") return Cpu
   return Cloud
 }
@@ -785,6 +807,7 @@ function platformIcon(providerKey: string): LucideIcon {
 function platformKeyUrl(providerKey: string) {
   if (providerKey === "openai") return "https://platform.openai.com/api-keys"
   if (providerKey === "gemini") return "https://aistudio.google.com/app/apikey"
+  if (providerKey === "opencode") return "https://opencode.ai/auth"
   if (providerKey === "custom") return "http://localhost:11434"
   return "https://openrouter.ai/keys"
 }
@@ -792,6 +815,7 @@ function platformKeyUrl(providerKey: string) {
 function platformKeyLabel(providerKey: string) {
   if (providerKey === "openai") return "platform.openai.com/api-keys"
   if (providerKey === "gemini") return "aistudio.google.com/app/apikey"
+  if (providerKey === "opencode") return "opencode.ai/auth"
   if (providerKey === "custom") return "your custom provider"
   return "openrouter.ai/keys"
 }

@@ -78,6 +78,12 @@ const purchasePrintCopyOptions: readonly { label: string; value: PurchasePrintCo
   { label: "Duplicate", value: "duplicate" },
   { label: "Office Copy", value: "triplicate" },
 ]
+const purchaseAccountingCategories = [
+  { value: "purchase", label: "Normal Purchase" },
+  { value: "fabric_purchase", label: "Fabric Purchase" },
+  { value: "garment_purchase", label: "Garment Purchase" },
+  { value: "accessories_purchase", label: "Accessories Purchase" },
+] as const
 const purchaseStatusFilters = [
   { id: "all", label: "All purchases" },
   { id: "draft", label: "draft" },
@@ -867,6 +873,20 @@ function PurchaseDetailsTab({ addItem, addressLabels, contacts, deleteItem, edit
           <Field label="Supplier bill no" value={form.supplier_bill_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_no: value }))} />
           <Field label="Supplier bill date" type="date" value={String(form.supplier_bill_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_date: value }))} />
           <PurchaseTypeField value={form.place_of_supply ?? "cgst-sgst"} onChange={(value) => setForm((current) => ({ ...current, place_of_supply: value }))} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField
+              label="Posting"
+              value={form.accounting_posting_mode ?? "auto"}
+              options={[{ value: "auto", label: "Auto Post" }, { value: "none", label: "Do Not Post" }]}
+              onChange={(value) => setForm((current) => ({ ...current, accounting_posting_mode: value }))}
+            />
+            <SelectField
+              label="Purchase Type"
+              value={form.accounting_category ?? "purchase"}
+              options={purchaseAccountingCategories}
+              onChange={(value) => setForm((current) => ({ ...current, accounting_category: value }))}
+            />
+          </div>
         </div>
       </div>
       <section className="space-y-5">
@@ -1715,6 +1735,20 @@ function Field({ centeredLabel = false, compact = false, decimalScale, label, nu
   )
 }
 
+function SelectField({ label, onChange, options, value }: { label: string; onChange(value: string): void; options: ReadonlyArray<{ value: string; label: string }>; value: string }) {
+  return (
+    <div className="grid gap-2">
+      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-11 rounded-md"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 function SignedDecimalInput({ className, decimalScale, onChange, value }: { className?: string; decimalScale?: number; onChange(value: string): void; value: string }) {
   const [displayValue, setDisplayValue] = useState(formatDecimalDisplay(value, decimalScale))
   const [isFocused, setIsFocused] = useState(false)
@@ -2030,6 +2064,8 @@ function normalizePurchaseItem(item: PurchaseEntryItem, index: number, placeOfSu
     discount_amount: Number(item.discount_amount || 0),
     hsn_code: item.hsn_code ?? "",
     line_total: amounts.total,
+    accounting_category: item.accounting_category ?? null,
+    accounting_ledger_id: item.accounting_ledger_id ?? null,
     po_no: item.po_no ?? "",
     product_name: item.product_name.trim(),
     quantity: Number(item.quantity || 0),

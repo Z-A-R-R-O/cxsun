@@ -5,6 +5,7 @@ import { Injectable } from '../../../../../core/decorators/injectable.js'
 import type { TenantRuntimeContext } from '../../../../../core/tenant/tenant-context.service.js'
 import { dispatchPublicUuid } from '../../../../../shared/helpers/public-uuid.js'
 import { DocumentNumberRepository } from '../../../../settings/document-settings/infrastructure/document-number.repository.js'
+import { AccountsEntryPostingService } from '../../../../accounts/accounts-entry-posting.service.js'
 import type { PurchaseEntry, PurchaseEntryItem } from '../../domain/entities/purchase-entry.entity.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
@@ -24,6 +25,8 @@ export interface PurchaseEntryItemInput {
   rate?: number
   discount_amount?: number
   tax_rate?: number
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
 }
 
 export interface PurchaseEntryInput {
@@ -65,13 +68,19 @@ export interface PurchaseEntryInput {
   eway_part?: string | null
   notes?: string | null
   terms?: string | null
+  accounting_posting_mode?: string | null
+  accounting_category?: string | null
+  accounting_ledger_id?: number | null
   is_active?: boolean
   items?: PurchaseEntryItemInput[]
 }
 
 @Injectable()
 export class PurchaseEntryRepository {
-  constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
+  constructor(
+    @Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository,
+    @Inject(AccountsEntryPostingService) private readonly accountPostings: AccountsEntryPostingService,
+  ) {}
 
   async list(context: TenantRuntimeContext) {
     const companyId = await this.defaultCompanyId(context)
@@ -111,6 +120,8 @@ export class PurchaseEntryRepository {
     const id = Number(result.insertId)
     await this.replaceItems(context, id, normalized.items)
     await this.addActivityById(context, id, 'created', 'purchase entry created')
+    const entry = await this.find(context, String(id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postPurchase(context, entry))
     return this.find(context, String(id))
   }
 
@@ -128,6 +139,8 @@ export class PurchaseEntryRepository {
 
     await this.replaceItems(context, existing.id, normalized.items)
     await this.addActivityById(context, existing.id, 'updated', 'purchase entry updated')
+    const entry = await this.find(context, String(existing.id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postPurchase(context, entry))
     return this.find(context, String(existing.id))
   }
 
@@ -143,6 +156,7 @@ export class PurchaseEntryRepository {
       .execute()
 
     await this.addActivityById(context, existing.id, 'deleted', 'purchase entry suspended')
+    await this.accountPostings.cancelSource(context, 'purchase', existing.uuid)
     return this.find(context, String(existing.id))
   }
 
@@ -158,6 +172,8 @@ export class PurchaseEntryRepository {
       .execute()
 
     await this.addActivityById(context, existing.id, 'restored', 'purchase entry restored')
+    const entry = await this.find(context, String(existing.id))
+    if (entry) await this.markPosted(context, entry.id, await this.accountPostings.postPurchase(context, entry))
     return this.find(context, String(existing.id))
   }
 
@@ -244,6 +260,9 @@ export class PurchaseEntryRepository {
         eway_part: emptyAsNull(input.eway_part),
         notes: emptyAsNull(input.notes),
         terms: emptyAsNull(input.terms),
+        accounting_posting_mode: emptyAsNull(input.accounting_posting_mode) ?? 'auto',
+        accounting_category: emptyAsNull(input.accounting_category),
+        accounting_ledger_id: input.accounting_ledger_id ?? null,
         is_active: input.is_active ?? true,
       },
       items,
@@ -312,6 +331,10 @@ export class PurchaseEntryRepository {
       eway_part: stringOrNull(row.eway_part),
       notes: stringOrNull(row.notes),
       terms: stringOrNull(row.terms),
+      accounting_posting_mode: String(row.accounting_posting_mode ?? 'auto'),
+      accounting_category: stringOrNull(row.accounting_category),
+      accounting_ledger_id: row.accounting_ledger_id === null || row.accounting_ledger_id === undefined ? null : Number(row.accounting_ledger_id),
+      accounting_posted_at: row.accounting_posted_at as Date | null,
       is_active: Boolean(row.is_active),
       created_at: row.created_at as Date,
       updated_at: row.updated_at as Date,
@@ -349,6 +372,16 @@ export class PurchaseEntryRepository {
         message,
         payload: JSON.stringify({ tenantId: context.tenant.id }),
       })
+      .execute()
+  }
+
+  private async markPosted(context: TenantRuntimeContext, purchaseEntryId: number, voucherId: number | void) {
+    if (!voucherId) return
+    await this.database(context)
+      .updateTable('purchase_entries')
+      .set({ accounting_posted_at: new Date(), updated_at: new Date() })
+      .where('tenant_id', '=', context.tenant.id)
+      .where('id', '=', purchaseEntryId)
       .execute()
   }
 
@@ -495,6 +528,8 @@ function normalizeItem(input: PurchaseEntryItemInput, isCgstSgst: boolean): Norm
     tax_rate: taxRate,
     tax_amount: taxAmount,
     line_total: roundMoney(taxable + taxAmount),
+    accounting_category: emptyAsNull(input.accounting_category),
+    accounting_ledger_id: input.accounting_ledger_id ?? null,
   }
 }
 
@@ -522,6 +557,8 @@ function toItem(row: Record<string, unknown>): PurchaseEntryItem {
     tax_rate: numberValue(row.tax_rate),
     tax_amount: numberValue(row.tax_amount),
     line_total: numberValue(row.line_total),
+    accounting_category: stringOrNull(row.accounting_category),
+    accounting_ledger_id: row.accounting_ledger_id === null || row.accounting_ledger_id === undefined ? null : Number(row.accounting_ledger_id),
     sort_order: Number(row.sort_order ?? 0),
   }
 }

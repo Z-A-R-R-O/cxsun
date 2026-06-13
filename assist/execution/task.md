@@ -30,7 +30,7 @@
 - [x] Add API connection status and one-time OpenRouter key test endpoint.
 - [x] Add ZETRO dashboard API panel and chat shortcut.
 - [x] Add recommended updates to ZETRO surfaces.
-- [x] Add encrypted provider key persistence for OpenRouter, OpenAI, Gemini, and custom OpenAI-compatible providers.
+- [x] Add encrypted provider key persistence for OpenRouter, OpenAI, Gemini, OpenCode Zen, and custom OpenAI-compatible providers.
 - [x] Make ZETRO chat use the active saved provider connection.
 - [x] Change provider tests to perform real chat/generateContent checks.
 - [x] Refresh OpenRouter free model choices from the live model catalog and avoid stale discontinued `:free` slugs.
@@ -39,8 +39,8 @@
 - [x] Make the dashboard switchable model card interactive and persist default model changes.
 - [x] Constrain ZETRO model dropdown height so it scrolls internally.
 - [x] Add chat fallback when a selected free model is rate-limited or temporarily unavailable.
-- [x] Add AI platform manager UI for OpenRouter, OpenAI/GPT, Gemini, and custom providers.
-- [x] Add optional env fallback keys for OpenAI/GPT, Gemini, and custom providers.
+- [x] Add AI platform manager UI for OpenRouter, OpenAI/GPT, Gemini, OpenCode Zen, and custom providers.
+- [x] Add optional env fallback keys for OpenAI/GPT, Gemini, OpenCode Zen, and custom providers.
 - [x] Add ZETRO chat history memory with full-window history view, dated saved chats, load previous chat, new chat from history, clear current, and clear all.
 - [x] Polish ZETRO chat box with adaptive glass UI, signature hero, rotating empty-state prompt, bottom model picker, and auto-scroll to newest messages.
 - [ ] Add RAG ingestion/search for trusted platform docs.
