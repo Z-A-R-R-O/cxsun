@@ -43,9 +43,26 @@ Question
 Scope:
 
 - Read-only.
-- Uses platform docs, site content, feature docs, `assist`, and curated knowledge chunks.
+- Uses dedicated `ZRO/ZETRO/docs` user and policy docs for user-facing answers.
+- Uses admin/system docs only for the `super-admin` audience.
+- Uses developer `assist` and broad ZRO planning docs only for super-admin implementation surfaces.
 - No record mutation.
 - Logs model, prompt category, retrieval chunks, answer status, and errors.
+- Hides model, provider, API, prompt, log, roadmap, and developer details from all non-super-admin users, including tenant admins.
+- Keeps legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions to general workflow guidance with qualified professional review for final decisions.
+
+## ZETRO Docs And Audience Model
+
+ZETRO uses a dedicated docs boundary at `ZRO/ZETRO/docs`:
+
+| Source | Audience | Purpose |
+|--------|----------|---------|
+| `docs/user` | Public and tenant users | Product help, workflow explanations, and user-safe boundaries. |
+| `docs/admin` | Super-admin only | Provider setup, docs indexing, recommended updates, and operations. |
+| `docs/policy` | All audiences | Behavior, data boundaries, refusal rules, and restricted-topic handling. |
+| `docs/system` | Super-admin only | Indexing and implementation notes. |
+
+All non-super-admin roles see one ZETRO assistant and must not see model names, provider names, API status, recommended technical updates, internal ZRO planning, or `assist/` developer notes. Only `super-admin` can see setup and model/provider controls.
 
 ## MVP v2 - Site Operator Agent
 
@@ -168,7 +185,7 @@ Shared memory:
 | Analytics | Qwen/OpenRouter/OpenCode/OpenAI-compatible model when configured. |
 | Fallback | First currently available free OpenRouter text model. |
 
-Implementation note: do not hardcode free model names. OpenRouter `:free` slugs change, so ZETRO must refresh them from the live model catalog and keep premium models configurable through saved API connections or env fallback. OpenCode Zen is available as an OpenAI-compatible provider for its `/chat/completions` model set, with editable model IDs in the API panel.
+Implementation note: do not hardcode free model names. OpenRouter `:free` slugs change, so ZETRO must refresh them from the live model catalog and keep premium models configurable through saved API connections or env fallback. OpenCode Zen is available as an OpenAI-compatible provider for its `/chat/completions` model set, with editable model IDs in the API panel. Model and provider details are super-admin-only; tenant admins, managers, staff, users, and non-super platform roles should see only "ZETRO Assistant".
 
 ## Database Structure
 

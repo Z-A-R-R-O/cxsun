@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   Bug,
+  Bot,
   BriefcaseBusiness,
   Building2,
   Database,
@@ -78,6 +79,15 @@ const superAdminNav = [
       { title: "Industry", url: "#", icon: Factory },
       { title: "Company Industry", url: "#", icon: Building2 },
       { title: "Admin User Manager", url: "#", icon: UserRoundCog },
+    ],
+  },
+  {
+    title: "ZETRO",
+    url: "#",
+    icon: Bot,
+    defaultOpen: true,
+    items: [
+      { title: "Base", url: "#", icon: Bot, page: "app-agent-os-base" },
     ],
   },
   {

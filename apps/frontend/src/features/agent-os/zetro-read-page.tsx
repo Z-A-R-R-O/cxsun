@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowRight, Bot, BookOpenText, Database, KeyRound, Loader2, Lock, Search, Sparkles } from "lucide-react"
+import { ArrowRight, Bot, BookOpenText, Database, Loader2, Lock, Search } from "lucide-react"
 
 import { BrandLogo } from "src/components/blocks/branding/brand-logo"
 import { Badge } from "src/components/ui/badge"
@@ -24,8 +24,6 @@ export function ZetroReadPage() {
   })
   const data = readQuery.data ?? null
   const results = searchQuery.data?.results ?? []
-  const freeModelCount = useMemo(() => data?.models.filter((model) => model.tier === "free").length ?? 0, [data?.models])
-  const premiumModelCount = useMemo(() => data?.models.filter((model) => model.tier === "premium").length ?? 0, [data?.models])
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -55,9 +53,7 @@ export function ZetroReadPage() {
           <div className="rounded-md border border-border/70 bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded-md" variant="secondary">Read only</Badge>
-              <Badge className="rounded-md" variant={data?.api_connected ? "default" : "outline"}>
-                {data?.api_connected ? "API connected" : "API key pending"}
-              </Badge>
+              <Badge className="rounded-md" variant="outline">User docs</Badge>
             </div>
             <div className="mt-5 flex items-start gap-4">
               <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -76,14 +72,14 @@ export function ZetroReadPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Search className="size-4 text-muted-foreground" />
-                Search Existing Project Guide
+                Search ZETRO Docs
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4">
               <Input
                 className="h-11 rounded-md"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search ZRO and assist docs..."
+                placeholder="Search approved ZETRO user docs..."
                 value={query}
               />
               {readQuery.isLoading || searchQuery.isFetching ? (
@@ -95,10 +91,10 @@ export function ZetroReadPage() {
               <div className="grid gap-3">
                 {results.map((result) => (
                   <article key={result.chunk_key} className="rounded-md border border-border/70 bg-background p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="rounded-md" variant="outline">{result.label}</Badge>
-                      <span className="text-xs text-muted-foreground">{result.path}</span>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="rounded-md" variant="outline">{result.label}</Badge>
+                      <span className="text-xs text-muted-foreground">{result.category}</span>
+                  </div>
                     <h3 className="mt-3 text-sm font-semibold">{result.heading}</h3>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">{result.excerpt}</p>
                   </article>
@@ -123,7 +119,7 @@ export function ZetroReadPage() {
               {(data?.sources ?? []).map((source) => (
                 <article key={source.id} className="rounded-md border border-border/70 bg-background p-4">
                   <div className="text-sm font-semibold">{source.label}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{source.path}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{source.category}</div>
                   <p className="mt-3 text-sm leading-6 text-muted-foreground">{source.purpose}</p>
                   <div className="mt-3 text-xs text-muted-foreground">{source.chunks} readable sections</div>
                 </article>
@@ -134,8 +130,6 @@ export function ZetroReadPage() {
 
         <aside className="grid h-fit gap-4">
           <SideStat icon={Database} label="Sources" value={`${data?.sources.length ?? 0}`} />
-          <SideStat icon={Sparkles} label="Free models" value={`${freeModelCount}`} />
-          <SideStat icon={KeyRound} label="Premium models" value={`${premiumModelCount}`} />
           <Card className="rounded-md border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -171,22 +165,6 @@ export function ZetroReadPage() {
               ))}
             </CardContent>
           </Card>
-          <Card className="rounded-md border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Recommended Updates</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {(data?.recommended_updates ?? fallbackRecommended).map((item) => (
-                <div key={item.title} className="rounded-md border border-border/70 bg-background p-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    {item.title}
-                    <Badge className="rounded-md" variant={item.priority === "high" ? "default" : "outline"}>{item.priority}</Badge>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
         </aside>
       </section>
     </main>
@@ -203,14 +181,6 @@ const fallbackExamples = [
   "What is ZETRO?",
   "Where are tasks and billing?",
   "How will automation work later?",
-]
-
-const fallbackRecommended = [
-  {
-    title: "Connect OpenRouter API",
-    detail: "Save a provider key in the ZETRO API panel, then run Save & test so chat uses the active saved provider.",
-    priority: "high" as const,
-  },
 ]
 
 function SideStat({ icon: Icon, label, value }: { icon: typeof Database; label: string; value: string }) {

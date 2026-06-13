@@ -46,6 +46,13 @@ ZRO/
   Log/
     README.md
     YYYY-MM-DD-HHmm.md
+  ZETRO/
+    README.md
+    docs/
+      user/
+      admin/
+      policy/
+      system/
   Tools/
     README.md
 ```
@@ -69,7 +76,8 @@ Build the agent system in this order:
 |------|--------|-------|
 | Platform foundation | Live | Existing multi-tenant SaaS/ERP platform with task and site modules. |
 | ZETRO OS strategy | Planned | Architecture documented in `ZRO/Vision/agent-os.md`. |
-| Helper Agent | Next | First implementation target. No automation in this slice. |
+| Dedicated ZETRO docs | Live | Role-filtered docs live in `ZRO/ZETRO/docs`. |
+| Helper Agent | Active | Read-only chat with user/admin behavior split. No automation in this slice. |
 | Operator Agent | Planned | Depends on typed tool registry and API action contracts. |
 | Workflow/Planner/Analytics | Planned | Depends on stable operator tools and logs. |
 
@@ -100,6 +108,7 @@ ZRO must reflect reality. If code changes agent behavior, update the related roa
 |----------|---------|
 | `ZRO/Vision/master.md` | Full strategic north star. |
 | `ZRO/Vision/agent-os.md` | Concrete Agent OS architecture and phase plan. |
+| `ZRO/ZETRO/README.md` | Dedicated runtime docs boundary for user/admin/policy/system ZETRO behavior. |
 | `ZRO/Roadmap/masterplan.md` | Active status, next tasks, and guardrails. |
 | `ZRO/Roadmap/phases.md` | Phase gates and dependencies. |
 | `ZRO/Execution/checklists/agent-os-checklist.md` | Implementation checklist. |

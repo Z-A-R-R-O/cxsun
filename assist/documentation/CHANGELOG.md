@@ -2,15 +2,29 @@
 
 ## Version State
 
-- **Current version:** `1.0.93`
-- **Release tag:** `v-1.0.93`
-- **Changelog label:** `v 1.0.93`
+- **Current version:** `1.0.94`
+- **Release tag:** `v-1.0.94`
+- **Changelog label:** `v 1.0.94`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
 
-## v-1.0.93
+## v-1.0.94
+
+### [v 1.0.94] 2026-06-13 10:19 am - ZETRO role-aware docs and user restrictions
+
+- Added a dedicated `ZRO/ZETRO/docs` documentation system with user, admin, policy, and system sections.
+- Changed ZETRO markdown search to filter sources by audience so user/public surfaces only receive approved user and policy docs.
+- Split ZETRO behavior into restricted user/super-admin modes with provider, model, API setup, and recommended technical updates hidden from all non-super-admin roles.
+- Added restricted-topic handling for legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions.
+- Updated the public ZETRO read screen and chat/base UI so model details and recommended updates are super-admin-only.
+- Fixed the ZETRO fetch/preflight issue by allowing the new role/audience headers through CORS.
+- Added server-side Agent OS guards so status, chat, provider setup, docs indexing, and history endpoints use the verified auth token role instead of trusting client headers.
+- Tightened full ZETRO access to `super-admin` only; tenant admins/managers and non-super platform roles now receive the same restricted user behavior.
+- Added ZETRO to the super-admin side menu and wired it to the existing `/sa/app-agent-os-base` page.
+- Forced public docs/search into public audience mode and blocked normal users from global conversation history until user-scoped memory exists.
+- Verified backend and frontend typechecks after the role-aware docs and behavior changes.
 
 ### [v 1.0.93] 2026-06-13 9:32 am - ZETRO OpenCode API connection
 

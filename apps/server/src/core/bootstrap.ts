@@ -56,7 +56,16 @@ export class CxApp {
     await app.register(cors, {
       origin: resolveCorsOrigin,
       credentials: true,
-      allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'x-tenant-code', 'x-user-email', 'x-login-domain'],
+      allowedHeaders: [
+        'Authorization',
+        'Content-Type',
+        'Accept',
+        'x-tenant-code',
+        'x-user-email',
+        'x-login-domain',
+        'x-user-role',
+        'x-zetro-audience',
+      ],
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     })
 

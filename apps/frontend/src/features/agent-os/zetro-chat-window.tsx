@@ -30,6 +30,7 @@ import {
   clearZetroConversations,
   getAgentOsStatus,
   getZetroConversation,
+  isZetroAdminRole,
   listZetroConversations,
   sendZetroChat,
 } from "./agent-os-client";
@@ -58,6 +59,7 @@ export function ZetroChatWindow({
     queryKey: ["agent-os-status", session.selectedTenant.slug],
     queryFn: () => getAgentOsStatus(session),
   });
+  const adminMode = isZetroAdminRole(session.selectedTenant.role);
   const status = statusQuery.data;
   const models = useMemo(() => status?.models ?? [], [status?.models]);
   const [selectedModel, setSelectedModel] = useState("");
@@ -162,8 +164,8 @@ export function ZetroChatWindow({
       sendZetroChat(session, {
         conversationUuid,
         message,
-        model: selectedModel || defaultModelId || "",
-        providerKey: status?.api_connection?.provider,
+        model: adminMode ? selectedModel || defaultModelId || "" : defaultModelId || "zetro-assistant",
+        providerKey: adminMode ? status?.api_connection?.provider : undefined,
       }),
     onSuccess: (response) => {
       if (response.conversation_uuid) {
@@ -206,7 +208,7 @@ export function ZetroChatWindow({
         id: `user-${Date.now()}`,
         role: "user",
         body: message,
-        model: modelDisplayName(selectedModel, models),
+        model: adminMode ? modelDisplayName(selectedModel, models) : undefined,
       },
     ]);
     setDraft("");
@@ -323,18 +325,22 @@ export function ZetroChatWindow({
         <div className="relative z-10 border-b border-amber-400/20 bg-amber-200/25 px-5 py-3 text-xs leading-5 text-amber-800 backdrop-blur-2xl dark:border-amber-200/20 dark:bg-amber-300/10 dark:text-amber-100">
           <div className="flex items-start justify-between gap-3">
             <div>
-              Save and test an API provider key to call free or premium models.
+              {adminMode
+                ? "Save and test an API provider key to activate ZETRO."
+                : "ZETRO setup is pending. Please ask the super-admin to activate the assistant."}
             </div>
-            <Button
-              className="h-7 shrink-0 rounded-full border-amber-400/25 bg-white/30 px-2.5 text-xs text-amber-800 hover:bg-white/70 hover:text-amber-900 dark:border-amber-200/30 dark:bg-white/10 dark:text-amber-100 dark:hover:bg-white/20 dark:hover:text-amber-50"
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={onOpenBase}
-            >
-              <KeyRound className="size-3.5" />
-              API panel
-            </Button>
+            {adminMode ? (
+              <Button
+                className="h-7 shrink-0 rounded-full border-amber-400/25 bg-white/30 px-2.5 text-xs text-amber-800 hover:bg-white/70 hover:text-amber-900 dark:border-amber-200/30 dark:bg-white/10 dark:text-amber-100 dark:hover:bg-white/20 dark:hover:text-amber-50"
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={onOpenBase}
+              >
+                <KeyRound className="size-3.5" />
+                API panel
+              </Button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -456,7 +462,7 @@ export function ZetroChatWindow({
                 <span className="flex size-6 items-center justify-center rounded-full bg-zinc-950/10 text-zinc-700 dark:bg-white/10 dark:text-white">
                   <Loader2 className="size-3.5 animate-spin" />
                 </span>
-                Calling selected model
+                {adminMode ? "Calling selected model" : "ZETRO is thinking"}
               </div>
             ) : null}
             <div ref={chatEndRef} className="h-px" />
@@ -479,34 +485,36 @@ export function ZetroChatWindow({
             value={draft}
           />
           <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
-            <Select
-              value={selectedModel}
-              onValueChange={(value) => {
-                setSelectedModel(value);
-                resetChat();
-              }}
-            >
-              <SelectTrigger className="h-8 w-[min(260px,100%)] rounded-full border-black/10 bg-white/60 text-xs text-zinc-800 shadow-none backdrop-blur-xl hover:bg-white/80 dark:border-white/20 dark:bg-black/20 dark:text-white dark:hover:bg-white/10 [&>span]:truncate">
-                <SelectValue
-                  placeholder={
-                    statusQuery.isFetching
-                      ? "Loading models..."
-                      : "Select model"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent
-                align="start"
-                className="z-[80] max-h-[320px] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-[18px] border-black/10 bg-white/95 text-zinc-950 shadow-2xl backdrop-blur-2xl dark:border-white/20 dark:bg-zinc-950/95 dark:text-white"
-                position="popper"
+            {adminMode ? (
+              <Select
+                value={selectedModel}
+                onValueChange={(value) => {
+                  setSelectedModel(value);
+                  resetChat();
+                }}
               >
-                {(models.length ? models : fallbackModels).map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    {modelSelectLabel(model)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger className="h-8 w-[min(260px,100%)] rounded-full border-black/10 bg-white/60 text-xs text-zinc-800 shadow-none backdrop-blur-xl hover:bg-white/80 dark:border-white/20 dark:bg-black/20 dark:text-white dark:hover:bg-white/10 [&>span]:truncate">
+                  <SelectValue
+                    placeholder={
+                      statusQuery.isFetching
+                        ? "Loading models..."
+                        : "Select model"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent
+                  align="start"
+                  className="z-[80] max-h-[320px] w-[var(--radix-select-trigger-width)] overflow-y-auto rounded-[18px] border-black/10 bg-white/95 text-zinc-950 shadow-2xl backdrop-blur-2xl dark:border-white/20 dark:bg-zinc-950/95 dark:text-white"
+                  position="popper"
+                >
+                  {(models.length ? models : fallbackModels).map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {modelSelectLabel(model)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <div className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-zinc-500 dark:text-white/55">
               <span
                 className={cn(
@@ -518,7 +526,7 @@ export function ZetroChatWindow({
               />
               <span className="truncate">
                 {conversationUuid ? "Memory on" : "New session"} /{" "}
-                {connected ? "Ready" : "Needs key"}
+                {connected ? "Ready" : adminMode ? "Needs key" : "Setup pending"}
               </span>
             </div>
             <Button

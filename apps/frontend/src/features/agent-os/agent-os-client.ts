@@ -77,6 +77,7 @@ export interface ZetroReadSource {
   label: string
   path: string
   purpose: string
+  category: string
   title: string
   summary: string
   chunks: number
@@ -105,6 +106,7 @@ export interface ZetroSearchResult {
   label: string
   path: string
   purpose: string
+  category: string
   title: string
   chunk_key: string
   heading: string
@@ -196,7 +198,7 @@ export interface ZetroLearnResponse {
 export async function getAgentOsStatus(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/status`, {
     cache: "no-store",
-    headers: authHeaders(session),
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session) },
   })
 
   if (!response.ok) {
@@ -239,7 +241,7 @@ export async function searchZetroGuide(query: string) {
 export async function getZetroApiConnection(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/api-connection`, {
     cache: "no-store",
-    headers: authHeaders(session),
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session) },
   })
 
   if (!response.ok) {
@@ -256,7 +258,7 @@ export async function testZetroApiConnection(
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/api-connection/test`, {
     body: JSON.stringify(input),
     cache: "no-store",
-    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
 
@@ -283,9 +285,9 @@ export async function saveZetroApiConnection(
   },
 ) {
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/api-connection/save`, {
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, audience: zetroAudience(session), userRole: session.selectedTenant.role }),
     cache: "no-store",
-    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
 
@@ -311,9 +313,11 @@ export async function sendZetroChat(
       message: input.message,
       model: input.model,
       providerKey: input.providerKey,
+      audience: zetroAudience(session),
+      userRole: session.selectedTenant.role,
     }),
     cache: "no-store",
-    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
 
@@ -389,9 +393,9 @@ export async function clearZetroConversations(session: AuthSession) {
 
 export async function learnZetroDocs(session: AuthSession, query?: string) {
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/learn`, {
-    body: JSON.stringify({ query: query?.trim() || undefined }),
+    body: JSON.stringify({ audience: zetroAudience(session), query: query?.trim() || undefined, userRole: session.selectedTenant.role }),
     cache: "no-store",
-    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
 
@@ -400,4 +404,19 @@ export async function learnZetroDocs(session: AuthSession, query?: string) {
   }
 
   return (await response.json()) as ZetroLearnResponse
+}
+
+export function zetroAudience(session: AuthSession) {
+  return isZetroAdminRole(session.selectedTenant.role) ? "admin" : "user"
+}
+
+export function isZetroAdminRole(role: string) {
+  return role === "super-admin"
+}
+
+function zetroAudienceHeaders(session: AuthSession) {
+  return {
+    "x-user-role": session.selectedTenant.role,
+    "x-zetro-audience": zetroAudience(session),
+  }
 }

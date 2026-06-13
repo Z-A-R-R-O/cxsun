@@ -29,7 +29,9 @@
 - [x] Persist base conversations and agent logs.
 - [x] Add frontend `features/agent-os` chat surface.
 - [x] Add missing-key manual verification message in the chat surface.
-- [x] Connect ZETRO read/search to existing ZRO and assist markdown sources.
+- [x] Connect ZETRO read/search to the dedicated role-filtered `ZRO/ZETRO/docs` system.
+- [x] Split ZETRO behavior into restricted user/super-admin audiences with user-safe docs, hidden model/provider details, and super-admin-only recommended updates.
+- [x] Add restricted-topic behavior for legal, GST/tax, e-invoice/e-way, medical, investment, secrets, and compliance questions.
 - [x] Add adaptive learn endpoint to index existing markdown into `knowledge_documents`.
 - [x] Add public `/zetro` read-only screen.
 - [x] Add API connection status and one-time test endpoints.

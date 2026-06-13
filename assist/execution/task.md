@@ -24,7 +24,7 @@
 - [x] Add base chat endpoint with conversation/log writes.
 - [x] Add OpenRouter-compatible model client.
 - [x] Configure free models first and premium models through env/API keys.
-- [x] Connect ZETRO to existing ZRO and assist markdown sources.
+- [x] Connect ZETRO to the dedicated role-filtered `ZRO/ZETRO/docs` system.
 - [x] Add ZETRO read-only public screen at `/zetro`.
 - [x] Add adaptive markdown search and learn/index function.
 - [x] Add API connection status and one-time OpenRouter key test endpoint.
@@ -43,6 +43,8 @@
 - [x] Add optional env fallback keys for OpenAI/GPT, Gemini, OpenCode Zen, and custom providers.
 - [x] Add ZETRO chat history memory with full-window history view, dated saved chats, load previous chat, new chat from history, clear current, and clear all.
 - [x] Polish ZETRO chat box with adaptive glass UI, signature hero, rotating empty-state prompt, bottom model picker, and auto-scroll to newest messages.
+- [x] Split ZETRO behavior into restricted user/super-admin audiences with hidden model/provider details for all non-super-admin roles and super-admin-only recommended updates.
+- [x] Add legal/compliance/secret restriction behavior and dedicated policy docs.
 - [ ] Add RAG ingestion/search for trusted platform docs.
 - [ ] Verify with platform FAQ prompts after docs are indexed.
 - [x] Verify a live provider response through the saved OpenRouter connection.

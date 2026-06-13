@@ -11,9 +11,10 @@ import { Input } from "src/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { cn } from "src/lib/utils"
-import { getAgentOsStatus, learnZetroDocs, saveZetroApiConnection, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
+import { getAgentOsStatus, isZetroAdminRole, learnZetroDocs, saveZetroApiConnection, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
 
 export function AgentOsPage({ session }: { session: AuthSession }) {
+  const adminMode = isZetroAdminRole(session.selectedTenant.role)
   const [apiKeyDraft, setApiKeyDraft] = useState("")
   const [providerKey, setProviderKey] = useState("openrouter")
   const [baseUrl, setBaseUrl] = useState("")
@@ -26,12 +27,12 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
     queryFn: () => getAgentOsStatus(session),
   })
   const status = statusQuery.data ?? null
-  const platformConnections = status?.provider_connections.length ? status.provider_connections : fallbackProviders
+  const platformConnections = adminMode ? status?.provider_connections.length ? status.provider_connections : fallbackProviders : []
   const activeProvider = useMemo(
     () => platformConnections.find((connection) => connection.provider === providerKey) ?? status?.api_connection ?? null,
     [providerKey, status?.api_connection, platformConnections],
   )
-  const selectedProviderModels = useMemo(() => providerModels(activeProvider), [activeProvider])
+  const selectedProviderModels = useMemo(() => adminMode ? providerModels(activeProvider) : [], [activeProvider, adminMode])
   const capabilities = status?.capabilities.length ? status.capabilities : fallbackCapabilities
   const agents = status?.agents.length ? status.agents : fallbackAgents
   const freeModelCount = selectedProviderModels.filter((model) => model.tier === "free").length
@@ -167,6 +168,8 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
               <TableStat label="Knowledge docs" value={status?.tables.knowledge_documents ?? 0} />
             </div>
 
+            {adminMode ? (
+              <>
             <div className="rounded-md border border-border/70 bg-background p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -395,6 +398,22 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
                 </div>
               </DetailsToggle>
             </div>
+              </>
+            ) : (
+              <div className="rounded-md border border-border/70 bg-background p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Bot className="size-5" />
+                  </span>
+                  <div>
+                    <div className="text-sm font-semibold">ZETRO user mode</div>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      This view uses approved user and policy docs only. Provider, model, API setup, and recommended technical updates are visible only to admins.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="rounded-md border border-border/70 bg-muted/20 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Database className="size-4 text-muted-foreground" />
@@ -433,7 +452,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
             </CardContent>
           </Card>
 
-          <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
+          {adminMode ? <Card className="rounded-md border-border/70 bg-card/95 shadow-sm">
             <CardHeader>
               <CardTitle>Recommended updates</CardTitle>
             </CardHeader>
@@ -453,7 +472,7 @@ export function AgentOsPage({ session }: { session: AuthSession }) {
                 </div>
               ))}
             </CardContent>
-          </Card>
+          </Card> : null}
         </div>
       </div>
     </MasterListPageFrame>
