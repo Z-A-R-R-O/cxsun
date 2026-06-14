@@ -1,287 +1,230 @@
-# Billing Gap Analysis
+# Entry And Accounting Flow Gap Analysis
 
-Updated: 2026-06-06
+Updated: 2026-06-13
 
 ## Scope Reviewed
 
-This scan focused on the current billing and billing-adjacent code paths:
+This review focused on the live entry-to-accounting path:
 
-- Frontend billing entries: sales, export sales, purchase, receipt, payment, cash book, bank book.
-- Inventory-linked billing flows: purchase receipt, delivery note, stock ledger and barcode verification.
-- Reports: customer statement, supplier statement, GST statement.
-- Settings: company software settings, document numbering, sales layout/print options.
-- Backend tenant modules: entries/sales, entries/purchase, entries/receipt, entries/payment, accounts, stock, settings.
+- Entries: sales, purchase, receipt, payment.
+- Books: cash book, bank book, day book, accounting vouchers.
+- Accounting engine: chart of accounts, source posting, rollups, trial balance, profit and loss, balance sheet.
+- Controls: period locks, posted-entry mutation rules, correction/reversal flow.
+- Allocations: receipt open-invoice picker and payment open-bill picker.
+- Compliance overlap: GST/e-invoice/e-way status and audit requirements where they affect posted documents.
 
-## Current Strengths
+## Current Working State
 
-1. Core entry surfaces exist end to end.
+1. Source posting exists for the main accounting flow.
 
-- Sales, Export Sales, and purchase have list, show, print preview, upsert, comments, tools, activities, document numbers, GST fields, transport fields, e-invoice/e-way fields, round-off, balances, and item tables.
-- Export Sales uses separate tables and numbering, stores Common Currency id/name, and can be hidden company-wide from Sales Settings -> Features.
-- Receipts and payments have list, show, print, upsert, allocations, comments, tools, activities, and document numbers.
-- Cash book and bank book now have voucher list, show, print, comments, tools, activities, ledger selection, and document numbers.
-- Purchase receipt, delivery note, and stock ledger are present under the inventory/stock area.
+- Sales, purchase, receipt, payment, cash book, and bank book can create accounting vouchers and ledger postings.
+- Day book and reports read from posted accounting vouchers/postings instead of only from source entry tables.
+- Posting rollups exist for faster dashboard/report totals.
+- Rebuild/repost endpoints exist for accounting posting recovery.
 
-2. Tenant isolation shape is present.
+2. Ledger mapping is practical for users.
 
-- Billing modules run under tenant database context.
-- Tables include tenant/company/accounting-year context on main entries.
-- Dashboard routes lazy-load billing modules.
+- Sales and purchase ledgers are dynamic through common type modules.
+- Receipt and payment money side can resolve cash or bank ledgers.
+- Cash book and bank book use selected cash/bank ledgers plus opposite ledgers for double-entry posting.
+- Frontend naming is closer to client language: customer, supplier, sales ledger, purchase ledger.
 
-3. Numbering foundation is in place.
+3. Posted document control has started.
 
-- Document number settings cover `sales`, `exportSales`, `purchase`, `purchaseReceipt`, `deliveryNote`, `payment`, `receipt`, `cashBook`, and `bankBook`.
-- Most entry repositories consume document numbers and handle duplicate/manual-number conflicts.
+- Period lock tables exist and are migrated with the accounts module.
+- Accounts API can list, create, and release period locks.
+- Accounts UI can create, release, and inspect period locks from the Period Locks page.
+- GST filing completion creates an idempotent monthly lock for the selected/default company and accounting year.
+- Sales, purchase, receipt, and payment check period locks before create/update/delete/restore paths.
+- Posted entries are blocked from direct update/suspend/restore and must use correction/reversal flow.
+- Correction and reversal endpoints exist for sales, purchase, receipt, and payment.
+- Correction/reversal audit rows are stored in `entry_correction_audit`.
 
-4. Print work is active and practical.
+4. Receipt/payment allocations are no longer only free text.
 
-- Sales/purchase/delivery/purchase-receipt have dedicated print templates.
-- Account vouchers now have tighter show/print formatting.
-- Company letterhead settings feed into billing documents.
+- Receipt allocation rows can pick an open posted sales invoice through autocomplete.
+- Payment allocation rows can pick an open posted purchase bill through autocomplete.
+- Allocation rows persist linked `document_id` plus document number/date/total/balance.
+- Backend now validates linked receipt/payment allocations against the real posted invoice/bill and blocks over-allocation against other posted allocations.
 
-5. Reports have useful first versions.
+5. Compliance hardening has begun.
 
-- Customer statement combines sales and receipts.
-- Supplier statement combines purchases and payments.
-- GST statement combines sales and purchases with opening GST settings.
+- Gateway request/response/status/error/retry fields are available.
+- Cancel e-invoice and cancel e-way flows exist.
+- Signed QR payload is used for QR generation.
+- Compliance action audit logging exists.
 
-## Main Gaps
+## Real Remaining Gaps
 
-### 1. GST and Compliance Needs Production Hardening
+### 1. Allocation Posting Does Not Yet Settle Invoice/Bill Balances
 
 Current state:
 
-- Super Admin stores sandbox/production GSP credentials with separate E-invoice + E-way and E-way-only purposes.
-- Tenant GST settings store tenant GST username/password/GSTIN and sandbox/production selection.
-- Sales GST operations merge global GSP credentials with tenant credentials, persist IRN/Ack/signed QR/e-way results, and print saved barcode details.
-- GST report calculates from local item tax fields.
+- Receipt/payment allocations are validated and linked.
+- Sales/purchase `paid_amount`, `balance_amount`, and `payment_status` are still mostly source-entry fields.
+- Allocation totals do not yet automatically update the linked sales invoice or purchase bill payment status.
 
-Gaps to fill:
+Gap:
 
-- Store gateway status, request payload, response payload, error code/message, generated/cancelled timestamps, and retry state.
-- Add cancel e-invoice and cancel e-way flows.
-- Add validation before generation: GSTIN, state code, HSN, taxable values, invoice date, distance/vehicle/transport fields.
-- Add QR generation from signed QR payload, not static text.
-- Add audit log for every compliance action.
+- Add a backend allocation settlement service that recalculates paid/balance/status for linked invoices and bills whenever receipt/payment allocations are created, edited, reversed, or reposted.
+- Store allocation settlement audit so invoice/bill balance changes can be traced back to receipt/payment rows.
 
 Priority: High.
 
-### 2. Accounting Posting Is Not Complete
+### 2. Correction/Reversal Flow Needs Stronger Business Semantics
 
 Current state:
 
-- Cash and bank books have ledgers and voucher balances.
-- Sales, purchase, receipt, and payment keep their own totals and payment statuses.
-- Receipt/payment allocations are stored as manual rows.
+- Correction creates a draft copy.
+- Reversal creates a posted negative document.
+- Direct posted mutation is blocked.
 
-Gaps to fill:
+Gap:
 
-- Create a real posting engine that converts sales, purchase, receipt, payment, cash voucher, and bank voucher into ledger movements.
-- Add chart of accounts, ledger groups, tax ledgers, customer/supplier ledgers, and posting rules.
-- Keep receivable/payable balances derived from postings, not manually typed allocation balances.
-- Add journal/contra/debit note/credit note support or a clear plan for them.
-- Add period locks so posted entries cannot be silently changed after filing/audit.
-- Add reversal/correction flow instead of direct mutation for posted documents.
+- Add explicit source links on the correction/reversal documents themselves, not only in audit rows.
+- Prevent multiple active reversals for the same original unless intentionally allowed.
+- Define whether a correction draft should copy allocations or start clean.
+- Add UI labels/history that clearly show "Corrects invoice X" or "Reverses receipt Y".
+- Add approval/permission rules for reversal and correction creation.
 
 Priority: High.
 
-### 3. Receipt and Payment Allocations Are Manual
+### 3. Period Locks Need Wider Accounting Coverage
 
 Current state:
 
-- Receipt/payment allocation tabs accept document number, date, previous balance, allocated amount, and balance after allocation.
-- The code calculates entry allocated/unallocated totals from typed allocation rows.
-- There is no strong linkage from an allocation row to a sales/purchase entry id.
+- Backend period lock API and Accounts UI exist.
+- GST filing completion creates monthly GST period locks automatically.
+- Sales, purchase, receipt, and payment save paths enforce active locks.
 
-Gaps to fill:
+Gap:
 
-- Add searchable open-invoice/open-bill picker for allocations.
-- Persist linked document ids/uuids, not only document numbers.
-- Auto-fill document date, document total, previous balance, and remaining balance.
-- Prevent over-allocation unless explicitly allowed.
-- Recalculate sales/purchase payment status from linked allocations.
-- Handle allocation edits, deletes, and reversals safely.
+- Enforce locks in manual accounting voucher create/post/cancel flows.
+- Add super-admin visibility for locks across tenants if platform-level audit review needs it.
+- Connect any future audit completion flow to the same period-lock service.
+- Add direct lock links in blocked save errors once the UI has route-aware toast actions.
 
 Priority: High.
 
-### 4. Stock Outward Is Not Fully Connected To Billing
+### 4. Accounting Voucher Controls Need Period-Lock Enforcement
 
 Current state:
 
-- Purchase receipt and stock ledger support intake, barcode/serial generation, verification, posting, and live balances.
-- Delivery note exists as an outward document.
-- Stock ledger has availability APIs and outward event names.
+- Source entries enforce period locks.
+- Accounting vouchers block direct edit once posted.
 
-Gaps to fill:
+Gap:
 
-- Wire sales submit to stock availability checks when products are stock-managed.
-- Wire delivery note submit/post to reserve or consume stock.
-- Add barcode/serial scan input to sales and delivery note where required.
-- Prevent selling/delivering unknown, already consumed, wrong warehouse, or insufficient stock.
-- Add outward movement posting and live balance reduction for sales/delivery note.
-- Define return/reversal behavior for cancelled sales and delivery notes.
+- Journal, contra, opening, and manual accounting vouchers should also check period locks before create/post/cancel.
+- Posted manual vouchers need a reversal flow, not only cancel/edit blocking.
 
-Priority: High for stock-enabled clients.
+Priority: High.
 
-### 5. Document Number Sync Is Incomplete For Inventory Documents
+### 5. Posting Engine Needs Tax And Edge-Case Completion
 
 Current state:
 
-- Document number kinds include purchase receipt and delivery note.
-- Purchase receipt and delivery note repositories consume `purchaseReceipt` and `deliveryNote`.
-- Document number repository sync scans used numbers for sales, purchase, receipt, payment, cash book, and bank book.
+- Main source modules post accounting vouchers.
+- Sales/purchase ledgers and cash/bank ledgers are dynamic.
 
-Gap to fill:
+Gap:
 
-- Add `purchaseReceipt` and `deliveryNote` to `usedDocumentNumbers()` so document settings preview/sync can advance past existing inventory documents.
+- Verify GST split ledger behavior for all tax types: CGST/SGST, IGST, exempt, nil, export.
+- Add debit note and credit note voucher behavior.
+- Add round-off, discount, TDS, freight, export exchange gain/loss rules as configurable ledgers.
+- Add clear fallback behavior when a tenant has no configured tax/rounding/TDS ledger.
+
+Priority: High.
+
+### 6. Reports Need Reconciliation Views
+
+Current state:
+
+- Trial balance, profit and loss, balance sheet, day book, cash book, bank book, and monthly movement exist.
+- Recalculate/repost options exist.
+
+Gap:
+
+- Add reconciliation reports:
+  - Source entry total versus accounting voucher total.
+  - Invoice/bill outstanding versus receipt/payment allocation ledger.
+  - Cash/bank book source rows versus account postings.
+  - GST source totals versus GST ledger postings.
+- Add drill-down from report rows to source document and voucher.
+
+Priority: High.
+
+### 7. Allocation Picker Still Loads Full Lists
+
+Current state:
+
+- Receipt/payment frontend uses autocomplete lookup flavor.
+- Options are built from loaded sales/purchase lists.
+
+Gap:
+
+- Replace full-list loading with backend searchable open-document endpoints.
+- Add server-side pagination/search by document no, party, date, and amount.
+- Return only open balance documents for the active company/accounting year.
 
 Priority: Medium.
 
-### 6. Reports Are Client-Side Aggregations
+### 8. Status Transitions Are Still Loose
 
 Current state:
 
-- Statements and GST reports load full lists of sales/purchase/receipt/payment records into the frontend and aggregate there.
-- Report filters are useful but limited.
+- Draft/posted/cancelled-like statuses exist.
+- Posted direct mutation is blocked for main entry modules.
 
-Gaps to fill:
+Gap:
 
-- Move large report aggregation to backend endpoints.
-- Add pagination/export for large statements.
-- Add PDF generation or print-render service for consistent output.
-- Add aging buckets, outstanding-only filters, invoice-level allocation detail, and opening balance audit.
-- Add GST filing reports beyond simple statement: GSTR-1 summary, purchase ITC view, HSN summary, B2B/B2C split, nil/exempt if needed.
-- Queue heavy report generation and store generated files.
+- Define allowed status transitions per module.
+- Enforce transition rules in repositories/services.
+- Add explicit post/cancel buttons and endpoints instead of relying on generic save with status changes.
+- Ensure compliance generation, print, email, and accounting posting only run from allowed states.
 
 Priority: Medium.
 
-### 7. Validation Needs More Domain Rules
+### 9. Stock Outward Is Still Separate From Sales Posting
 
 Current state:
 
-- Basic required fields exist: customer/supplier name, item defaults, amounts.
-- Forms allow direct entry of many compliance/accounting values.
+- Purchase receipt, delivery note, stock ledger, and barcode verification exist.
+- Sales accounting and stock movement are not one controlled posting flow.
 
-Gaps to fill:
+Gap:
 
-- Validate GSTIN format and state-code match.
-- Validate invoice dates against accounting year and period locks.
-- Validate negative/zero quantities and rates by document type.
-- Validate HSN and GST percentage consistency from product/tax masters.
-- Validate round-off bounds.
-- Validate vehicle number and transport GST when e-way is enabled.
-- Validate party type: customer for sales/receipts, supplier for purchase/payments.
+- Wire stock-managed sales to availability checks.
+- Reserve/consume stock through delivery note or sales posting.
+- Define reversal behavior for stock movement when a posted sale is reversed.
 
-Priority: Medium.
+Priority: Medium for stock-enabled tenants.
 
-### 8. Workflow Statuses Need Clear Semantics
+### 10. Operational Hardening Is Needed Before Production Filing
 
 Current state:
 
-- Entries use statuses such as draft, posted, cancelled, paid/partial/unpaid.
-- Statuses are mostly stored fields and UI labels.
+- Compliance gateway state and audit tables exist.
+- Accounting audit tables exist for posting and correction/reversal.
 
-Gaps to fill:
+Gap:
 
-- Define status transitions per document type.
-- Enforce transitions server-side.
-- Add permissions for posting, cancelling, restoring, and editing posted entries.
-- Ensure print/compliance generation only happens from allowed statuses.
-- Add activity/audit events for every status transition.
-
-Priority: Medium.
-
-### 9. Billing Settings Are Sales-Heavy
-
-Current state:
-
-- Software settings include sales layout toggles for PO, DC, colour, size, e-invoice, e-way, print logo/account/QR.
-- Purchase and inventory reuse some sales setting ids.
-
-Gaps to fill:
-
-- Split settings into shared billing layout, sales settings, purchase settings, inventory settings, and print template settings.
-- Add industry presets for offset, garment, fabric trader, UPVC, ecommerce, and service billing.
-- Make setting ids neutral where shared; avoid purchase code depending on `sales-use-*`.
-- Add tenant/company/accounting-year scope decisions for each setting.
+- Add queue retry workers for failed compliance/report/posting jobs.
+- Add admin visibility for failed posting/compliance actions.
+- Add migration/version tracking for tenant schema changes.
+- Add automated tests for posting, period locks, over-allocation, correction, and reversal.
 
 Priority: Medium.
 
-### 10. WhatsApp and General Attachments Are Still Incomplete
+## Immediate Next Work
 
-Current state:
-
-- Sales, Export Sales, Purchase, Receipt, and Payment can queue the exact visible print as a PDF email attachment through tenant Mail.
-- Temporary PDFs are stored under `storage/<tenant>/public/pdf`, retained for retries, and removed after successful SMTP delivery.
-- Mail Desk shows attachment counts and metadata.
-- WhatsApp, assign, tags, and general uploaded document attachments remain incomplete.
-
-Gaps to fill:
-
-- Persist uploaded attachments against document records.
-- Add WhatsApp dispatch workflow or clearly mark it as activity-only until integrated.
-- Add permissions and audit for sending documents.
-
-Priority: Medium.
-
-### 11. Data Model Needs Stronger Constraints
-
-Current state:
-
-- Main entry tables have unique document numbers in several modules.
-- Child rows often have nullable uuid or no foreign-key constraints.
-- Tenant/company/year context exists on main rows, but not consistently on child rows.
-
-Gaps to fill:
-
-- Make child row `uuid` consistently non-null where public references are possible.
-- Add foreign keys or enforced repository checks for parent-child relationships.
-- Add tenant/company/year indexes for reporting queries.
-- Add consistency checks for item totals versus entry totals.
-- Add migration/version tracking so schema changes are auditable.
-
-Priority: Medium.
-
-### 12. UX Needs A Few Billing-Specific Completion Passes
-
-Current state:
-
-- Sales/purchase item entry is feature-rich but large.
-- Cash/bank voucher print is being actively refined.
-- Receipt/payment allocations are simple grid rows.
-
-Gaps to fill:
-
-- Add open-document allocation picker in receipts/payments.
-- Add better error messages from backend validation.
-- Add save/post/cancel flows instead of one generic save.
-- Add print copy selection for account vouchers if required.
-- Add keyboard-first item entry improvements for repeated billing.
-- Add responsive QA for all print templates at A4/A5 and browser print.
-
-Priority: Medium.
-
-## Suggested Work Order
-
-1. Fix document-number sync for `purchaseReceipt` and `deliveryNote`.
-2. Add receipt/payment allocation picker and linked document ids.
-3. Define and enforce billing status transitions.
-4. Add accounting posting foundation for sales, purchase, receipts, payments, cash and bank vouchers.
-5. Wire stock outward checks/posting for delivery note and sales.
-6. Split sales-heavy settings into shared billing/sales/purchase/inventory settings.
-7. Harden GSP compliance with persisted request/response logs, cancellation, validation, and retries.
-8. Move reports to backend aggregation endpoints and add export/queued PDF path.
-9. Add WhatsApp dispatch and general document attachment storage.
-10. Add validation and period-lock rules before production use.
-
-## Immediate Quick Wins
-
-- Add missing used-number scans for purchase receipt and delivery note in `DocumentNumberRepository`.
-- Add a backend validation layer for GSTIN, state code, accounting year date range, and item totals.
-- Add linked ids to receipt/payment allocations while keeping document number text for display.
-- Add status transition helpers and disable edit for posted/cancelled entries until correction flow exists.
-- Add a small backend report endpoint for customer/supplier outstanding so frontend no longer depends on full-list loading.
+1. Add allocation settlement service to update linked sales/purchase balances from posted receipt/payment allocations.
+2. Add backend searchable open-document endpoints for receipt/payment allocation lookup.
+3. Enforce period locks in manual accounting vouchers.
+4. Add frontend period-lock management page for accounting/super-admin.
+5. Add reconciliation report: source document total versus accounting voucher total.
+6. Add correction/reversal source link columns or metadata on entry records.
 
 ## Decision
 
-Billing is not just a screen gap now; the screens are mostly present. The important next work is to make the current billing data behave like an accounting and compliance system: linked allocations, ledger postings, enforced statuses, stock movement, gateway-safe compliance, and backend reports. The UI can continue to be refined, but the biggest product risk is the missing posting/allocation/compliance foundation beneath the visible forms.
+The main screen gap is mostly closed. The real risk is now consistency: a posted document must produce balanced ledger posting, linked allocation settlement, immutable audit history, and report totals that reconcile back to the source. The next work should therefore focus on settlement, lock coverage, reconciliation, and status semantics before adding more visible entry fields.

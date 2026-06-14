@@ -2539,3 +2539,47 @@ Implementation note:
 - ZETRO now reads `ZETRO_FREE_MODELS` before `ZETRO_PREMIUM_MODELS`.
 - The backend calls OpenRouter-compatible `/chat/completions` when `OPENROUTER_API_KEY` is present.
 - Missing keys, provider failures, selected model tier, latency, and usage metadata are recorded in `agent_logs`.
+
+## 2026-06-13 - GST compliance posting gap
+
+User prompt:
+
+```text
+ok fine read assist/readme and start fixing this gap one by without collapsing existing
+
+- Store gateway status, request payload, response payload, error code/message, generated/cancelled timestamps, and retry state.
+- Add cancel e-invoice and cancel e-way flows.
+- Add validation before generation: GSTIN, state code, HSN, taxable values, invoice date, distance/vehicle/transport fields.
+- Add QR generation from signed QR payload, not static text.
+- Add audit log for every compliance action.
+```
+
+## 2026-06-13 - Period locks and allocation picker
+
+User prompt:
+
+```text
+add these also
+- Add period locks so posted entries cannot be silently changed after filing/audit.
+- Add reversal/correction flow instead of direct mutation for posted documents.
+
+Add searchable open-invoice/open-bill picker for allocations for receipt and payments entries, make this in auto complete lookup box flavour
+```
+
+## 2026-06-13 - Ecommerce standalone module plan
+
+User prompt:
+
+```text
+Ecommerce Module read assist/readme and find ecommerce module and find how it is build at present and write about full Ecommerce.md and write full plan and workflow inside modules/ecommerce/ and structure it and make this as standalone app
+
+connect existing contact and product and extend table new for ecommerce requirement , do not change or update existing common tables and master tables if any requirement we can extent to new table with foreign references
+```
+
+## 2026-06-13 - Ecommerce customer portal addition
+
+User prompt:
+
+```text
+also add web customer portal and customer dashboard for ecommerce
+```

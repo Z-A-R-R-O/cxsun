@@ -469,25 +469,10 @@ function createQrSvg(value: string) {
   }
 }
 
-function buildExportSalesEinvoiceQrPayload(record: ExportSalesEntry, company: CompanyRecord | null, totals: ReturnType<typeof calculatePrintTotals>) {
+function buildExportSalesEinvoiceQrPayload(record: ExportSalesEntry, _company: CompanyRecord | null, _totals: ReturnType<typeof calculatePrintTotals>) {
   const signedQr = printableText(record.signed_qr)
   if (signedQr && !/signed qr will be populated/i.test(signedQr)) return signedQr
-
-  const irn = exportSalesDocumentValue(record, "irn")
-  if (!irn) return ""
-
-  return JSON.stringify({
-    BuyerGstin: printableText(record.customer_gstin),
-    DocDt: formatGstPortalDate(record.invoice_date),
-    DocNo: record.invoice_no,
-    DocTyp: "INV",
-    Irn: irn,
-    IrnDt: formatGstPortalDateTime(record.ack_date || record.invoice_date),
-    ItemCnt: record.items.length,
-    MainHsnCode: record.items.find((item) => printableText(item.hsn_code))?.hsn_code ?? "",
-    SellerGstin: printableText(company?.gstinUin),
-    TotInvVal: Number(totals.grandTotal.toFixed(2)),
-  })
+  return ""
 }
 
 function itemTaxable(item: ExportSalesEntryItem) {
@@ -561,24 +546,6 @@ function printableText(value: unknown) {
 function formatDate(value?: string | null) {
   if (!value) return "-"
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value))
-}
-
-function formatGstPortalDate(value?: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return [
-    String(date.getDate()).padStart(2, "0"),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    date.getFullYear(),
-  ].join("/")
-}
-
-function formatGstPortalDateTime(value?: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} 00:00:00`
 }
 
 function money(value: number | null | undefined) {

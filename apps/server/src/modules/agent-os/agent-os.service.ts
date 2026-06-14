@@ -44,6 +44,13 @@ export interface ZetroApiConnectionInput {
   userRole?: string
 }
 
+export interface ZetroQueryMappingInput {
+  phrase?: string
+  toolKey?: string
+  matchType?: string
+  tenantId?: number | string | null
+}
+
 type ZetroAudienceInput = {
   audience?: unknown
   userRole?: unknown
@@ -363,6 +370,148 @@ export class AgentOsService {
     }
   }
 
+  async queryRegistry() {
+    const database = getDatabase()
+    const [tools, mappings, logs, candidateRows] = await Promise.all([
+      database
+        .selectFrom('zetro_query_tools')
+        .select(['id', 'tool_key', 'intent_key', 'domain', 'label', 'description', 'required_fields', 'examples', 'is_active', 'status', 'updated_at'])
+        .orderBy('domain', 'asc')
+        .orderBy('tool_key', 'asc')
+        .execute(),
+      database
+        .selectFrom('zetro_query_mappings')
+        .select(['id', 'phrase', 'normalized_phrase', 'match_type', 'tool_key', 'intent_key', 'status', 'hit_count', 'last_matched_at', 'created_by', 'updated_at'])
+        .orderBy('updated_at', 'desc')
+        .limit(100)
+        .execute(),
+      database
+        .selectFrom('zetro_query_logs')
+        .select(['id', 'tenant_slug', 'user_role', 'question', 'normalized_question', 'mapped_intent', 'tool_key', 'source', 'status', 'missing_fields', 'created_at'])
+        .orderBy('created_at', 'desc')
+        .limit(100)
+        .execute(),
+      database
+        .selectFrom('agent_logs')
+        .select(['id', 'event_type', 'input_summary', 'metadata', 'status', 'created_at'])
+        .where('agent_id', '=', 'zetro-helper')
+        .where('event_type', 'in', ['chat.business_query', 'chat.restricted', 'chat.out_of_scope', 'chat.openrouter', 'chat.missing_api_key'])
+        .orderBy('created_at', 'desc')
+        .limit(500)
+        .execute(),
+    ])
+    const mappedQuestions = new Set(mappings.map((mapping) => mapping.normalized_phrase))
+
+    return {
+      ok: true,
+      tools: tools.map((tool) => ({
+        id: Number(tool.id),
+        tool_key: tool.tool_key,
+        intent_key: tool.intent_key,
+        domain: tool.domain,
+        label: tool.label,
+        description: tool.description ?? '',
+        required_fields: parseJsonList(tool.required_fields),
+        examples: parseJsonList(tool.examples),
+        is_active: Boolean(tool.is_active),
+        status: tool.status,
+        updated_at: tool.updated_at,
+      })),
+      mappings: mappings.map((mapping) => ({
+        id: Number(mapping.id),
+        phrase: mapping.phrase,
+        normalized_phrase: mapping.normalized_phrase,
+        match_type: mapping.match_type,
+        tool_key: mapping.tool_key,
+        intent_key: mapping.intent_key,
+        status: mapping.status,
+        hit_count: Number(mapping.hit_count ?? 0),
+        last_matched_at: mapping.last_matched_at,
+        created_by: mapping.created_by,
+        updated_at: mapping.updated_at,
+      })),
+      logs: logs.map((log) => ({
+        id: Number(log.id),
+        tenant_slug: log.tenant_slug,
+        user_role: log.user_role,
+        question: log.question,
+        normalized_question: log.normalized_question,
+        mapped_intent: log.mapped_intent,
+        tool_key: log.tool_key,
+        source: log.source,
+        status: log.status,
+        missing_fields: parseJsonList(log.missing_fields),
+        created_at: log.created_at,
+      })),
+      candidates: buildZetroQueryCandidates(candidateRows, mappedQuestions),
+    }
+  }
+
+  async saveQueryMapping(input: ZetroQueryMappingInput & ZetroAudienceInput) {
+    const phrase = input.phrase?.trim() ?? ''
+    const toolKey = input.toolKey?.trim() ?? ''
+    const matchType = normalizeRegistryMatchType(input.matchType)
+    const normalizedPhrase = normalizeQuestion(phrase)
+    if (normalizedPhrase.length < 3) return { ok: false, error: 'Mapping phrase is required.' }
+    if (!toolKey) return { ok: false, error: 'Query tool is required.' }
+
+    const database = getDatabase()
+    const tool = await database
+      .selectFrom('zetro_query_tools')
+      .select(['tool_key', 'intent_key'])
+      .where('tool_key', '=', toolKey)
+      .where('is_active', '=', 1)
+      .executeTakeFirst()
+    if (!tool) return { ok: false, error: 'Selected query tool is not active.' }
+
+    const tenantId = input.tenantId == null || input.tenantId === '' ? 0 : Number(input.tenantId)
+    const resolvedTenantId = Number.isFinite(tenantId) ? tenantId : 0
+    await sql`
+      INSERT INTO zetro_query_mappings (
+        uuid,
+        tenant_id,
+        phrase,
+        normalized_phrase,
+        match_type,
+        tool_key,
+        intent_key,
+        status,
+        created_by,
+        updated_at
+      )
+      VALUES (
+        ${dispatchPublicUuid()},
+        ${resolvedTenantId},
+        ${phrase},
+        ${normalizedPhrase},
+        ${matchType},
+        ${tool.tool_key},
+        ${tool.intent_key},
+        'approved',
+        ${stringValue(input.userRole) ?? 'super-admin'},
+        CURRENT_TIMESTAMP
+      )
+      ON DUPLICATE KEY UPDATE
+        phrase = VALUES(phrase),
+        match_type = VALUES(match_type),
+        intent_key = VALUES(intent_key),
+        status = 'approved',
+        created_by = VALUES(created_by),
+        updated_at = CURRENT_TIMESTAMP
+    `.execute(database)
+
+    return {
+      ok: true,
+      mapping: {
+        phrase,
+        normalized_phrase: normalizedPhrase,
+        match_type: matchType,
+        tool_key: tool.tool_key,
+        intent_key: tool.intent_key,
+      },
+    }
+  }
+
   async testApiConnection(input: ZetroApiConnectionInput) {
     const providerConfig = await resolveProviderForInput(input)
     const apiKey = input.apiKey?.trim() || providerConfig.apiKey
@@ -653,7 +802,7 @@ export class AgentOsService {
 
     const restrictedReply = restrictedQuestionReply(message, audience)
     const boundaryReply = zetroBoundaryReply(message, audience)
-    const businessQuery = resolveZetroBusinessQuery(message)
+    const businessQuery = await resolveZetroBusinessQuery(message)
     const providerConfig = await resolveProviderForInput({ providerKey: input.providerKey, model: input.model })
     const model = normalizeModel(input.model, providerConfig.models, providerConfig.defaultModel)
     const database = getDatabase()
@@ -709,6 +858,12 @@ export class AgentOsService {
 
     if (businessQuery) {
       const result = await this.runZetroBusinessQuery(businessQuery, tenantHeaders)
+      await writeZetroQueryRegistryLog({
+        conversationId: Number(conversationId),
+        message,
+        query: businessQuery,
+        result,
+      })
       await writeAgentLog({
         conversationId: Number(conversationId),
         eventType: 'chat.business_query',
@@ -900,6 +1055,9 @@ interface ZetroBusinessQuery {
   partyName?: string
   documentNo?: string
   balanceSide?: 'customer' | 'supplier' | 'both'
+  registrySource?: 'builtin' | 'mapping'
+  mappingId?: number
+  matchType?: string
   period: ZetroQueryPeriod
 }
 
@@ -1104,7 +1262,11 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : undefined
 }
 
-function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
+async function resolveZetroBusinessQuery(message: string): Promise<ZetroBusinessQuery | null> {
+  return await resolveZetroRegistryBusinessQuery(message) ?? resolveZetroBuiltinBusinessQuery(message)
+}
+
+function resolveZetroBuiltinBusinessQuery(message: string): ZetroBusinessQuery | null {
   const text = message.toLowerCase()
   const period = resolveQueryPeriod(message)
   const asksBalance = /\b(balance|outstanding|pending|due|receivable|receivables|payable|payables)\b/.test(text)
@@ -1131,6 +1293,7 @@ function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
       intent: side === 'supplier' ? 'supplier.balance' : side === 'customer' ? 'customer.balance' : 'contact.balance',
       balanceSide: side,
       partyName,
+      registrySource: 'builtin',
       period,
     }
   }
@@ -1143,6 +1306,7 @@ function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
       intent: domain === 'sales' ? 'sales.bill.detail' : 'purchase.bill.detail',
       documentNo: extractDocumentNo(message),
       partyName: extractPartyName(message, domain) ?? extractLoosePartyName(message),
+      registrySource: 'builtin',
       period,
     }
   }
@@ -1157,8 +1321,104 @@ function resolveZetroBusinessQuery(message: string): ZetroBusinessQuery | null {
     tool,
     intent: `${tool}${partyName ? '.by_contact' : ''}` as ZetroBusinessQuery['intent'],
     partyName,
+    registrySource: 'builtin',
     period,
   }
+}
+
+async function resolveZetroRegistryBusinessQuery(message: string): Promise<ZetroBusinessQuery | null> {
+  const normalized = normalizeQuestion(message)
+  if (normalized.length < 3) return null
+  const rows = await getDatabase()
+    .selectFrom('zetro_query_mappings')
+    .select(['id', 'normalized_phrase', 'match_type', 'tool_key', 'intent_key'])
+    .where('status', '=', 'approved')
+    .orderBy('hit_count', 'desc')
+    .orderBy('updated_at', 'desc')
+    .limit(100)
+    .execute()
+
+  const match = rows.find((row) => {
+    const phrase = normalizeQuestion(row.normalized_phrase)
+    if (!phrase) return false
+    return row.match_type === 'contains' ? normalized.includes(phrase) : normalized === phrase
+  })
+  if (!match) return null
+
+  await getDatabase()
+    .updateTable('zetro_query_mappings')
+    .set({ hit_count: sql`hit_count + 1`, last_matched_at: sql`CURRENT_TIMESTAMP`, updated_at: sql`CURRENT_TIMESTAMP` })
+    .where('id', '=', Number(match.id))
+    .execute()
+
+  return zetroQueryFromRegistryTool(message, {
+    mappingId: Number(match.id),
+    matchType: match.match_type,
+    toolKey: match.tool_key,
+    intentKey: match.intent_key,
+  })
+}
+
+function zetroQueryFromRegistryTool(
+  message: string,
+  match: { mappingId: number; matchType: string; toolKey: string; intentKey: string },
+): ZetroBusinessQuery | null {
+  const period = resolveQueryPeriod(message)
+  if (match.toolKey === 'contact.balance') {
+    const text = message.toLowerCase()
+    const side: 'customer' | 'supplier' | 'both' = /\b(payable|payables|supplier|vendor)\b/.test(text)
+      ? 'supplier'
+      : /\b(receivable|receivables|customer|client)\b/.test(text)
+        ? 'customer'
+        : match.intentKey === 'supplier.balance'
+          ? 'supplier'
+          : match.intentKey === 'customer.balance'
+            ? 'customer'
+            : 'both'
+    return {
+      domain: 'contact',
+      tool: 'contact.balance',
+      intent: side === 'supplier' ? 'supplier.balance' : side === 'customer' ? 'customer.balance' : 'contact.balance',
+      balanceSide: side,
+      partyName: extractPartyName(message, side === 'supplier' ? 'purchase' : 'sales') ?? extractLoosePartyName(message),
+      registrySource: 'mapping',
+      mappingId: match.mappingId,
+      matchType: match.matchType,
+      period,
+    }
+  }
+
+  if (match.toolKey === 'sales.bill.detail' || match.toolKey === 'purchase.bill.detail') {
+    const domain: ZetroEntryDomain = match.toolKey === 'purchase.bill.detail' ? 'purchase' : 'sales'
+    return {
+      domain,
+      tool: match.toolKey,
+      intent: domain === 'sales' ? 'sales.bill.detail' : 'purchase.bill.detail',
+      documentNo: extractDocumentNo(message),
+      partyName: extractPartyName(message, domain) ?? extractLoosePartyName(message),
+      registrySource: 'mapping',
+      mappingId: match.mappingId,
+      matchType: match.matchType,
+      period,
+    }
+  }
+
+  if (match.toolKey === 'sales.summary' || match.toolKey === 'purchase.summary') {
+    const domain: ZetroEntryDomain = match.toolKey === 'purchase.summary' ? 'purchase' : 'sales'
+    const partyName = extractPartyName(message, domain) ?? extractLoosePartyName(message)
+    return {
+      domain,
+      tool: match.toolKey,
+      intent: `${match.toolKey}${partyName ? '.by_contact' : ''}` as ZetroBusinessQuery['intent'],
+      partyName,
+      registrySource: 'mapping',
+      mappingId: match.mappingId,
+      matchType: match.matchType,
+      period,
+    }
+  }
+
+  return null
 }
 
 function zetroBoundaryReply(message: string, audience: ZetroMarkdownAudience) {
@@ -1895,6 +2155,70 @@ function topCounts(map: Map<string, number>) {
     .map(([key, count]) => ({ key, count }))
 }
 
+function buildZetroQueryCandidates(
+  rows: Array<{
+    id: number | string
+    event_type: string
+    input_summary: string | null
+    metadata: string | null
+    status: string
+    created_at: string
+  }>,
+  mappedQuestions: Set<string>,
+) {
+  const candidates = new Map<string, {
+    count: number
+    eventType: string
+    latestAt: string
+    normalizedQuestion: string
+    question: string
+    status: string
+    suggestedIntent: string | null
+    suggestedTool: string | null
+  }>()
+
+  for (const row of rows) {
+    const metadata = parseJsonRecord(row.metadata)
+    const question = typeof metadata.fullInput === 'string' ? metadata.fullInput : row.input_summary ?? ''
+    const normalizedQuestion = normalizeQuestion(question)
+    if (normalizedQuestion.length < 3 || mappedQuestions.has(normalizedQuestion)) continue
+
+    const businessQuery = recordValue(metadata.businessQuery)
+    const builtinQuery = resolveZetroBuiltinBusinessQuery(question)
+    const suggestedTool = stringValue(businessQuery.tool) ?? builtinQuery?.tool ?? null
+    const suggestedIntent = stringValue(businessQuery.intent) ?? builtinQuery?.intent ?? null
+    const existing = candidates.get(normalizedQuestion)
+    if (existing) {
+      existing.count += 1
+      continue
+    }
+    candidates.set(normalizedQuestion, {
+      count: 1,
+      eventType: row.event_type,
+      latestAt: row.created_at,
+      normalizedQuestion,
+      question,
+      status: row.status,
+      suggestedIntent,
+      suggestedTool,
+    })
+  }
+
+  return [...candidates.values()]
+    .sort((left, right) => right.count - left.count || right.latestAt.localeCompare(left.latestAt))
+    .slice(0, 30)
+    .map((candidate) => ({
+      count: candidate.count,
+      event_type: candidate.eventType,
+      latest_at: candidate.latestAt,
+      normalized_question: candidate.normalizedQuestion,
+      question: candidate.question,
+      status: candidate.status,
+      suggested_intent: candidate.suggestedIntent,
+      suggested_tool: candidate.suggestedTool,
+    }))
+}
+
 function parseLimit(value: number | string | undefined) {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 20) : 8
@@ -1912,6 +2236,21 @@ function parseJsonRecord(value: string | null | undefined): Record<string, unkno
   } catch {
     return {}
   }
+}
+
+function parseJsonList(value: string | null | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function normalizeRegistryMatchType(value: unknown) {
+  const matchType = stringValue(value)
+  return matchType === 'contains' || matchType === 'exact' ? matchType : 'exact'
 }
 
 function stringFromJson(value: string | null | undefined, key: string) {
@@ -2949,6 +3288,52 @@ async function writeAgentLog(input: {
       .where('id', '=', input.conversationId)
       .execute()
   }
+}
+
+async function writeZetroQueryRegistryLog(input: {
+  conversationId: number
+  message: string
+  query: ZetroBusinessQuery
+  result: { ok: boolean; error?: string; metadata?: Record<string, unknown> }
+}) {
+  const metadata = recordValue(input.result.metadata)
+  const missingFields = input.result.ok ? [] : missingFieldsForZetroQuery(input.query)
+  await getDatabase().insertInto('zetro_query_logs').values({
+    uuid: dispatchPublicUuid(),
+    conversation_id: input.conversationId,
+    tenant_id: numberOrNull(metadata.tenantId),
+    tenant_slug: stringValue(metadata.tenantSlug) ?? null,
+    user_role: stringValue(metadata.userRole) ?? null,
+    question: input.message.slice(0, 2000),
+    normalized_question: normalizeQuestion(input.message),
+    mapped_intent: input.query.intent,
+    tool_key: input.query.tool,
+    mapping_id: input.query.mappingId ?? null,
+    source: input.query.registrySource ?? 'builtin',
+    status: stringValue(metadata.questionStatus) ?? (input.result.ok ? 'answered' : 'needs_input'),
+    missing_fields: missingFields.length ? JSON.stringify(missingFields) : null,
+    metadata: JSON.stringify({
+      balanceSide: input.query.balanceSide,
+      documentNo: input.query.documentNo,
+      partyName: input.query.partyName,
+      period: input.query.period,
+      error: input.result.error,
+      matchType: input.query.matchType,
+    }),
+  }).execute()
+}
+
+function missingFieldsForZetroQuery(query: ZetroBusinessQuery) {
+  if (query.tool === 'contact.balance' && !query.partyName) return ['partyName']
+  if ((query.tool === 'sales.bill.detail' || query.tool === 'purchase.bill.detail') && !query.documentNo && !query.partyName) {
+    return ['documentNo', 'partyName']
+  }
+  return []
+}
+
+function numberOrNull(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
 }
 
 function zetroMessages(message: string, localContext: ReturnType<typeof searchZetroMarkdownDocuments>, audience: ZetroMarkdownAudience) {

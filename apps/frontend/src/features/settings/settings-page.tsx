@@ -190,6 +190,18 @@ export function InventoryDocumentSettingsPage({ session }: { session: AuthSessio
   )
 }
 
+export function AccountsDocumentSettingsPage({ session }: { session: AuthSession }) {
+  return (
+    <DocumentNumberSettingsPage
+      description="Configure automatic document numbers for accounting vouchers and books."
+      kinds={["journal", "contra", "cashBook", "bankBook"]}
+      session={session}
+      technicalName="page.accounts.settings.document-settings"
+      title="Accounts Document Settings"
+    />
+  )
+}
+
 function DocumentNumberSettingsPage({
   description,
   kinds,

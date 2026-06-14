@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RotateCcw, Save, Send, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Button } from "src/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "src/components/ui/card"
 import { Input } from "src/components/ui/input"
@@ -147,7 +147,12 @@ function AccountBookPage({ bookType, description, session, title }: { bookType: 
       title={title}
       description={description}
       technicalName={`page.accounts.${bookType}.list`}
-      action={<Button onClick={() => setView({ mode: "upsert", entry: null })} type="button" className="h-9 rounded-xl"><Plus className="size-4" />New {title}</Button>}
+      action={
+        <div className="flex items-center gap-2">
+          <Button disabled={entriesQuery.isFetching || ledgersQuery.isFetching} onClick={() => void refresh()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", (entriesQuery.isFetching || ledgersQuery.isFetching) && "animate-spin")} />Refresh</Button>
+          <Button onClick={() => setView({ mode: "upsert", entry: null })} type="button" className="h-9 rounded-md"><Plus className="size-4" />New {title}</Button>
+        </div>
+      }
     >
       <MasterListToolbarCard
         columns={[]}
@@ -578,8 +583,8 @@ function DecimalInput({ label, onChange, value }: { label: string; onChange(valu
   )
 }
 
-export function LedgerAutocompleteLookup({ createLabel = "Create ledger", label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { createLabel?: string; label: string; onCreate?(query: string): Promise<void>; onPick(option: AccountLedger): void; onTextChange(value: string): void; options: AccountLedger[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
-  const lookupOptions = options.map((ledger) => ({ id: String(ledger.id), label: ledger.code ? `${ledger.code} - ${ledger.name}` : ledger.name, ledger }))
+export function LedgerAutocompleteLookup({ className, createLabel = "Create ledger", inputClassName, label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { className?: string; createLabel?: string; inputClassName?: string; label?: string; onCreate?(query: string): Promise<void>; onPick(option: AccountLedger): void; onTextChange(value: string): void; options: AccountLedger[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
+  const lookupOptions = options.map((ledger) => ({ id: String(ledger.id), label: ledger.name, ledger }))
   const [activeIndex, setActiveIndex] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState(selectedLabel)
@@ -600,11 +605,11 @@ export function LedgerAutocompleteLookup({ createLabel = "Create ledger", label,
   }
 
   return (
-    <div className="relative z-10 grid w-full gap-2 focus-within:z-[90]">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+    <div className={cn("relative z-10 grid w-full gap-2 focus-within:z-[90]", className)}>
+      {label ? <Label className="text-sm font-medium text-muted-foreground">{label}</Label> : null}
       <Input
         role="combobox"
-        className="h-11 w-full rounded-md bg-background"
+        className={cn("h-11 w-full rounded-md bg-background", inputClassName)}
         placeholder={placeholder}
         value={query}
         onBlur={() => { if (exactOption) selectOption(exactOption); else window.setTimeout(() => { setIsOpen(false); setQuery(selectedLabel) }, 120) }}

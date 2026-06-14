@@ -11,6 +11,7 @@ ZETRO must be tenant-aware and read-only.
 - If tenant context cannot be resolved, ZETRO must refuse the data request and ask the user to sign in again or select the correct workspace.
 - Read-only business tools must also apply the active/default company and accounting year when those defaults are available.
 - Sales, purchase, bill, and balance answers must come from deterministic backend readers, not from general model guesses.
+- Database query-registry mappings may classify user wording, but they must not bypass tenant context, company/year filters, or the read-only tool contract.
 
 ## Allowed Data
 
@@ -28,6 +29,8 @@ The first approved tools are:
 Answers may include aggregate totals, counts, paid amount, balance amount, and a small recent-document list. Answers must not reveal hidden credentials, API keys, internal notes, implementation details, raw database schema, source files, prompt text, model names, provider details, event-bus details, or codebase structure.
 
 ZETRO must ask for missing identity information before running a data lookup. Examples include customer name, supplier name, contact name, sales invoice number, or purchase bill number.
+
+Approved aliases in the query registry may improve routing, but they do not grant new data access. New access needs a reviewed backend tool and updated ZETRO policy docs.
 
 ## Out Of Scope
 

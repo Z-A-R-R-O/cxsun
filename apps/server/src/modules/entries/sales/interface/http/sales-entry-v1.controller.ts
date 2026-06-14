@@ -1,4 +1,5 @@
-import { Body, Headers, Param } from '../../../../../core/decorators/http-params.js'
+import type { FastifyReply } from 'fastify'
+import { Body, Headers, Param, Res } from '../../../../../core/decorators/http-params.js'
 import { Controller, Get, Post } from '../../../../../core/decorators/controller.js'
 import { Inject } from '../../../../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../../../../core/tenant/tenant-context.service.js'
@@ -34,6 +35,16 @@ export class SalesEntryV1Controller {
     return this.salesEntries.restore(headers, idOrUuid)
   }
 
+  @Post(':idOrUuid/correction')
+  correction(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.salesEntries.correction(headers, idOrUuid)
+  }
+
+  @Post(':idOrUuid/reversal')
+  reversal(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.salesEntries.reversal(headers, idOrUuid)
+  }
+
   @Post(':idOrUuid/comments')
   comment(
     @Headers() headers: TenantRequestHeaders,
@@ -50,5 +61,20 @@ export class SalesEntryV1Controller {
     @Body() body: { printHtml?: unknown; tool?: unknown },
   ) {
     return this.salesEntries.tool(headers, idOrUuid, body)
+  }
+
+  @Post(':idOrUuid/pdf')
+  async pdf(
+    @Headers() headers: TenantRequestHeaders,
+    @Param('idOrUuid') idOrUuid: string,
+    @Body() body: { printHtml?: unknown },
+    @Res() reply: FastifyReply,
+  ) {
+    const result = await this.salesEntries.pdf(headers, idOrUuid, body)
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Length', result.file.length)
+      .header('Content-Disposition', `attachment; filename="${result.fileName.replace(/"/g, '')}"`)
+      .send(result.file)
   }
 }

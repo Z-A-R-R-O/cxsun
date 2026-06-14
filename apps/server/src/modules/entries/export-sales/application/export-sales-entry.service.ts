@@ -6,6 +6,7 @@ import { ExportSalesEntryAggregate } from '../domain/aggregates/export-sales-ent
 import { ExportSalesEntryEvent } from '../domain/events/export-sales-entry.events.js'
 import { ExportSalesEntryRepository, type ExportSalesEntryInput } from '../infrastructure/persistence/export-sales-entry.repository.js'
 import { EntryDocumentMailService } from '../../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../../shared/entry-document-pdf-download.service.js'
 import { ExportSalesEntryEventBus } from './export-sales-entry-event-bus.js'
 
 @Injectable()
@@ -15,6 +16,7 @@ export class ExportSalesEntryService {
     @Inject(ExportSalesEntryRepository) private readonly exportSalesEntries: ExportSalesEntryRepository,
     @Inject(ExportSalesEntryEventBus) private readonly events: ExportSalesEntryEventBus,
     @Inject(EntryDocumentMailService) private readonly documentMail: EntryDocumentMailService,
+    @Inject(EntryDocumentPdfDownloadService) private readonly documentPdf: EntryDocumentPdfDownloadService,
   ) {}
 
   async list(headers: TenantRequestHeaders) {
@@ -93,6 +95,13 @@ export class ExportSalesEntryService {
       uuid: entry.uuid,
     }))
     return { ok: true, entry }
+  }
+
+  async pdf(headers: TenantRequestHeaders, idOrUuid: string, body: { printHtml?: unknown }) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    const existing = await this.exportSalesEntries.find(context, idOrUuid)
+    if (!existing) throw new NotFoundException('Export sales entry was not found.')
+    return this.documentPdf.render(body.printHtml, existing.invoice_no)
   }
 }
 

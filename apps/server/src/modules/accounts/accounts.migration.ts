@@ -1,4 +1,5 @@
 import { sql, type Kysely } from 'kysely'
+import { migrateEntryPostingControlTables } from '../entries/shared/entry-posting-control.service.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
 
@@ -30,6 +31,7 @@ export async function migrateAccountsTables(database: Kysely<DynamicDatabase>) {
   await createBookTable(database, 'bank_books', 'uq_bank_books_context_no', 'idx_bank_books_ledger_date', 'idx_bank_books_date')
   await ensureBookColumns(database, 'cash_books')
   await ensureBookColumns(database, 'bank_books')
+  await migrateEntryPostingControlTables(database)
   await createAccountingEngineTables(database)
   await sql`
     CREATE TABLE IF NOT EXISTS account_book_comments (

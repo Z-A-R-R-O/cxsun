@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "erasableSyntaxOnly": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "outDir": "dist",
+    "rootDir": "./src",
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

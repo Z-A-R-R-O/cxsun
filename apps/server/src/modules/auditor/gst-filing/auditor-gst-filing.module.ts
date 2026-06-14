@@ -6,6 +6,7 @@ import { AuthRepository } from '../../auth/infrastructure/auth.repository.js'
 import { AuditorGstFilingService } from './application/auditor-gst-filing.service.js'
 import { AuditorGstFilingRepository } from './infrastructure/persistence/auditor-gst-filing.repository.js'
 import { AuditorGstFilingsV1Controller } from './interface/http/auditor-gst-filings-v1.controller.js'
+import { EntryPostingControlService } from '../../entries/shared/entry-posting-control.service.js'
 
 @Module({
   controllers: [AuditorGstFilingsV1Controller],
@@ -14,6 +15,7 @@ import { AuditorGstFilingsV1Controller } from './interface/http/auditor-gst-fili
     TenantRepository,
     TenantDomainRepository,
     MasterQueueService,
+    EntryPostingControlService,
     AuditorGstFilingRepository,
     AuditorGstFilingService,
   ],

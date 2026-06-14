@@ -10,9 +10,11 @@ import { PurchaseEntryV1Controller } from './interface/http/purchase-entry-v1.co
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../shared/entry-document-pdf-download.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
 import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
+import { EntryPostingControlService } from '../shared/entry-posting-control.service.js'
 
 @Module({
   controllers: [PurchaseEntryV1Controller],
@@ -23,14 +25,15 @@ import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posti
     MasterQueueService,
     MailRepository,
     EntryDocumentMailService,
+    EntryDocumentPdfDownloadService,
     PrintHtmlPdfService,
     PurchaseEntryEventBus,
     DocumentNumberRepository,
     AccountsEngineRepository,
     AccountsEntryPostingService,
+    EntryPostingControlService,
     PurchaseEntryRepository,
     PurchaseEntryService,
   ],
 })
 export class PurchaseEntryModule {}
-

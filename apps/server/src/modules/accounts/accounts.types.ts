@@ -103,6 +103,7 @@ export interface AccountLedgerInput {
   uuid?: string
   account_type?: AccountLedgerType
   code?: string | null
+  group_id?: number | null
   name?: string | null
   opening_balance?: number | string | null
   status?: string | null

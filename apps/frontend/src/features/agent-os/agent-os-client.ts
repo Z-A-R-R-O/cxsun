@@ -222,6 +222,67 @@ export interface ZetroQueryInsightsResponse {
   tool_counts: ZetroQueryInsightCount[]
 }
 
+export interface ZetroQueryRegistryTool {
+  id: number
+  tool_key: string
+  intent_key: string
+  domain: string
+  label: string
+  description: string
+  required_fields: string[]
+  examples: string[]
+  is_active: boolean
+  status: string
+  updated_at: string
+}
+
+export interface ZetroQueryRegistryMapping {
+  id: number
+  phrase: string
+  normalized_phrase: string
+  match_type: string
+  tool_key: string
+  intent_key: string
+  status: string
+  hit_count: number
+  last_matched_at: string | null
+  created_by: string | null
+  updated_at: string
+}
+
+export interface ZetroQueryRegistryLog {
+  id: number
+  tenant_slug: string | null
+  user_role: string | null
+  question: string
+  normalized_question: string
+  mapped_intent: string | null
+  tool_key: string | null
+  source: string
+  status: string
+  missing_fields: string[]
+  created_at: string
+}
+
+export interface ZetroQueryRegistryCandidate {
+  count: number
+  event_type: string
+  latest_at: string
+  normalized_question: string
+  question: string
+  status: string
+  suggested_intent: string | null
+  suggested_tool: string | null
+}
+
+export interface ZetroQueryRegistryResponse {
+  ok: boolean
+  tools: ZetroQueryRegistryTool[]
+  mappings: ZetroQueryRegistryMapping[]
+  logs: ZetroQueryRegistryLog[]
+  candidates: ZetroQueryRegistryCandidate[]
+}
+
 export async function getAgentOsStatus(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/status`, {
     cache: "no-store",
@@ -466,6 +527,45 @@ export async function getZetroQueryInsights(session: AuthSession) {
   const payload = (await response.json()) as ZetroQueryInsightsResponse
   if (!payload.ok) {
     throw new Error("Only super-admin can review ZETRO query insights.")
+  }
+  return payload
+}
+
+export async function getZetroQueryRegistry(session: AuthSession) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/query-registry`, {
+    cache: "no-store",
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session) },
+  })
+
+  if (!response.ok) {
+    throw new Error(`ZETRO query registry failed with status ${response.status}.`)
+  }
+
+  const payload = (await response.json()) as ZetroQueryRegistryResponse & { error?: string }
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "Only super-admin can review ZETRO query registry.")
+  }
+  return payload
+}
+
+export async function saveZetroQueryMapping(
+  session: AuthSession,
+  input: { phrase: string; toolKey: string; matchType: string },
+) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/agent-os/query-registry/mappings`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: { ...authHeaders(session), ...zetroAudienceHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+
+  if (!response.ok) {
+    throw new Error(`ZETRO query mapping save failed with status ${response.status}.`)
+  }
+
+  const payload = (await response.json()) as { ok: boolean; error?: string }
+  if (!payload.ok) {
+    throw new Error(payload.error ?? "ZETRO query mapping save failed.")
   }
   return payload
 }

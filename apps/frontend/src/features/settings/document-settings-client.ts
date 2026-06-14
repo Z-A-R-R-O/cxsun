@@ -1,6 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 
-export type DocumentEntryKind = "bankBook" | "cashBook" | "deliveryNote" | "exportSales" | "payment" | "purchase" | "purchaseReceipt" | "receipt" | "sales"
+export type DocumentEntryKind = "bankBook" | "cashBook" | "contra" | "deliveryNote" | "exportSales" | "journal" | "payment" | "purchase" | "purchaseReceipt" | "receipt" | "sales"
 
 export interface DocumentNumberSetting {
   id: string
@@ -38,9 +38,11 @@ export const documentNumberLabels: Record<DocumentEntryKind, string> = {
   purchase: "Purchase",
   purchaseReceipt: "Purchase Receipt",
   deliveryNote: "Delivery Note",
+  journal: "Journal",
   payment: "Payment",
   receipt: "Receipt",
   cashBook: "Cash Book",
+  contra: "Contra",
   bankBook: "Bank Book",
 }
 

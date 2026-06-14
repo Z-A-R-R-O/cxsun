@@ -4,6 +4,7 @@ import { Inject } from '../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../core/tenant/tenant-context.service.js'
 import { AccountsService } from './accounts.service.js'
 import type { AccountBookEntryInput, AccountBookType, AccountLedgerInput, AccountLedgerType, AccountVoucherInput } from './accounts.types.js'
+import type { PeriodLockInput } from '../entries/shared/entry-posting-control.service.js'
 
 @Controller('api/v1/accounts')
 export class AccountsController {
@@ -97,6 +98,21 @@ export class AccountsController {
   @Post('postings/repost-sources')
   repostSourceEntries(@Headers() headers: TenantRequestHeaders, @Body() body: { source_module?: string }) {
     return this.accounts.repostSourceEntries(headers, body)
+  }
+
+  @Get('period-locks')
+  periodLocks(@Headers() headers: TenantRequestHeaders) {
+    return this.accounts.periodLocks(headers)
+  }
+
+  @Post('period-locks')
+  createPeriodLock(@Headers() headers: TenantRequestHeaders, @Body() body: PeriodLockInput) {
+    return this.accounts.createPeriodLock(headers, body)
+  }
+
+  @Post('period-locks/:idOrUuid/release')
+  releasePeriodLock(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.accounts.releasePeriodLock(headers, idOrUuid)
   }
 
   @Get(':bookType')

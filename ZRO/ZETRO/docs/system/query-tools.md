@@ -29,6 +29,18 @@ Every tool must:
 
 ZETRO maps natural language into a known intent before reading data. Unknown or unsafe intents must not run a query. Repeated mapped questions are consolidated in super-admin review logs.
 
+## Query Registry
+
+Stable tool behavior stays in ZETRO markdown docs and backend code. Live wording, aliases, and usage history are stored in the database:
+
+- `zetro_query_tools` stores approved deterministic tool definitions.
+- `zetro_query_mappings` stores super-admin approved phrases and aliases.
+- `zetro_query_logs` stores each business-data question, mapped tool, tenant marker, status, and missing fields.
+
+The runtime checks approved registry mappings before falling back to built-in keyword mapping. A registry mapping can route wording such as "customer due amount" to `contact.balance`, but the actual data still comes only from the approved tenant-aware backend reader.
+
+The super-admin registry view also suggests mapping candidates from recent ZETRO chat logs. A candidate is only a review prompt; it does not affect runtime behavior until super-admin saves it as an approved mapping.
+
 ## Clarification Rules
 
 - If a balance question does not include a customer, supplier, contact, party, or client name, ask for the contact name.

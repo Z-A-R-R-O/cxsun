@@ -25,13 +25,16 @@ type DynamicDatabase = Record<string, Record<string, unknown>>
 
 interface OperationLogInput {
   endpoint: string
+  errorCode?: string | null
   errorMessage?: string | null
+  gatewayStatus?: string | null
   httpStatus?: number | null
   method: string
   operation: GstComplianceOperation
   providerResponse: unknown
   providerStatus?: string | null
   requestJson: Record<string, unknown>
+  retryState?: string | null
   settings: GstProviderSettingsSecretRecord
   source: NormalizedOperationSource
   success: boolean
@@ -275,8 +278,15 @@ export class GstComplianceRepository {
         endpoint: input.endpoint,
         http_status: input.httpStatus ?? null,
         provider_status: input.providerStatus ?? null,
+        gateway_status: input.gatewayStatus ?? input.providerStatus ?? null,
         success: input.success,
+        error_code: input.errorCode ?? null,
         error_message: input.errorMessage ?? null,
+        retry_state: input.retryState ?? (input.success ? 'none' : 'failed'),
+        retry_count: 0,
+        next_retry_at: null,
+        generated_at: generatedAt(input.operation, input.success),
+        cancelled_at: cancelledAt(input.operation, input.success),
         request_json: JSON.stringify(input.requestJson),
         response_json: JSON.stringify(input.providerResponse ?? null),
         created_by: context.user.email,
@@ -532,8 +542,15 @@ function toOperationRecord(row: Record<string, unknown>): GstComplianceOperation
     endpoint: stringValue(row.endpoint),
     httpStatus: numberOrNull(row.http_status),
     providerStatus: stringOrNull(row.provider_status),
+    gatewayStatus: stringOrNull(row.gateway_status),
     success: booleanValue(row.success),
+    errorCode: stringOrNull(row.error_code),
     errorMessage: stringOrNull(row.error_message),
+    retryState: stringValue(row.retry_state) || 'none',
+    retryCount: numberValue(row.retry_count),
+    nextRetryAt: toDateOrNull(row.next_retry_at),
+    generatedAt: toDateOrNull(row.generated_at),
+    cancelledAt: toDateOrNull(row.cancelled_at),
     requestJson: parseJson(row.request_json) as Record<string, unknown>,
     responseJson: parseJson(row.response_json),
     createdBy: stringValue(row.created_by),
@@ -565,29 +582,49 @@ function toDocumentRecord(row: Record<string, unknown>): GstComplianceDocumentRe
     ewayValidUpto: stringOrNull(row.eway_valid_upto),
     irnStatus: stringValue(row.irn_status),
     ewayStatus: stringValue(row.eway_status),
+    irnGeneratedAt: stringOrNull(row.irn_generated_at),
+    irnCancelledAt: stringOrNull(row.irn_cancelled_at),
+    ewayGeneratedAt: stringOrNull(row.eway_generated_at),
+    ewayCancelledAt: stringOrNull(row.eway_cancelled_at),
+    retryState: stringValue(row.retry_state) || 'none',
     lastOperationId: stringOrNull(row.last_operation_id),
     updatedAt: toDate(row.updated_at),
   }
 }
 
 function documentPatch(operation: GstComplianceOperation, response: unknown) {
-  if (operation === 'cancelIrn') return { irn_status: 'cancelled' }
+  if (operation === 'cancelIrn') return { irn_status: 'cancelled', irn_cancelled_at: new Date(), retry_state: 'none' }
+  if (operation === 'cancelEwaybill') return { eway_status: 'cancelled', eway_cancelled_at: new Date(), retry_state: 'none' }
   if (operation === 'generateEwaybillByIrn' || operation === 'getEwaybillByIrn') {
+    const ewayNo = findString(response, ['EwbNo', 'ewayBillNo', 'EWayBillNo'])
     return {
-      eway_bill_no: findString(response, ['EwbNo', 'ewayBillNo', 'EWayBillNo']),
+      eway_bill_no: ewayNo,
       eway_bill_date: parseProviderDate(findString(response, ['EwbDt', 'ewayBillDate', 'EWayBillDate'])),
       eway_valid_upto: parseProviderDate(findString(response, ['EwbValidTill', 'ValidUpto', 'validUpto'])),
-      eway_status: findString(response, ['EwbNo', 'ewayBillNo', 'EWayBillNo']) ? 'generated' : 'not_generated',
+      eway_status: ewayNo ? 'generated' : 'not_generated',
+      eway_generated_at: ewayNo ? new Date() : null,
+      retry_state: 'none',
     }
   }
+  const irn = findString(response, ['Irn', 'IRN', 'irn'])
   return {
-    irn: findString(response, ['Irn', 'IRN', 'irn']),
+    irn,
     ack_no: findString(response, ['AckNo', 'ackNo', 'AckNum']),
     ack_date: parseProviderDate(findString(response, ['AckDt', 'AckDate', 'ackDate'])),
     signed_invoice: findString(response, ['SignedInvoice', 'signedInvoice']),
     signed_qr: findString(response, ['SignedQRCode', 'SignedQrCode', 'signedQr']),
-    irn_status: findString(response, ['Irn', 'IRN', 'irn']) ? 'generated' : 'not_generated',
+    irn_status: irn ? 'generated' : 'not_generated',
+    irn_generated_at: irn ? new Date() : null,
+    retry_state: 'none',
   }
+}
+
+function generatedAt(operation: GstComplianceOperation, success: boolean) {
+  return success && (operation === 'generateIrn' || operation === 'generateEwaybillByIrn') ? new Date() : null
+}
+
+function cancelledAt(operation: GstComplianceOperation, success: boolean) {
+  return success && (operation === 'cancelIrn' || operation === 'cancelEwaybill') ? new Date() : null
 }
 
 function documentTypeFromSource(sourceType: string) {
@@ -683,6 +720,11 @@ function stringOrNull(value: unknown) {
 function numberOrNull(value: unknown) {
   const number = Number(value)
   return Number.isInteger(number) && number > 0 ? number : null
+}
+
+function numberValue(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
 }
 
 function booleanValue(value: unknown) {

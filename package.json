@@ -1,16 +1,18 @@
 {
   "name": "cxsun",
   "private": true,
-  "version": "1.0.99",
+  "version": "1.0.101",
   "type": "module",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "apps/codeit/*"
   ],
   "scripts": {
     "dev": "concurrently -k -n server,web \"npm -w apps/server run dev\" \"npm -w apps/frontend run dev\"",
     "dev:server": "npm -w apps/server run dev",
     "dev:frontend": "npm -w apps/frontend run dev",
+    "codeit:run": "concurrently -k -n backend,frontend \"npm -w apps/codeit/backend run dev\" \"npm -w apps/codeit/frontend run dev\"",
     "check": "bash assist/scripts/check.sh",
     "typecheck:active": "npm -w apps/server run typecheck && npm -w apps/frontend run typecheck && npm -w apps/web run typecheck && npm -w packages/shared run typecheck && npm -w packages/ui run typecheck && npm -w packages/web run typecheck && npm -w packages/desktop run typecheck && npm -w packages/mobile run typecheck",
     "test:tenant-static": "npm -w apps/server run test:tenant-static",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type Ref, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
@@ -44,6 +44,9 @@ import { useCompanySoftwareSettings } from "src/features/settings/use-company-so
 import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addPurchaseComment,
+  createPurchaseCorrection,
+  createPurchaseReversal,
+  downloadPurchasePdf,
   destroyPurchaseEntry,
   emptyPurchaseEntry,
   emptyPurchaseItem,
@@ -62,7 +65,10 @@ import { PurchaseEntryDocument, type PurchasePrintCopy, type PurchasePrintPartyD
 
 type PurchaseView = { mode: "list" } | { mode: "show"; entry: PurchaseEntry } | { mode: "upsert"; entry: PurchaseEntry | null }
 type PurchaseColumnId = "entry" | "date" | "supplier" | "supplierBillNo" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
-type PurchaseEntryToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type PurchaseEntryToolId = "downloadPdf" | "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type PurchaseTypeOption = { value: string; label: string }
+type EntryListViewMode = "day" | "month"
+type MonthlyPurchaseSummary = { month: string; entryCount: number; totalQty: number; taxableTotal: number; gstTotal: number; grandTotal: number }
 type PurchaseAddressLabels = {
   addressTypes(value: unknown): string
   cities(value: unknown): string
@@ -78,7 +84,7 @@ const purchasePrintCopyOptions: readonly { label: string; value: PurchasePrintCo
   { label: "Duplicate", value: "duplicate" },
   { label: "Office Copy", value: "triplicate" },
 ]
-const purchaseAccountingCategories = [
+const purchaseAccountingCategories: readonly PurchaseTypeOption[] = [
   { value: "purchase", label: "Normal Purchase" },
   { value: "fabric_purchase", label: "Fabric Purchase" },
   { value: "garment_purchase", label: "Garment Purchase" },
@@ -125,6 +131,7 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultPurchaseColumnVisibility)
+  const [listViewMode, setListViewMode] = useState<EntryListViewMode>("day")
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["purchase-entries", session.selectedTenant.slug]
@@ -133,11 +140,17 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
   const destroyMutation = useMutation({ mutationFn: (entry: PurchaseEntry) => destroyPurchaseEntry(session, entry) })
   const restoreMutation = useMutation({ mutationFn: (entry: PurchaseEntry) => restorePurchaseEntry(session, entry) })
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: PurchaseEntry; body: string }) => addPurchaseComment(session, entry, body) })
+  const correctionMutation = useMutation({ mutationFn: (entry: PurchaseEntry) => createPurchaseCorrection(session, entry) })
   const toolMutation = useMutation({ mutationFn: ({ entry, printHtml, tool }: { entry: PurchaseEntry; printHtml?: string; tool: string }) => runPurchaseTool(session, entry, tool, printHtml) })
+  const reversalMutation = useMutation({ mutationFn: (entry: PurchaseEntry) => createPurchaseReversal(session, entry) })
   const entries = entriesQuery.data ?? []
   const filteredEntries = useMemo(() => filterPurchase(searchPurchase(entries, searchValue), statusFilter).sort((left, right) => compareDocumentNo(left.entry_no, right.entry_no)), [entries, searchValue, statusFilter])
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
+  const monthlyEntries = useMemo(() => summarizePurchaseByMonth(filteredEntries), [filteredEntries])
+  const monthlyTotal = useMemo(() => totalMonthlyPurchase(monthlyEntries), [monthlyEntries])
+  const activeRowCount = listViewMode === "month" ? monthlyEntries.length : filteredEntries.length
+  const totalPages = Math.max(1, Math.ceil(activeRowCount / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  const pageMonthlyEntries = monthlyEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
   useEffect(() => {
     if (entriesQuery.error) toast.error("Purchase load failed", { description: entriesQuery.error instanceof Error ? entriesQuery.error.message : "Unable to load Purchase entries." })
@@ -205,11 +218,28 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
           await refresh()
           setView({ mode: "show", entry: updated })
         }}
+        onCorrection={async (entryValue) => {
+          const correction = await correctionMutation.mutateAsync(entryValue)
+          toast.success("Correction draft created", { description: correction?.entry_no ?? entryValue.entry_no })
+          await refresh()
+          if (correction) setView({ mode: "show", entry: correction })
+        }}
         onDestroy={() => void destroy(entry)}
+        onDownloadPdf={async (entry) => {
+          await downloadPurchasePdf(session, entry, capturePrintDocument(".purchase-print-page"))
+          toast.success("PDF downloaded", { description: entry.entry_no })
+        }}
         onEdit={() => setView({ mode: "upsert", entry })}
+        onNew={openNewEntry}
         onNext={nextEntry ? () => setView({ mode: "show", entry: nextEntry }) : undefined}
         onPrevious={previousEntry ? () => setView({ mode: "show", entry: previousEntry }) : undefined}
         onRestore={() => void restore(entry)}
+        onReversal={async (entryValue) => {
+          const reversal = await reversalMutation.mutateAsync(entryValue)
+          toast.success("Reversal voucher created", { description: reversal?.entry_no ?? entryValue.entry_no })
+          await refresh()
+          if (reversal) setView({ mode: "show", entry: reversal })
+        }}
         onTool={async (entry, tool) => {
           const isEmail = tool.startsWith("Send to Email:")
           const updated = await toolMutation.mutateAsync({ entry, printHtml: isEmail ? capturePrintDocument(".purchase-print-page") : undefined, tool })
@@ -229,7 +259,7 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
       action={
         <div className="flex items-center gap-2">
           <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
-          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New</Button>
+          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New Purchase</Button>
         </div>
       }
     >
@@ -254,9 +284,54 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
           setSearchValue(value)
           setCurrentPage(1)
         }}
+        toolbarAction={
+          <EntryViewModeSelect
+            value={listViewMode}
+            onChange={(value) => {
+              setListViewMode(value)
+              setCurrentPage(1)
+            }}
+          />
+        }
       />
       <MasterListTableCard>
         <div className="overflow-x-auto">
+          {listViewMode === "month" ? (
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <ListHeader>Month</ListHeader>
+                <ListHeader className="text-center">Entries</ListHeader>
+                <ListHeader className="text-center">Total Qty</ListHeader>
+                <ListHeader className="text-right">Total Taxable</ListHeader>
+                <ListHeader className="text-right">Total GST</ListHeader>
+                <ListHeader className="text-right">Grand Total</ListHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {pageMonthlyEntries.map((row) => (
+                <tr key={row.month} className="border-b border-border/70">
+                  <td className="px-4 py-2 font-semibold">{formatMonth(row.month)}</td>
+                  <td className="px-4 py-2 text-center">{row.entryCount}</td>
+                  <td className="px-4 py-2 text-center">{formatQuantity(row.totalQty)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.taxableTotal)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.gstTotal)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{formatMoney(row.grandTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-border/80 bg-muted/40 font-semibold">
+              <tr>
+                <td className="px-4 py-2">Total</td>
+                <td className="px-4 py-2 text-center">{monthlyTotal.entryCount}</td>
+                <td className="px-4 py-2 text-center">{formatQuantity(monthlyTotal.totalQty)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.taxableTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.gstTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          ) : (
           <table className="w-full min-w-[1120px] border-collapse text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -312,15 +387,16 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
               ))}
             </tbody>
           </table>
+          )}
         </div>
-        {pageEntries.length === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading purchase entries." : "No purchase entries found."}</MasterListEmptyState> : null}
+        {(listViewMode === "month" ? pageMonthlyEntries.length : pageEntries.length) === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading purchase entries." : "No purchase entries found."}</MasterListEmptyState> : null}
       </MasterListTableCard>
       <MasterListPaginationCard
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredEntries.length })}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: activeRowCount })}
         singularLabel="Purchase"
-        totalCount={filteredEntries.length}
+        totalCount={activeRowCount}
         totalPages={totalPages}
         onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
         onPageChange={setCurrentPage}
@@ -334,16 +410,20 @@ export function PurchasePage({ initialEntryUuid, session }: { initialEntryUuid?:
   )
 }
 
-function PurchaseShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onNext, onPrevious, onRestore, onTool, session }: {
+function PurchaseShowPage({ entry, isWorking, onBack, onComment, onCorrection, onDestroy, onDownloadPdf, onEdit, onNew, onNext, onPrevious, onRestore, onReversal, onTool, session }: {
   entry: PurchaseEntry
   isWorking: boolean
   onBack(): void
   onComment(entry: PurchaseEntry, body: string): Promise<void>
+  onCorrection(entry: PurchaseEntry): Promise<void>
   onDestroy(): void
+  onDownloadPdf(entry: PurchaseEntry): Promise<void>
   onEdit(): void
+  onNew(): void
   onNext?(): void
   onPrevious?(): void
   onRestore(): void
+  onReversal(entry: PurchaseEntry): Promise<void>
   onTool(entry: PurchaseEntry, tool: string): Promise<void>
   session: AuthSession
 }) {
@@ -407,6 +487,7 @@ function PurchaseShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEd
   }
 
   const entryTools: Array<{ icon: typeof Mail; id: PurchaseEntryToolId; label: string }> = [
+    { icon: Download, id: "downloadPdf", label: "Download PDF" },
     { icon: Mail, id: "email", label: "Send to Email" },
     { icon: UserRound, id: "assign", label: "Assign" },
     { icon: Paperclip, id: "attachments", label: "Attachments" },
@@ -418,9 +499,12 @@ function PurchaseShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEd
   return (
     <main className="purchase-print-page theme-shell mx-auto min-h-screen w-[94%] pb-8 pt-8 text-black sm:w-[92%] lg:w-[90%] print:static print:min-h-0 print:w-full print:overflow-visible print:bg-white print:p-0">
       <div className="mx-auto mb-3 grid w-full gap-2 print:hidden">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.supplier_name}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{entry.entry_no}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.supplier_name}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{entry.entry_no}</p>
+          </div>
+          <Button type="button" className="h-9 shrink-0 rounded-md" onClick={onNew}><Plus className="size-4" />New</Button>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -439,6 +523,8 @@ function PurchaseShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEd
             </div>
             <Button className="rounded-xl" onClick={() => window.print()} type="button"><Printer className="size-4" />Print</Button>
             <Button type="button" variant="outline" className="rounded-xl" onClick={onEdit}><Pencil className="size-4" />Edit</Button>
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onCorrection(entry)}><Pencil className="size-4" />Correction</Button> : null}
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onReversal(entry)}><RotateCcw className="size-4" />Reversal</Button> : null}
             {isActive(entry) ? (
               <Button onClick={onDestroy} type="button" variant="destructive" className="rounded-xl"><Trash2 className="size-4" />Suspend</Button>
             ) : (
@@ -493,7 +579,15 @@ function PurchaseShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEd
           <CardContent className="p-0 [&:last-child]:pb-0">
             {entryTools.map((tool) => (
               <div key={tool.id} className="border-b border-border/70 last:border-b-0">
-                <button disabled={isWorking} onClick={() => toggleEntryTool(tool.id)} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={isWorking} onClick={() => {
+                  if (tool.id === "downloadPdf") {
+                    void onDownloadPdf(entry)
+                      .then(() => recordToolActivity(`Downloaded PDF ${entry.entry_no}`))
+                      .catch((error) => toast.error("PDF download failed", { description: error instanceof Error ? error.message : "Unable to generate the PDF." }))
+                    return
+                  }
+                  toggleEntryTool(tool.id)
+                }} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
                   <tool.icon className="size-4" />
                   <span className="flex-1">{tool.label}</span>
                   <Plus className={cn("size-4 transition-transform", openTool === tool.id ? "rotate-45" : "")} />
@@ -813,6 +907,23 @@ function PurchaseDetailsTab({ addItem, addressLabels, contacts, deleteItem, edit
   const useColour = isSoftwareSettingEnabled(softwareSettings, "sales-use-colour")
   const useSize = isSoftwareSettingEnabled(softwareSettings, "sales-use-size")
   const isCgstSgst = (form.place_of_supply ?? "cgst-sgst") !== "igst"
+  const purchaseTypeOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const options: PurchaseTypeOption[] = []
+    for (const option of [
+      ...purchaseAccountingCategories,
+      {
+        value: normalizePurchaseAccountTypeValue(form.accounting_category),
+        label: purchaseTypeLabel(normalizePurchaseAccountTypeValue(form.accounting_category)),
+      },
+    ]) {
+      const value = normalizePurchaseAccountTypeValue(option.value)
+      if (!value || seen.has(value.toLowerCase())) continue
+      seen.add(value.toLowerCase())
+      options.push({ value, label: value === "purchase" ? "Normal Purchase" : option.label || purchaseTypeLabel(value) })
+    }
+    return options
+  }, [form.accounting_category])
   const isOffsetLayout = usePo || useDc
   const isGarmentLayout = useColour || useSize
   const itemRowClassName = cn(
@@ -866,24 +977,26 @@ function PurchaseDetailsTab({ addItem, addressLabels, contacts, deleteItem, edit
             onTextChange={(value) => setForm((current) => ({ ...current, supplier_gstin: "", supplier_id: null, supplier_name: value, supplier_state_code: "", supplier_state_name: "" }))}
           />
           <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
+          <Field label="Supplier bill no" value={form.supplier_bill_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_no: value }))} />
+          <Field label="Supplier bill date" type="date" value={String(form.supplier_bill_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_date: value }))} />
         </div>
         <div className="space-y-5">
           <Field label="Entry no" value={form.entry_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, entry_no: value }))} />
           <Field label="Entry date" type="date" value={String(form.entry_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, entry_date: value }))} />
-          <Field label="Supplier bill no" value={form.supplier_bill_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_no: value }))} />
-          <Field label="Supplier bill date" type="date" value={String(form.supplier_bill_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, supplier_bill_date: value }))} />
           <PurchaseTypeField value={form.place_of_supply ?? "cgst-sgst"} onChange={(value) => setForm((current) => ({ ...current, place_of_supply: value }))} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField
+          <div className="grid items-start gap-3 sm:grid-cols-2">
+            <LookupSelectField
               label="Posting"
               value={form.accounting_posting_mode ?? "auto"}
               options={[{ value: "auto", label: "Auto Post" }, { value: "none", label: "Do Not Post" }]}
               onChange={(value) => setForm((current) => ({ ...current, accounting_posting_mode: value }))}
             />
-            <SelectField
-              label="Purchase Type"
-              value={form.accounting_category ?? "purchase"}
-              options={purchaseAccountingCategories}
+            <LookupSelectField
+              createLabel="Create purchase ledger"
+              label="Purchase Ledger"
+              value={normalizePurchaseAccountTypeValue(form.accounting_category) || "purchase"}
+              options={purchaseTypeOptions}
+              onCreate={(value) => setForm((current) => ({ ...current, accounting_category: normalizePurchaseAccountTypeValue(value) || value.trim() }))}
               onChange={(value) => setForm((current) => ({ ...current, accounting_category: value }))}
             />
           </div>
@@ -1735,17 +1848,23 @@ function Field({ centeredLabel = false, compact = false, decimalScale, label, nu
   )
 }
 
-function SelectField({ label, onChange, options, value }: { label: string; onChange(value: string): void; options: ReadonlyArray<{ value: string; label: string }>; value: string }) {
+function LookupSelectField({ createLabel, label, onChange, onCreate, options, value }: { createLabel?: string; label: string; onChange(value: string): void; onCreate?(query: string): void; options: ReadonlyArray<PurchaseTypeOption>; value: string }) {
+  const selectedOption = options.find((option) => option.value === value)
+  const selectedLabel = selectedOption?.label ?? purchaseTypeLabel(value)
+  const lookupOptions = options.map((option) => ({ id: option.value, label: option.label, code: option.value, record: lookupRecord(option.value, option.label) }))
+
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-md"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
+    <MasterAutocompleteLookup
+      label={label}
+      options={lookupOptions}
+      placeholder=""
+      selectedId={value}
+      selectedLabel={selectedLabel}
+      createLabel={createLabel}
+      onPick={(option) => onChange(option.id)}
+      onTextChange={() => undefined}
+      onCreate={onCreate}
+    />
   )
 }
 
@@ -1951,6 +2070,20 @@ function selectedPurchaseLookupInputLabel(options: PurchaseLookupOption[], selec
 function PurchaseLookupInputName(option: PurchaseLookupOption) {
   const recordName = typeof option.record.name === "string" ? option.record.name.trim() : ""
   return recordName || option.label
+}
+
+function normalizePurchaseAccountTypeValue(value: unknown) {
+  const text = String(value ?? "").trim()
+  if (!text) return "purchase"
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+}
+
+function purchaseTypeLabel(value: string) {
+  const normalized = normalizePurchaseAccountTypeValue(value)
+  const known = purchaseAccountingCategories.find((option) => option.value === normalized)
+  if (known) return known.label
+  if (!normalized || normalized === "purchase") return "Normal Purchase"
+  return normalized.replace(/_+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
 function formatParticulars(item: PurchaseEntryItem) {
@@ -2175,6 +2308,20 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
   return <th className={cn("border-b border-border/70 px-4 py-3.5 text-left font-medium text-foreground", className)}>{children}</th>
 }
 
+function EntryViewModeSelect({ onChange, value }: { onChange(value: EntryListViewMode): void; value: EntryListViewMode }) {
+  return (
+    <Select value={value} onValueChange={(nextValue) => onChange(nextValue === "month" ? "month" : "day")}>
+      <SelectTrigger className="h-8 min-w-28 rounded-md border-border/80 bg-background text-sm shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" className="rounded-md">
+        <SelectItem value="day">Day view</SelectItem>
+        <SelectItem value="month">Month view</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
 function searchPurchase(entries: PurchaseEntry[], searchValue: string) {
   const term = searchValue.trim().toLowerCase()
   if (!term) return entries
@@ -2198,6 +2345,46 @@ function isActive(entry: PurchaseEntry) {
 
 function totalPurchaseQuantity(entry: PurchaseEntry) {
   return entry.items.reduce((total, item) => total + Number(item.quantity || 0), 0)
+}
+
+function summarizePurchaseByMonth(entries: PurchaseEntry[]): MonthlyPurchaseSummary[] {
+  const grouped = new Map<string, MonthlyPurchaseSummary>()
+  for (const entry of entries) {
+    const month = monthKey(entry.entry_date)
+    const existing = grouped.get(month) ?? { month, entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 }
+    existing.entryCount += 1
+    existing.totalQty += totalPurchaseQuantity(entry)
+    existing.taxableTotal += Number(entry.taxable_total || 0)
+    existing.gstTotal += Number(entry.tax_total || 0)
+    existing.grandTotal += Number(entry.grand_total || 0)
+    grouped.set(month, existing)
+  }
+  return [...grouped.values()].sort((left, right) => right.month.localeCompare(left.month))
+}
+
+function totalMonthlyPurchase(rows: MonthlyPurchaseSummary[]): MonthlyPurchaseSummary {
+  return rows.reduce(
+    (total, row) => ({
+      month: "total",
+      entryCount: total.entryCount + row.entryCount,
+      totalQty: total.totalQty + row.totalQty,
+      taxableTotal: total.taxableTotal + row.taxableTotal,
+      gstTotal: total.gstTotal + row.gstTotal,
+      grandTotal: total.grandTotal + row.grandTotal,
+    }),
+    { month: "total", entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 },
+  )
+}
+
+function monthKey(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return "Not set"
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function formatMonth(value: string) {
+  if (value === "Not set") return value
+  return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`))
 }
 
 function formatDate(value?: string | null) {
@@ -2224,8 +2411,3 @@ function formatMoney(value: number) {
 function formatQuantity(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(Number(value ?? 0))
 }
-
-
-
-
-

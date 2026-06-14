@@ -53,6 +53,7 @@ interface CommonListToolbarCardProps {
   onFilterValueChange?(nextValue: string): void
   columns?: readonly CommonListColumnOption[]
   onShowAllColumns?(): void
+  toolbarAction?: ReactNode
   className?: string
 }
 
@@ -106,6 +107,7 @@ export function CommonListToolbarCard({
   onShowAllColumns,
   searchPlaceholder,
   searchValue,
+  toolbarAction,
 }: CommonListToolbarCardProps) {
   return (
     <Card className={cn("rounded-md border-border/70 bg-card/95 py-0 shadow-sm", className)}>
@@ -120,6 +122,7 @@ export function CommonListToolbarCard({
           />
         </div>
         <div className="flex shrink-0 items-center gap-2.5 self-end lg:self-auto">
+          {toolbarAction}
           {filterOptions && filterOptions.length > 0 && filterValue && onFilterValueChange ? (
             <ListFilterMenu
               filterOptions={filterOptions}

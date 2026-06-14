@@ -8,6 +8,7 @@ import type { QuotationEntry } from '../domain/entities/quotation-entry.entity.j
 import { QuotationEntryRepository, type QuotationEntryInput } from '../infrastructure/persistence/quotation-entry.repository.js'
 import { QuotationEntryEventBus } from './quotation-entry-event-bus.js'
 import { SalesEntryRepository, type SalesEntryInput } from '../../sales/infrastructure/persistence/sales-entry.repository.js'
+import { EntryDocumentPdfDownloadService } from '../../shared/entry-document-pdf-download.service.js'
 
 type ConsolidatedSalesItem = NonNullable<SalesEntryInput['items']>[number]
 
@@ -18,6 +19,7 @@ export class QuotationEntryService {
     @Inject(QuotationEntryRepository) private readonly quotationEntries: QuotationEntryRepository,
     @Inject(SalesEntryRepository) private readonly salesEntries: SalesEntryRepository,
     @Inject(QuotationEntryEventBus) private readonly events: QuotationEntryEventBus,
+    @Inject(EntryDocumentPdfDownloadService) private readonly documentPdf: EntryDocumentPdfDownloadService,
   ) {}
 
   async list(headers: TenantRequestHeaders) {
@@ -95,6 +97,13 @@ export class QuotationEntryService {
       uuid: entry.uuid,
     }))
     return { ok: true, entry }
+  }
+
+  async pdf(headers: TenantRequestHeaders, idOrUuid: string, body: { printHtml?: unknown }) {
+    const context = await this.tenantContext.resolve(headers, 'company.manage')
+    const existing = await this.quotationEntries.find(context, idOrUuid)
+    if (!existing) throw new NotFoundException('Quotation entry was not found.')
+    return this.documentPdf.render(body.printHtml, existing.invoice_no)
   }
 
   async generateInvoice(headers: TenantRequestHeaders, body: { quotationIds?: unknown }) {

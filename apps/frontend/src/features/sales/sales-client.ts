@@ -1,5 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { downloadPrintPdf } from "src/shared/print/download-print-pdf"
 
 export type SalesCommonLookupKey = "hsnCodes" | "units" | "taxes"
 type SalesLookupModuleKey = "contacts" | "orders" | "products" | SalesCommonLookupKey
@@ -212,7 +213,7 @@ export async function upsertSalesEntry(session: AuthSession, input: SalesEntryIn
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Sales save failed with status ${response.status}.`)
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Sales save failed."))
   const result = (await response.json()) as { ok: boolean; entry?: SalesEntry; error?: string; warning?: string }
   if (!result.ok || !result.entry) throw new Error(result.error ?? "Sales save failed.")
   return { ...result.entry, document_number_warning: result.warning }
@@ -224,6 +225,14 @@ export async function destroySalesEntry(session: AuthSession, entry: SalesEntry)
 
 export async function restoreSalesEntry(session: AuthSession, entry: SalesEntry) {
   return mutateSalesEntry(session, entry.uuid, "restore")
+}
+
+export async function createSalesCorrection(session: AuthSession, entry: SalesEntry) {
+  return mutateSalesEntry(session, entry.uuid, "correction")
+}
+
+export async function createSalesReversal(session: AuthSession, entry: SalesEntry) {
+  return mutateSalesEntry(session, entry.uuid, "reversal")
 }
 
 export async function addSalesComment(session: AuthSession, entry: SalesEntry, body: string) {
@@ -252,16 +261,30 @@ export async function runSalesTool(session: AuthSession, entry: SalesEntry, tool
   return result.entry
 }
 
-async function mutateSalesEntry(session: AuthSession, idOrUuid: string, action: "destroy" | "restore") {
+export async function downloadSalesPdf(session: AuthSession, entry: SalesEntry, printHtml: string) {
+  await downloadPrintPdf(session, `/api/v1/entries/sales/${entry.uuid}/pdf`, printHtml, entry.invoice_no)
+}
+
+async function mutateSalesEntry(session: AuthSession, idOrUuid: string, action: "correction" | "destroy" | "restore" | "reversal") {
   const response = await fetch(`${apiBaseUrl}/api/v1/entries/sales/${encodeURIComponent(idOrUuid)}/${action}`, {
     body: "{}",
     cache: "no-store",
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Sales ${action} failed with status ${response.status}.`)
-  const result = (await response.json()) as { ok: boolean; error?: string }
+  if (!response.ok) throw new Error(await responseErrorMessage(response, `Sales ${action} failed.`))
+  const result = (await response.json()) as { ok: boolean; entry?: SalesEntry; error?: string }
   if (!result.ok) throw new Error(result.error ?? `Sales ${action} failed.`)
+  return result.entry ?? null
+}
+
+async function responseErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string }
+    return payload.error ?? payload.message ?? `${fallback} Status ${response.status}.`
+  } catch {
+    return `${fallback} Status ${response.status}.`
+  }
 }
 
 async function listLookupRecords(session: AuthSession, endpoint: string) {

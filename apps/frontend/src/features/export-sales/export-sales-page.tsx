@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type Ref, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
@@ -45,6 +45,7 @@ import { useCompanySoftwareSettings } from "src/features/settings/use-company-so
 import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addExportSalesComment,
+  downloadExportSalesPdf,
   destroyExportSalesEntry,
   emptyExportSalesEntry,
   emptyExportSalesItem,
@@ -63,7 +64,7 @@ import { ExportSalesInvoiceDocument, type ExportSalesPrintCopy, type ExportSales
 
 type ExportSalesView = { mode: "list" } | { mode: "show"; entry: ExportSalesEntry } | { mode: "upsert"; entry: ExportSalesEntry | null }
 type ExportSalesColumnId = "invoice" | "date" | "customer" | "currency" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
-type ExportSalesEntryToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type ExportSalesEntryToolId = "downloadPdf" | "email" | "assign" | "attachments" | "tags" | "whatsapp"
 type ExportSalesAddressLabels = {
   addressTypes(value: unknown): string
   cities(value: unknown): string
@@ -201,6 +202,10 @@ export function ExportSalesPage({ initialEntryUuid, session }: { initialEntryUui
           setView({ mode: "show", entry: updated })
         }}
         onDestroy={() => void destroy(entry)}
+        onDownloadPdf={async (entry) => {
+          await downloadExportSalesPdf(session, entry, capturePrintDocument(".export-sales-print-page"))
+          toast.success("PDF downloaded", { description: entry.invoice_no })
+        }}
         onEdit={() => setView({ mode: "upsert", entry })}
         onNext={nextEntry ? () => setView({ mode: "show", entry: nextEntry }) : undefined}
         onPrevious={previousEntry ? () => setView({ mode: "show", entry: previousEntry }) : undefined}
@@ -329,12 +334,13 @@ export function ExportSalesPage({ initialEntryUuid, session }: { initialEntryUui
   )
 }
 
-function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onNext, onPrevious, onRestore, onTool, session }: {
+function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onDownloadPdf, onEdit, onNext, onPrevious, onRestore, onTool, session }: {
   entry: ExportSalesEntry
   isWorking: boolean
   onBack(): void
   onComment(entry: ExportSalesEntry, body: string): Promise<void>
   onDestroy(): void
+  onDownloadPdf(entry: ExportSalesEntry): Promise<void>
   onEdit(): void
   onNext?(): void
   onPrevious?(): void
@@ -402,6 +408,7 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
   }
 
   const entryTools: Array<{ icon: typeof Mail; id: ExportSalesEntryToolId; label: string }> = [
+    { icon: Download, id: "downloadPdf", label: "Download PDF" },
     { icon: Mail, id: "email", label: "Send to Email" },
     { icon: UserRound, id: "assign", label: "Assign" },
     { icon: Paperclip, id: "attachments", label: "Attachments" },
@@ -488,7 +495,15 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
           <CardContent className="p-0 [&:last-child]:pb-0">
             {entryTools.map((tool) => (
               <div key={tool.id} className="border-b border-border/70 last:border-b-0">
-                <button disabled={isWorking} onClick={() => toggleEntryTool(tool.id)} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={isWorking} onClick={() => {
+                  if (tool.id === "downloadPdf") {
+                    void onDownloadPdf(entry)
+                      .then(() => recordToolActivity(`Downloaded PDF ${entry.invoice_no}`))
+                      .catch((error) => toast.error("PDF download failed", { description: error instanceof Error ? error.message : "Unable to generate the PDF." }))
+                    return
+                  }
+                  toggleEntryTool(tool.id)
+                }} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
                   <tool.icon className="size-4" />
                   <span className="flex-1">{tool.label}</span>
                   <Plus className={cn("size-4 transition-transform", openTool === tool.id ? "rotate-45" : "")} />
@@ -1243,6 +1258,58 @@ function ExportSalesDocumentTab({ form, session, setForm, softwareSettings, tran
     }
   }
 
+  async function cancelEinvoice() {
+    if (!form.irn?.trim()) {
+      toast.error("IRN is required before cancelling e-invoice.")
+      return
+    }
+    const toastId = toast.loading("Sending e-invoice cancellation request...")
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      await runGstComplianceOperation(session, "cancelIrn", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: "einvoice_eway",
+        payload: { Irn: savedEntry.irn, CnlRsn: "1", CnlRem: "Cancelled from export sales entry" },
+        sourceId: savedEntry.id,
+        sourceType: "exportSales",
+        sourceUuid: savedEntry.uuid,
+      })
+      void queryClient.invalidateQueries({ queryKey: ["gst-compliance"] })
+      toast.success("E-invoice cancelled", { description: "Cancellation audit was recorded in GST compliance.", id: toastId })
+    } catch (error) {
+      toast.error("E-invoice cancellation failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
+  }
+
+  async function cancelEway() {
+    if (!form.eway_bill_no?.trim()) {
+      toast.error("E-way bill number is required before cancelling.")
+      return
+    }
+    const toastId = toast.loading("Sending E-way bill cancellation request...")
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      await runGstComplianceOperation(session, "cancelEwaybill", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: activeGstPurpose(softwareSettings),
+        payload: { ewbNo: savedEntry.eway_bill_no, cancelRsnCode: "2", cancelRmrk: "Cancelled from export sales entry" },
+        sourceId: savedEntry.id,
+        sourceType: "exportSales",
+        sourceUuid: savedEntry.uuid,
+      })
+      void queryClient.invalidateQueries({ queryKey: ["gst-compliance"] })
+      toast.success("E-way bill cancelled", { description: "Cancellation audit was recorded in GST compliance.", id: toastId })
+    } catch (error) {
+      toast.error("E-way cancellation failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
+  }
+
   if (type === "einvoice") {
     return (
       <div className="space-y-5">
@@ -1251,7 +1318,10 @@ function ExportSalesDocumentTab({ form, session, setForm, softwareSettings, tran
             <span>E-invoice status</span>
             <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", einvoiceStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{einvoiceStatus}</Badge>
           </div>
-          <Button className="h-9 rounded-md" type="button" onClick={() => void generateEinvoice()}><Send className="size-4" />Generate</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="h-9 rounded-md" type="button" onClick={() => void generateEinvoice()}><Send className="size-4" />Generate</Button>
+            <Button className="h-9 rounded-md" type="button" variant="outline" disabled={!form.irn?.trim()} onClick={() => void cancelEinvoice()}><X className="size-4" />Cancel</Button>
+          </div>
         </div>
         <Field label="IRN" value={form.irn ?? ""} onChange={(irn) => setForm((current) => ({ ...current, irn }))} />
         <div className="grid gap-5 lg:grid-cols-2">
@@ -1270,7 +1340,10 @@ function ExportSalesDocumentTab({ form, session, setForm, softwareSettings, tran
           <span>E-way status</span>
           <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", ewayStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{ewayStatus}</Badge>
         </div>
-        <Button className="h-9 rounded-md" type="button" onClick={() => void generateEway()}><Send className="size-4" />Generate</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button className="h-9 rounded-md" type="button" onClick={() => void generateEway()}><Send className="size-4" />Generate</Button>
+          <Button className="h-9 rounded-md" type="button" variant="outline" disabled={!form.eway_bill_no?.trim()} onClick={() => void cancelEway()}><X className="size-4" />Cancel</Button>
+        </div>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Field label="E-way bill no" value={form.eway_bill_no ?? ""} onChange={(eway_bill_no) => setForm((current) => ({ ...current, eway_bill_no }))} />
@@ -2366,7 +2439,5 @@ function formatMoney(value: number) {
 function formatQuantity(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(Number(value ?? 0))
 }
-
-
 
 

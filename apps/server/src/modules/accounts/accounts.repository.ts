@@ -32,11 +32,12 @@ export class AccountsRepository {
 
   async upsertLedger(context: TenantRuntimeContext, type: AccountLedgerType, input: AccountLedgerInput) {
     await this.ensureDefaultLedgers(context)
-    const accountType = type === 'bank' ? 'bank' : type === 'fixed_asset' ? 'fixed_asset' : 'cash'
+    const accountType = input.account_type || type || 'cash'
     const name = String(input.name ?? '').trim()
     if (!name) throw new BadRequestException('Ledger name is required.')
     const companyId = await this.defaultCompanyId(context)
     const accountingYearId = await this.defaultAccountingYearId(context)
+    const groupId = input.group_id ? Number(input.group_id) : null
     const code = cleanLedgerCode(input.code || name)
     const path = ledgerPath(accountType, name)
     const existing = input.id || input.uuid
@@ -60,6 +61,7 @@ export class AccountsRepository {
           account_type: accountType,
           code,
           name,
+          group_id: groupId ?? existing.group_id ?? null,
           opening_balance: roundMoney(input.opening_balance ?? existing.opening_balance ?? 0),
           path,
           status: input.status || 'active',
@@ -85,6 +87,7 @@ export class AccountsRepository {
         account_type: accountType,
         code,
         name,
+        group_id: groupId,
         opening_balance: roundMoney(input.opening_balance ?? 0),
         current_balance: roundMoney(input.opening_balance ?? 0),
         status: input.status || 'active',

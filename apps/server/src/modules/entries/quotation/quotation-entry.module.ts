@@ -10,6 +10,7 @@ import { QuotationEntryV1Controller } from './interface/http/quotation-entry-v1.
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../shared/entry-document-pdf-download.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 import { SalesEntryRepository } from '../sales/infrastructure/persistence/sales-entry.repository.js'
 
@@ -22,6 +23,7 @@ import { SalesEntryRepository } from '../sales/infrastructure/persistence/sales-
     MasterQueueService,
     MailRepository,
     EntryDocumentMailService,
+    EntryDocumentPdfDownloadService,
     PrintHtmlPdfService,
     QuotationEntryEventBus,
     DocumentNumberRepository,

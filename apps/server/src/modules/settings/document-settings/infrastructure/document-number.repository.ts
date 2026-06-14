@@ -250,6 +250,17 @@ export class DocumentNumberRepository {
       return rows.map((row: Record<string, unknown>) => String(row.voucher_no ?? ''))
     }
 
+    if (kind === 'journal' || kind === 'contra') {
+      const rows = await this.database(context)
+        .selectFrom('account_vouchers')
+        .select('voucher_no')
+        .where('company_id', '=', companyId)
+        .where('accounting_year_id', '=', accountingYearId)
+        .where('voucher_type', '=', kind)
+        .execute()
+      return rows.map((row: Record<string, unknown>) => String(row.voucher_no ?? ''))
+    }
+
     return []
   }
 
@@ -352,7 +363,7 @@ function normalizeKind(value: string): DocumentEntryKind {
 }
 
 function defaultPrefix(kind: DocumentEntryKind) {
-  return { bankBook: 'BB', cashBook: 'CB', deliveryNote: 'DNT', exportSales: 'EXP', payment: 'PAY', purchase: 'PUR', purchaseReceipt: 'PRC', receipt: 'REC', sales: 'SAL' }[kind]
+  return { bankBook: 'BB', cashBook: 'CB', contra: 'CON', deliveryNote: 'DNT', exportSales: 'EXP', journal: 'JRN', payment: 'PAY', purchase: 'PUR', purchaseReceipt: 'PRC', receipt: 'REC', sales: 'SAL' }[kind]
 }
 
 function cleanPrefix(value: string | null | undefined) {

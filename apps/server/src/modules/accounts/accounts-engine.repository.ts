@@ -1,14 +1,19 @@
 import type { Kysely } from 'kysely'
 import { BadRequestException } from '../../core/exceptions/http.exception.js'
 import { Injectable } from '../../core/decorators/injectable.js'
+import { Inject } from '../../core/decorators/inject.js'
 import { dispatchPublicUuid } from '../../shared/helpers/public-uuid.js'
 import type { TenantRuntimeContext } from '../../core/tenant/tenant-context.service.js'
+import { DocumentNumberRepository } from '../settings/document-settings/infrastructure/document-number.repository.js'
+import type { DocumentEntryKind } from '../settings/document-settings/domain/document-number-record.js'
 import type { AccountBookType, AccountGroup, AccountGroupNature, AccountNormalBalance, AccountPostingBookRow, AccountTrialBalanceRow, AccountVoucher, AccountVoucherInput, AccountVoucherLineInput, AccountVoucherType } from './accounts.types.js'
 
 type DynamicDatabase = Record<string, Record<string, unknown>>
 
 @Injectable()
 export class AccountsEngineRepository {
+  constructor(@Inject(DocumentNumberRepository) private readonly documentNumbers: DocumentNumberRepository) {}
+
   async groups(context: TenantRuntimeContext) {
     await this.ensureDefaultGroups(context)
     const { companyId, accountingYearId } = await this.defaultContext(context)
@@ -289,12 +294,13 @@ export class AccountsEngineRepository {
     const voucherType = normalizeVoucherType(input.voucher_type)
     const lines = await this.normalizeLines(context, input.lines ?? [])
     this.assertBalanced(lines)
+    const voucherNo = await this.resolveVoucherNo(context, voucherType, input.voucher_no, companyId, accountingYearId, input.id)
     return {
       header: {
         company_id: companyId,
         accounting_year_id: accountingYearId,
         voucher_type: voucherType,
-        voucher_no: emptyAsNull(input.voucher_no) ?? await this.nextVoucherNo(context, voucherType),
+        voucher_no: voucherNo,
         voucher_date: input.voucher_date || today(),
         reference_no: emptyAsNull(input.reference_no),
         party_ledger_id: input.party_ledger_id ?? null,
@@ -454,6 +460,16 @@ export class AccountsEngineRepository {
 
   private async nextVoucherNo(context: TenantRuntimeContext, voucherType: AccountVoucherType) {
     const { companyId, accountingYearId } = await this.defaultContext(context)
+    const documentKind = accountVoucherDocumentKind(voucherType)
+    if (documentKind) {
+      const docContext = { accountingYearId: String(accountingYearId), companyId: String(companyId) }
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const documentNumber = await this.documentNumbers.consumeNext(context, documentKind, docContext)
+        if (!documentNumber) throw new BadRequestException(`${voucherTypeLabel(voucherType)} voucher number is required when automatic numbering is disabled.`)
+        if (!await this.voucherNoExists(context, voucherType, documentNumber, companyId, accountingYearId)) return documentNumber
+      }
+      throw new BadRequestException(`Unable to find an available ${voucherTypeLabel(voucherType).toLowerCase()} voucher number. Please check document number settings.`)
+    }
     const prefix = voucherType.toUpperCase().replace(/[^A-Z0-9]+/g, '-')
     const row = await this.database(context)
       .selectFrom('account_vouchers')
@@ -465,6 +481,40 @@ export class AccountsEngineRepository {
       .orderBy('id', 'desc')
       .executeTakeFirst()
     return `${prefix}-${String(Number(row?.id ?? 0) + 1).padStart(4, '0')}`
+  }
+
+  private async resolveVoucherNo(context: TenantRuntimeContext, voucherType: AccountVoucherType, voucherNo: string | undefined, companyId: number, accountingYearId: number, existingId?: number) {
+    const trimmed = voucherNo?.trim()
+    const documentKind = accountVoucherDocumentKind(voucherType)
+    if (!documentKind) {
+      return trimmed || await this.nextVoucherNo(context, voucherType)
+    }
+
+    const docContext = { accountingYearId: String(accountingYearId), companyId: String(companyId) }
+    if (!trimmed) return this.nextVoucherNo(context, voucherType)
+
+    const preview = await this.documentNumbers.previewNext(context, documentKind, docContext)
+    if (preview.autoEnabled && trimmed === preview.preview) return this.nextVoucherNo(context, voucherType)
+    if (await this.voucherNoExists(context, voucherType, trimmed, companyId, accountingYearId, existingId)) {
+      if (!preview.autoEnabled) throw new BadRequestException(`Voucher number ${trimmed} already exists.`)
+      return this.nextVoucherNo(context, voucherType)
+    }
+
+    await this.documentNumbers.advancePast(context, documentKind, docContext, trimmed)
+    return trimmed
+  }
+
+  private async voucherNoExists(context: TenantRuntimeContext, voucherType: AccountVoucherType, voucherNo: string, companyId: number, accountingYearId: number, existingId?: number) {
+    let query = this.database(context)
+      .selectFrom('account_vouchers')
+      .select('id')
+      .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', companyId)
+      .where('accounting_year_id', '=', accountingYearId)
+      .where('voucher_type', '=', voucherType)
+      .where('voucher_no', '=', voucherNo)
+    if (existingId) query = query.where('id', '!=', existingId)
+    return Boolean(await query.executeTakeFirst())
   }
 
   private async defaultContext(context: TenantRuntimeContext, accountingYearIdInput?: number) {
@@ -521,6 +571,18 @@ function normalizeVoucherType(value: unknown): AccountVoucherType {
   const text = String(value ?? 'journal').trim()
   if (['opening', 'contra', 'receipt', 'payment', 'journal', 'sales', 'purchase', 'debit_note', 'credit_note', 'gst_adjustment', 'year_end'].includes(text)) return text as AccountVoucherType
   return 'journal'
+}
+
+function accountVoucherDocumentKind(voucherType: AccountVoucherType): DocumentEntryKind | null {
+  if (voucherType === 'journal') return 'journal'
+  if (voucherType === 'contra') return 'contra'
+  return null
+}
+
+function voucherTypeLabel(voucherType: AccountVoucherType) {
+  if (voucherType === 'journal') return 'Journal'
+  if (voucherType === 'contra') return 'Contra'
+  return voucherType.replace(/_/g, ' ')
 }
 
 function normalizeTrialBalanceRow(row: Record<string, unknown>): AccountTrialBalanceRow {

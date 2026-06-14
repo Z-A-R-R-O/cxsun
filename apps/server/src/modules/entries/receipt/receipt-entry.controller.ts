@@ -1,4 +1,5 @@
-import { Body, Headers, Param } from '../../../core/decorators/http-params.js'
+import type { FastifyReply } from 'fastify'
+import { Body, Headers, Param, Res } from '../../../core/decorators/http-params.js'
 import { Controller, Get, Post } from '../../../core/decorators/controller.js'
 import { Inject } from '../../../core/decorators/inject.js'
 import type { TenantRequestHeaders } from '../../../core/tenant/tenant-context.service.js'
@@ -34,6 +35,16 @@ export class ReceiptEntryController {
     return this.receipts.restore(headers, idOrUuid)
   }
 
+  @Post(':idOrUuid/correction')
+  correction(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.receipts.correction(headers, idOrUuid)
+  }
+
+  @Post(':idOrUuid/reversal')
+  reversal(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string) {
+    return this.receipts.reversal(headers, idOrUuid)
+  }
+
   @Post(':idOrUuid/comments')
   addComment(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: { body?: string }) {
     return this.receipts.addComment(headers, idOrUuid, body.body ?? '')
@@ -42,5 +53,15 @@ export class ReceiptEntryController {
   @Post(':idOrUuid/tools')
   runTool(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: { printHtml?: unknown; tool?: string }) {
     return this.receipts.runTool(headers, idOrUuid, body.tool ?? '', body.printHtml)
+  }
+
+  @Post(':idOrUuid/pdf')
+  async pdf(@Headers() headers: TenantRequestHeaders, @Param('idOrUuid') idOrUuid: string, @Body() body: { printHtml?: unknown }, @Res() reply: FastifyReply) {
+    const result = await this.receipts.pdf(headers, idOrUuid, body.printHtml)
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Length', result.file.length)
+      .header('Content-Disposition', `attachment; filename="${result.fileName.replace(/"/g, '')}"`)
+      .send(result.file)
   }
 }

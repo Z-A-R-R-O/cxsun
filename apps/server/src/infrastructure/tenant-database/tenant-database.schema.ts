@@ -830,6 +830,11 @@ export interface TenantGstComplianceDocumentsTable {
   eway_valid_upto: Date | string | null
   irn_status: string
   eway_status: string
+  irn_generated_at: Date | string | null
+  irn_cancelled_at: Date | string | null
+  eway_generated_at: Date | string | null
+  eway_cancelled_at: Date | string | null
+  retry_state: string
   last_operation_id: number | null
   created_at: Generated<Date>
   updated_at: Generated<Date>
@@ -852,11 +857,51 @@ export interface TenantGstComplianceOperationsTable {
   endpoint: string
   http_status: number | null
   provider_status: string | null
+  gateway_status: string | null
   success: boolean
+  error_code: string | null
   error_message: string | null
+  retry_state: string
+  retry_count: number
+  next_retry_at: Date | string | null
+  generated_at: Date | string | null
+  cancelled_at: Date | string | null
   request_json: string | null
   response_json: string | null
   created_by: string
+  created_at: Generated<Date>
+}
+
+export interface TenantAccountingPeriodLocksTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  company_id: number | null
+  accounting_year_id: number | null
+  locked_from: Date | string
+  locked_to: Date | string
+  lock_type: string
+  source: string | null
+  reason: string | null
+  is_active: boolean
+  created_by: string
+  released_by: string | null
+  released_at: Date | string | null
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+}
+
+export interface TenantEntryCorrectionAuditTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  module: string
+  original_uuid: string
+  reversal_uuid: string | null
+  corrected_uuid: string | null
+  action: string
+  actor_email: string
+  reason: string | null
   created_at: Generated<Date>
 }
 
@@ -909,6 +954,111 @@ export interface TenantMastersProductsTable {
   created_at: Generated<Date>
   updated_at: Generated<Date>
   deleted_at: Date | null
+}
+
+export interface TenantEcommerceStoreSettingsTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  store_name: string
+  store_status: string
+  default_currency_id: number | null
+  default_tax_mode: string
+  order_prefix: string
+  public_contact_email: string | null
+  public_contact_phone: string | null
+  return_policy: string | null
+  shipping_policy: string | null
+  privacy_policy: string | null
+  terms: string | null
+  settings_json: string | null
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantEcommerceProductPublicationsTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  product_id: number
+  category_id: number | null
+  slug: string
+  title: string
+  subtitle: string | null
+  short_description: string | null
+  description: string | null
+  seo_title: string | null
+  seo_description: string | null
+  status: string
+  visibility: string
+  sale_price: number
+  compare_at_price: number
+  stock_status: string
+  published_at: Date | null
+  available_from: Date | null
+  available_to: Date | null
+  sort_order: number
+  is_featured: boolean
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantEcommerceCustomerProfilesTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  contact_id: number
+  customer_no: string
+  portal_status: string
+  portal_account_id: number | null
+  login_email: string | null
+  login_phone: string | null
+  default_billing_address_id: number | null
+  default_shipping_address_id: number | null
+  marketing_opt_in: boolean
+  notes: string | null
+  settings_json: string | null
+  is_active: boolean
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantEcommerceCustomerPortalAccountsTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  customer_profile_id: number
+  contact_id: number
+  email: string | null
+  phone: string | null
+  password_hash: string | null
+  status: string
+  email_verified_at: Date | null
+  phone_verified_at: Date | null
+  last_login_at: Date | null
+  last_login_ip: string | null
+  failed_login_count: number
+  reset_token_hash: string | null
+  reset_token_expires_at: Date | null
+  settings_json: string | null
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+}
+
+export interface TenantEcommerceSimpleOwnedTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  created_at: Generated<Date>
+  updated_at: Generated<Date>
+  deleted_at: Date | null
+  [key: string]: unknown
 }
 
 export interface TenantMastersOrdersTable {
@@ -1067,8 +1217,21 @@ export interface TenantDatabaseSchema {
   gst_provider_tokens: TenantGstProviderTokensTable
   gst_compliance_documents: TenantGstComplianceDocumentsTable
   gst_compliance_operations: TenantGstComplianceOperationsTable
+  accounting_period_locks: TenantAccountingPeriodLocksTable
+  entry_correction_audit: TenantEntryCorrectionAuditTable
   masters_contacts: TenantMastersContactsTable
   masters_products: TenantMastersProductsTable
+  ecommerce_store_settings: TenantEcommerceStoreSettingsTable
+  ecommerce_product_publications: TenantEcommerceProductPublicationsTable
+  ecommerce_customer_profiles: TenantEcommerceCustomerProfilesTable
+  ecommerce_customer_portal_accounts: TenantEcommerceCustomerPortalAccountsTable
+  ecommerce_carts: TenantEcommerceSimpleOwnedTable
+  ecommerce_orders: TenantEcommerceSimpleOwnedTable
+  ecommerce_shipments: TenantEcommerceSimpleOwnedTable
+  ecommerce_returns: TenantEcommerceSimpleOwnedTable
+  ecommerce_coupons: TenantEcommerceSimpleOwnedTable
+  ecommerce_reviews: TenantEcommerceSimpleOwnedTable
+  ecommerce_wishlists: TenantEcommerceSimpleOwnedTable
   masters_orders: TenantMastersOrdersTable
   masters_auditor_clients: TenantMastersAuditorClientsTable
   auditor_contact_credentials: TenantAuditorContactCredentialsTable

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type Ref, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
@@ -44,6 +44,7 @@ import { useCompanySoftwareSettings } from "src/features/settings/use-company-so
 import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addQuotationComment,
+  downloadQuotationPdf,
   destroyQuotationEntry,
   emptyQuotationEntry,
   emptyQuotationItem,
@@ -63,7 +64,9 @@ import { SalesInvoiceDocument, type SalesPrintCopy, type SalesPrintPartyDetails 
 
 type QuotationView = { mode: "list" } | { mode: "show"; entry: QuotationEntry } | { mode: "upsert"; entry: QuotationEntry | null }
 type QuotationColumnId = "invoice" | "date" | "customer" | "invoiceReference" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
-type QuotationEntryToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type QuotationEntryToolId = "downloadPdf" | "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type EntryListViewMode = "day" | "month"
+type MonthlyQuotationSummary = { month: string; entryCount: number; totalQty: number; taxableTotal: number; gstTotal: number; grandTotal: number }
 type QuotationAddressLabels = {
   addressTypes(value: unknown): string
   cities(value: unknown): string
@@ -123,6 +126,7 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
   const [visibleColumns, setVisibleColumns] = useState(defaultQuotationColumnVisibility)
   const [selectedContactFilter, setSelectedContactFilter] = useState("all")
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<Set<string>>(() => new Set())
+  const [listViewMode, setListViewMode] = useState<EntryListViewMode>("day")
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["quotation-entries", session.selectedTenant.slug]
@@ -136,8 +140,12 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
   const entries = entriesQuery.data ?? []
   const contactOptions = useMemo(() => buildQuotationContactFilterOptions(entries), [entries])
   const filteredEntries = useMemo(() => filterQuotationByContact(filterQuotation(searchQuotation(entries, searchValue), statusFilter), selectedContactFilter).sort((left, right) => compareDocumentNo(left.invoice_no, right.invoice_no)), [entries, searchValue, selectedContactFilter, statusFilter])
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
+  const monthlyEntries = useMemo(() => summarizeQuotationByMonth(filteredEntries), [filteredEntries])
+  const monthlyTotal = useMemo(() => totalMonthlyQuotation(monthlyEntries), [monthlyEntries])
+  const activeRowCount = listViewMode === "month" ? monthlyEntries.length : filteredEntries.length
+  const totalPages = Math.max(1, Math.ceil(activeRowCount / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  const pageMonthlyEntries = monthlyEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
   const selectedEntries = useMemo(() => entries.filter((entry) => selectedQuotationIds.has(entry.uuid)), [entries, selectedQuotationIds])
   const pageSelectableEntries = pageEntries.filter(canGenerateInvoiceFromQuotation)
   const pageSelected = pageSelectableEntries.length > 0 && pageSelectableEntries.every((entry) => selectedQuotationIds.has(entry.uuid))
@@ -264,6 +272,10 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
           setView({ mode: "show", entry: updated })
         }}
         onDestroy={() => void destroy(entry)}
+        onDownloadPdf={async (entry) => {
+          await downloadQuotationPdf(session, entry, capturePrintDocument(".sales-print-page"))
+          toast.success("PDF downloaded", { description: entry.invoice_no })
+        }}
         onEdit={() => setView({ mode: "upsert", entry })}
         onNew={openNewEntry}
         onNext={nextEntry ? () => setView({ mode: "show", entry: nextEntry }) : undefined}
@@ -289,7 +301,7 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
         <div className="flex items-center gap-2">
           <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
           <Button disabled={selectedEntries.length === 0 || generateInvoiceMutation.isPending} onClick={() => void generateDraftInvoice()} type="button" variant="secondary" className="h-9 rounded-md"><Send className="size-4" />Generate Invoice</Button>
-          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New</Button>
+          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New Quotation</Button>
         </div>
       }
     >
@@ -314,6 +326,15 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
           setSearchValue(value)
           setCurrentPage(1)
         }}
+        toolbarAction={
+          <EntryViewModeSelect
+            value={listViewMode}
+            onChange={(value) => {
+              setListViewMode(value)
+              setCurrentPage(1)
+            }}
+          />
+        }
       />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/70 bg-card px-4 py-3 text-sm shadow-sm">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -339,6 +360,42 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
       </div>
       <MasterListTableCard>
         <div className="overflow-x-auto">
+          {listViewMode === "month" ? (
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <ListHeader>Month</ListHeader>
+                <ListHeader className="text-center">Quotations</ListHeader>
+                <ListHeader className="text-center">Total Qty</ListHeader>
+                <ListHeader className="text-right">Total Taxable</ListHeader>
+                <ListHeader className="text-right">Total GST</ListHeader>
+                <ListHeader className="text-right">Grand Total</ListHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {pageMonthlyEntries.map((row) => (
+                <tr key={row.month} className="border-b border-border/70">
+                  <td className="px-4 py-2 font-semibold">{formatMonth(row.month)}</td>
+                  <td className="px-4 py-2 text-center">{row.entryCount}</td>
+                  <td className="px-4 py-2 text-center">{formatQuantity(row.totalQty)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.taxableTotal)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.gstTotal)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{formatMoney(row.grandTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-border/80 bg-muted/40 font-semibold">
+              <tr>
+                <td className="px-4 py-2">Total</td>
+                <td className="px-4 py-2 text-center">{monthlyTotal.entryCount}</td>
+                <td className="px-4 py-2 text-center">{formatQuantity(monthlyTotal.totalQty)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.taxableTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.gstTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          ) : (
           <table className="w-full min-w-[1180px] border-collapse text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -402,15 +459,16 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
               ))}
             </tbody>
           </table>
+          )}
         </div>
-        {pageEntries.length === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading Quotation entries." : "No Quotation entries found."}</MasterListEmptyState> : null}
+        {(listViewMode === "month" ? pageMonthlyEntries.length : pageEntries.length) === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading Quotation entries." : "No Quotation entries found."}</MasterListEmptyState> : null}
       </MasterListTableCard>
       <MasterListPaginationCard
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredEntries.length })}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: activeRowCount })}
         singularLabel="Quotation"
-        totalCount={filteredEntries.length}
+        totalCount={activeRowCount}
         totalPages={totalPages}
         onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
         onPageChange={setCurrentPage}
@@ -424,12 +482,13 @@ export function QuotationPage({ initialEntryUuid, session }: { initialEntryUuid?
   )
 }
 
-function QuotationShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onNew, onNext, onPrevious, onRestore, onTool, session }: {
+function QuotationShowPage({ entry, isWorking, onBack, onComment, onDestroy, onDownloadPdf, onEdit, onNew, onNext, onPrevious, onRestore, onTool, session }: {
   entry: QuotationEntry
   isWorking: boolean
   onBack(): void
   onComment(entry: QuotationEntry, body: string): Promise<void>
   onDestroy(): void
+  onDownloadPdf(entry: QuotationEntry): Promise<void>
   onEdit(): void
   onNew(): void
   onNext?(): void
@@ -499,6 +558,7 @@ function QuotationShowPage({ entry, isWorking, onBack, onComment, onDestroy, onE
   }
 
   const entryTools: Array<{ icon: typeof Mail; id: QuotationEntryToolId; label: string }> = [
+    { icon: Download, id: "downloadPdf", label: "Download PDF" },
     { icon: Mail, id: "email", label: "Send to Email" },
     { icon: UserRound, id: "assign", label: "Assign" },
     { icon: Paperclip, id: "attachments", label: "Attachments" },
@@ -593,7 +653,15 @@ function QuotationShowPage({ entry, isWorking, onBack, onComment, onDestroy, onE
           <CardContent className="p-0 [&:last-child]:pb-0">
             {entryTools.map((tool) => (
               <div key={tool.id} className="border-b border-border/70 last:border-b-0">
-                <button disabled={isWorking} onClick={() => toggleEntryTool(tool.id)} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={isWorking} onClick={() => {
+                  if (tool.id === "downloadPdf") {
+                    void onDownloadPdf(entry)
+                      .then(() => recordToolActivity(`Downloaded PDF ${entry.invoice_no}`))
+                      .catch((error) => toast.error("PDF download failed", { description: error instanceof Error ? error.message : "Unable to generate the PDF." }))
+                    return
+                  }
+                  toggleEntryTool(tool.id)
+                }} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
                   <tool.icon className="size-4" />
                   <span className="flex-1">{tool.label}</span>
                   <Plus className={cn("size-4 transition-transform", openTool === tool.id ? "rotate-45" : "")} />
@@ -2399,6 +2467,20 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
   return <th className={cn("border-b border-border/70 px-4 py-3.5 text-left font-medium text-foreground", className)}>{children}</th>
 }
 
+function EntryViewModeSelect({ onChange, value }: { onChange(value: EntryListViewMode): void; value: EntryListViewMode }) {
+  return (
+    <Select value={value} onValueChange={(nextValue) => onChange(nextValue === "month" ? "month" : "day")}>
+      <SelectTrigger className="h-8 min-w-28 rounded-md border-border/80 bg-background text-sm shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" className="rounded-md">
+        <SelectItem value="day">Day view</SelectItem>
+        <SelectItem value="month">Month view</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
 function searchQuotation(entries: QuotationEntry[], searchValue: string) {
   const term = searchValue.trim().toLowerCase()
   if (!term) return entries
@@ -2450,6 +2532,46 @@ function totalQuotationQuantity(entry: QuotationEntry) {
   return entry.items.reduce((total, item) => total + Number(item.quantity || 0), 0)
 }
 
+function summarizeQuotationByMonth(entries: QuotationEntry[]): MonthlyQuotationSummary[] {
+  const grouped = new Map<string, MonthlyQuotationSummary>()
+  for (const entry of entries) {
+    const month = monthKey(entry.invoice_date)
+    const existing = grouped.get(month) ?? { month, entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 }
+    existing.entryCount += 1
+    existing.totalQty += totalQuotationQuantity(entry)
+    existing.taxableTotal += Number(entry.taxable_total || 0)
+    existing.gstTotal += Number(entry.tax_total || 0)
+    existing.grandTotal += Number(entry.grand_total || 0)
+    grouped.set(month, existing)
+  }
+  return [...grouped.values()].sort((left, right) => right.month.localeCompare(left.month))
+}
+
+function totalMonthlyQuotation(rows: MonthlyQuotationSummary[]): MonthlyQuotationSummary {
+  return rows.reduce(
+    (total, row) => ({
+      month: "total",
+      entryCount: total.entryCount + row.entryCount,
+      totalQty: total.totalQty + row.totalQty,
+      taxableTotal: total.taxableTotal + row.taxableTotal,
+      gstTotal: total.gstTotal + row.gstTotal,
+      grandTotal: total.grandTotal + row.grandTotal,
+    }),
+    { month: "total", entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 },
+  )
+}
+
+function monthKey(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return "Not set"
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function formatMonth(value: string) {
+  if (value === "Not set") return value
+  return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`))
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "Not set"
   return new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value))
@@ -2474,5 +2596,3 @@ function formatMoney(value: number) {
 function formatQuantity(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(Number(value ?? 0))
 }
-
-

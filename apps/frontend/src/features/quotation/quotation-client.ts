@@ -1,5 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { downloadPrintPdf } from "src/shared/print/download-print-pdf"
 
 export type QuotationCommonLookupKey = "hsnCodes" | "units" | "taxes"
 type QuotationLookupModuleKey = "contacts" | "orders" | "products" | QuotationCommonLookupKey
@@ -237,6 +238,10 @@ export async function runQuotationTool(session: AuthSession, entry: QuotationEnt
   const result = (await response.json()) as { ok: boolean; entry?: QuotationEntry; error?: string }
   if (!result.ok || !result.entry) throw new Error(result.error ?? "Quotation tool failed.")
   return result.entry
+}
+
+export async function downloadQuotationPdf(session: AuthSession, entry: QuotationEntry, printHtml: string) {
+  await downloadPrintPdf(session, `/api/v1/entries/quotation/${entry.uuid}/pdf`, printHtml, entry.invoice_no)
 }
 
 export async function generateInvoiceFromQuotations(session: AuthSession, quotationIds: string[]) {

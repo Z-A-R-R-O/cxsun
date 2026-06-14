@@ -8,6 +8,7 @@ import { AccountsEngineRepository } from './accounts-engine.repository.js'
 import { AccountsRepository } from './accounts.repository.js'
 import { AccountsService } from './accounts.service.js'
 import { DocumentNumberRepository } from '../settings/document-settings/infrastructure/document-number.repository.js'
+import { EntryPostingControlService } from '../entries/shared/entry-posting-control.service.js'
 
 @Module({
   controllers: [AccountsController],
@@ -20,6 +21,7 @@ import { DocumentNumberRepository } from '../settings/document-settings/infrastr
     AccountsEntryPostingService,
     AccountsRepository,
     AccountsService,
+    EntryPostingControlService,
   ],
 })
 export class AccountsModule {}

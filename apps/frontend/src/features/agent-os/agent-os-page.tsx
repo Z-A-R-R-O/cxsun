@@ -11,7 +11,7 @@ import { Input } from "src/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "src/components/ui/select"
 import type { AuthSession } from "src/features/auth/auth-client"
 import { cn } from "src/lib/utils"
-import { getAgentOsStatus, getZetroQueryInsights, isZetroAdminRole, learnZetroDocs, saveZetroApiConnection, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
+import { getAgentOsStatus, getZetroQueryInsights, getZetroQueryRegistry, isZetroAdminRole, learnZetroDocs, saveZetroApiConnection, saveZetroQueryMapping, type ZetroAgentStatus, type ZetroCapability, type ZetroModel, type ZetroProviderConnection } from "./agent-os-client"
 
 export type AgentOsView = "base" | "providers" | "knowledge" | "agents" | "queries" | "updates"
 
@@ -23,6 +23,9 @@ export function AgentOsPage({ session, view = "base" }: { session: AuthSession; 
   const [defaultModel, setDefaultModel] = useState("")
   const [freeModels, setFreeModels] = useState("")
   const [premiumModels, setPremiumModels] = useState("")
+  const [mappingPhrase, setMappingPhrase] = useState("")
+  const [mappingToolKey, setMappingToolKey] = useState("contact.balance")
+  const [mappingMatchType, setMappingMatchType] = useState("exact")
   const initialisedRef = useRef(false)
   const statusQuery = useQuery({
     queryKey: ["agent-os-status", session.selectedTenant.slug],
@@ -32,6 +35,11 @@ export function AgentOsPage({ session, view = "base" }: { session: AuthSession; 
     enabled: adminMode,
     queryKey: ["zetro-query-insights", session.selectedTenant.slug],
     queryFn: () => getZetroQueryInsights(session),
+  })
+  const queryRegistryQuery = useQuery({
+    enabled: adminMode && view === "queries",
+    queryKey: ["zetro-query-registry", session.selectedTenant.slug],
+    queryFn: () => getZetroQueryRegistry(session),
   })
   const status = statusQuery.data ?? null
   const platformConnections = adminMode ? status?.provider_connections.length ? status.provider_connections : fallbackProviders : []
@@ -96,6 +104,21 @@ export function AgentOsPage({ session, view = "base" }: { session: AuthSession; 
       toast.error("ZETRO API save failed", {
         description: error instanceof Error ? error.message : "Please check the provider settings.",
       })
+    },
+  })
+  const queryMappingMutation = useMutation({
+    mutationFn: () => saveZetroQueryMapping(session, {
+      matchType: mappingMatchType,
+      phrase: mappingPhrase.trim(),
+      toolKey: mappingToolKey,
+    }),
+    onError(error) {
+      toast.error(error instanceof Error ? error.message : "ZETRO query mapping save failed.")
+    },
+    async onSuccess() {
+      toast.success("ZETRO query mapping saved.")
+      setMappingPhrase("")
+      await Promise.all([queryRegistryQuery.refetch(), queryInsightsQuery.refetch()])
     },
   })
 
@@ -499,6 +522,42 @@ export function AgentOsPage({ session, view = "base" }: { session: AuthSession; 
                 <CardTitle>Client query review</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4">
+                <div className="grid gap-3 rounded-md border border-border/70 bg-background p-3">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Query registry</div>
+                  <div className="grid gap-2 lg:grid-cols-[1fr_220px_150px_auto]">
+                    <Input
+                      placeholder="Approved phrase, e.g. customer due amount"
+                      value={mappingPhrase}
+                      onChange={(event) => setMappingPhrase(event.target.value)}
+                    />
+                    <Select value={mappingToolKey} onValueChange={setMappingToolKey}>
+                      <SelectTrigger className="rounded-md">
+                        <SelectValue placeholder="Tool" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(queryRegistryQuery.data?.tools ?? []).map((tool) => (
+                          <SelectItem key={tool.tool_key} value={tool.tool_key}>{tool.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={mappingMatchType} onValueChange={setMappingMatchType}>
+                      <SelectTrigger className="rounded-md">
+                        <SelectValue placeholder="Match" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="exact">Exact</SelectItem>
+                        <SelectItem value="contains">Contains</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      className="rounded-md"
+                      disabled={!mappingPhrase.trim() || queryMappingMutation.isPending}
+                      onClick={() => queryMappingMutation.mutate()}
+                    >
+                      Save mapping
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid gap-3 lg:grid-cols-3">
                   <InsightCountList
                     emptyLabel="No mapped queries yet"
@@ -530,6 +589,88 @@ export function AgentOsPage({ session, view = "base" }: { session: AuthSession; 
                   {!queryInsightsQuery.data?.recent.length ? (
                     <p className="text-sm leading-6 text-muted-foreground">Mapped client questions will appear here after users ask ZETRO for business summaries.</p>
                   ) : null}
+                </div>
+                <div className="grid gap-2">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Mapping candidates</div>
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    {(queryRegistryQuery.data?.candidates ?? []).slice(0, 8).map((candidate) => (
+                      <div key={candidate.normalized_question} className="rounded-md border border-border/70 bg-background p-3">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="truncate">{candidate.suggested_tool ?? candidate.event_type}</span>
+                          <span>{candidate.count}x</span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm leading-5">{candidate.question}</p>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <span className="truncate text-xs text-muted-foreground">{candidate.status}</span>
+                          <Button
+                            className="h-8 rounded-md"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setMappingPhrase(candidate.question)
+                              if (candidate.suggested_tool) setMappingToolKey(candidate.suggested_tool)
+                              setMappingMatchType("exact")
+                            }}
+                          >
+                            Map
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {!queryRegistryQuery.data?.candidates.length ? (
+                    <p className="text-sm leading-6 text-muted-foreground">New mapping candidates will appear after client questions repeat or route through ZETRO.</p>
+                  ) : null}
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="grid gap-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">Approved mappings</div>
+                    {(queryRegistryQuery.data?.mappings ?? []).slice(0, 8).map((mapping) => (
+                      <div key={mapping.id} className="rounded-md border border-border/70 bg-background p-3">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="truncate">{mapping.tool_key}</span>
+                          <Badge className="rounded-md" variant="outline">{mapping.match_type}</Badge>
+                        </div>
+                        <p className="mt-1 text-sm font-medium">{mapping.phrase}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Hits: {mapping.hit_count}</p>
+                      </div>
+                    ))}
+                    {!queryRegistryQuery.data?.mappings.length ? (
+                      <p className="text-sm leading-6 text-muted-foreground">No approved query aliases have been saved yet.</p>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">Registry logs</div>
+                    {(queryRegistryQuery.data?.logs ?? []).slice(0, 8).map((log) => (
+                      <div key={log.id} className="rounded-md border border-border/70 bg-background p-3">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="truncate">{log.tool_key ?? log.mapped_intent ?? "unmapped"}</span>
+                          <span>{log.status}</span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm leading-5">{log.question}</p>
+                        {log.missing_fields.length ? (
+                          <p className="mt-1 text-xs text-muted-foreground">Needs: {log.missing_fields.join(", ")}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                    {!queryRegistryQuery.data?.logs.length ? (
+                      <p className="text-sm leading-6 text-muted-foreground">Business query logs will appear after ZETRO answers client data questions.</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Approved tools</div>
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    {(queryRegistryQuery.data?.tools ?? []).map((tool) => (
+                      <div key={tool.tool_key} className="rounded-md border border-border/70 bg-background p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{tool.label}</span>
+                          <Badge className="rounded-md" variant={tool.is_active ? "default" : "outline"}>{tool.status}</Badge>
+                        </div>
+                        <p className="mt-1 text-sm leading-5 text-muted-foreground">{tool.description}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>

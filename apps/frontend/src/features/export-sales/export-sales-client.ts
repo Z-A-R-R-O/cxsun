@@ -1,5 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { downloadPrintPdf } from "src/shared/print/download-print-pdf"
 
 export type ExportSalesCommonLookupKey = "hsnCodes" | "units" | "taxes"
 type ExportSalesLookupModuleKey = "contacts" | "orders" | "products" | ExportSalesCommonLookupKey
@@ -237,6 +238,10 @@ export async function runExportSalesTool(session: AuthSession, entry: ExportSale
   const result = (await response.json()) as { ok: boolean; entry?: ExportSalesEntry; error?: string }
   if (!result.ok || !result.entry) throw new Error(result.error ?? "Export sales tool failed.")
   return result.entry
+}
+
+export async function downloadExportSalesPdf(session: AuthSession, entry: ExportSalesEntry, printHtml: string) {
+  await downloadPrintPdf(session, `/api/v1/entries/export-sales/${entry.uuid}/pdf`, printHtml, entry.invoice_no)
 }
 
 async function mutateExportSalesEntry(session: AuthSession, idOrUuid: string, action: "destroy" | "restore") {

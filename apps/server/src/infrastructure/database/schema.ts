@@ -222,6 +222,60 @@ export interface AgentProviderConnectionsTable {
   updated_at: Generated<string>
 }
 
+export interface ZetroQueryToolsTable {
+  id: Generated<number>
+  uuid: string
+  tool_key: string
+  intent_key: string
+  domain: string
+  label: string
+  description: string | null
+  required_fields: string | null
+  examples: string | null
+  is_active: number
+  status: string
+  metadata: string | null
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface ZetroQueryMappingsTable {
+  id: Generated<number>
+  uuid: string
+  tenant_id: number
+  phrase: string
+  normalized_phrase: string
+  match_type: string
+  tool_key: string
+  intent_key: string
+  status: string
+  hit_count: number
+  last_matched_at: string | null
+  created_by: string | null
+  metadata: string | null
+  created_at: Generated<string>
+  updated_at: Generated<string>
+}
+
+export interface ZetroQueryLogsTable {
+  id: Generated<number>
+  uuid: string
+  conversation_id: number | null
+  tenant_id: number | null
+  tenant_slug: string | null
+  user_role: string | null
+  question: string
+  normalized_question: string
+  mapped_intent: string | null
+  tool_key: string | null
+  mapping_id: number | null
+  source: string
+  status: string
+  missing_fields: string | null
+  metadata: string | null
+  created_at: Generated<string>
+}
+
 export interface DatabaseSchema {
   site_pages: SitePagesTable
   site_services: SiteServicesTable
@@ -240,4 +294,7 @@ export interface DatabaseSchema {
   agent_logs: AgentLogsTable
   knowledge_documents: KnowledgeDocumentsTable
   agent_provider_connections: AgentProviderConnectionsTable
+  zetro_query_tools: ZetroQueryToolsTable
+  zetro_query_mappings: ZetroQueryMappingsTable
+  zetro_query_logs: ZetroQueryLogsTable
 }

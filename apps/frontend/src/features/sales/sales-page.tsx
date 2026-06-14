@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type Ref, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, CheckCircle2, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Badge } from "src/components/ui/badge"
 import { Button } from "src/components/ui/button"
 import { AnimatedTabs } from "src/components/ui/animated-tabs"
@@ -45,6 +45,9 @@ import { useCompanySoftwareSettings } from "src/features/settings/use-company-so
 import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
 import {
   addSalesComment,
+  createSalesCorrection,
+  createSalesReversal,
+  downloadSalesPdf,
   destroySalesEntry,
   emptySalesEntry,
   emptySalesItem,
@@ -63,7 +66,10 @@ import { SalesInvoiceDocument, type SalesPrintCopy, type SalesPrintPartyDetails 
 
 type SalesView = { mode: "list" } | { mode: "show"; entry: SalesEntry } | { mode: "upsert"; entry: SalesEntry | null }
 type SalesColumnId = "invoice" | "date" | "customer" | "status" | "payment" | "totalQty" | "taxableTotal" | "gstTotal" | "grandTotal" | "balance" | "updated"
-type SalesEntryToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type SalesEntryToolId = "downloadPdf" | "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type SalesTypeOption = { value: string; label: string }
+type EntryListViewMode = "day" | "month"
+type MonthlySalesSummary = { month: string; entryCount: number; totalQty: number; taxableTotal: number; gstTotal: number; grandTotal: number }
 type SalesAddressLabels = {
   addressTypes(value: unknown): string
   cities(value: unknown): string
@@ -120,6 +126,7 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultSalesColumnVisibility)
+  const [listViewMode, setListViewMode] = useState<EntryListViewMode>("day")
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["sales-entries", session.selectedTenant.slug]
@@ -128,11 +135,17 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
   const destroyMutation = useMutation({ mutationFn: (entry: SalesEntry) => destroySalesEntry(session, entry) })
   const restoreMutation = useMutation({ mutationFn: (entry: SalesEntry) => restoreSalesEntry(session, entry) })
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: SalesEntry; body: string }) => addSalesComment(session, entry, body) })
+  const correctionMutation = useMutation({ mutationFn: (entry: SalesEntry) => createSalesCorrection(session, entry) })
   const toolMutation = useMutation({ mutationFn: ({ entry, printHtml, tool }: { entry: SalesEntry; printHtml?: string; tool: string }) => runSalesTool(session, entry, tool, printHtml) })
+  const reversalMutation = useMutation({ mutationFn: (entry: SalesEntry) => createSalesReversal(session, entry) })
   const entries = entriesQuery.data ?? []
   const filteredEntries = useMemo(() => filterSales(searchSales(entries, searchValue), statusFilter).sort((left, right) => compareDocumentNo(left.invoice_no, right.invoice_no)), [entries, searchValue, statusFilter])
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
+  const monthlyEntries = useMemo(() => summarizeSalesByMonth(filteredEntries), [filteredEntries])
+  const monthlyTotal = useMemo(() => totalMonthlySales(monthlyEntries), [monthlyEntries])
+  const activeRowCount = listViewMode === "month" ? monthlyEntries.length : filteredEntries.length
+  const totalPages = Math.max(1, Math.ceil(activeRowCount / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  const pageMonthlyEntries = monthlyEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
   useEffect(() => {
     if (entriesQuery.error) toast.error("Sales load failed", { description: entriesQuery.error instanceof Error ? entriesQuery.error.message : "Unable to load sales entries." })
@@ -200,12 +213,28 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
           await refresh()
           setView({ mode: "show", entry: updated })
         }}
+        onCorrection={async (entryValue) => {
+          const correction = await correctionMutation.mutateAsync(entryValue)
+          toast.success("Correction draft created", { description: correction?.invoice_no ?? entryValue.invoice_no })
+          await refresh()
+          if (correction) setView({ mode: "show", entry: correction })
+        }}
         onDestroy={() => void destroy(entry)}
+        onDownloadPdf={async (entry) => {
+          await downloadSalesPdf(session, entry, capturePrintDocument(".sales-print-page"))
+          toast.success("PDF downloaded", { description: entry.invoice_no })
+        }}
         onEdit={() => setView({ mode: "upsert", entry })}
         onNew={openNewEntry}
         onNext={nextEntry ? () => setView({ mode: "show", entry: nextEntry }) : undefined}
         onPrevious={previousEntry ? () => setView({ mode: "show", entry: previousEntry }) : undefined}
         onRestore={() => void restore(entry)}
+        onReversal={async (entryValue) => {
+          const reversal = await reversalMutation.mutateAsync(entryValue)
+          toast.success("Reversal voucher created", { description: reversal?.invoice_no ?? entryValue.invoice_no })
+          await refresh()
+          if (reversal) setView({ mode: "show", entry: reversal })
+        }}
         onTool={async (entry, tool) => {
           const isEmail = tool.startsWith("Send to Email:")
           const updated = await toolMutation.mutateAsync({ entry, printHtml: isEmail ? capturePrintDocument(".sales-print-page") : undefined, tool })
@@ -225,7 +254,7 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
       action={
         <div className="flex items-center gap-2">
           <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
-          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New</Button>
+          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New Sales</Button>
         </div>
       }
     >
@@ -250,9 +279,54 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
           setSearchValue(value)
           setCurrentPage(1)
         }}
+        toolbarAction={
+          <EntryViewModeSelect
+            value={listViewMode}
+            onChange={(value) => {
+              setListViewMode(value)
+              setCurrentPage(1)
+            }}
+          />
+        }
       />
       <MasterListTableCard>
         <div className="overflow-x-auto">
+          {listViewMode === "month" ? (
+          <table className="w-full min-w-[900px] border-collapse text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <ListHeader>Month</ListHeader>
+                <ListHeader className="text-center">Invoices</ListHeader>
+                <ListHeader className="text-center">Total Qty</ListHeader>
+                <ListHeader className="text-right">Total Taxable</ListHeader>
+                <ListHeader className="text-right">Total GST</ListHeader>
+                <ListHeader className="text-right">Grand Total</ListHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {pageMonthlyEntries.map((row) => (
+                <tr key={row.month} className="border-b border-border/70">
+                  <td className="px-4 py-2 font-semibold">{formatMonth(row.month)}</td>
+                  <td className="px-4 py-2 text-center">{row.entryCount}</td>
+                  <td className="px-4 py-2 text-center">{formatQuantity(row.totalQty)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.taxableTotal)}</td>
+                  <td className="px-4 py-2 text-right">{formatMoney(row.gstTotal)}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{formatMoney(row.grandTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-border/80 bg-muted/40 font-semibold">
+              <tr>
+                <td className="px-4 py-2">Total</td>
+                <td className="px-4 py-2 text-center">{monthlyTotal.entryCount}</td>
+                <td className="px-4 py-2 text-center">{formatQuantity(monthlyTotal.totalQty)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.taxableTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.gstTotal)}</td>
+                <td className="px-4 py-2 text-right">{formatMoney(monthlyTotal.grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          ) : (
           <table className="w-full min-w-[1120px] border-collapse text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -306,15 +380,16 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
               ))}
             </tbody>
           </table>
+          )}
         </div>
-        {pageEntries.length === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading sales entries." : "No sales entries found."}</MasterListEmptyState> : null}
+        {(listViewMode === "month" ? pageMonthlyEntries.length : pageEntries.length) === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading sales entries." : "No sales entries found."}</MasterListEmptyState> : null}
       </MasterListTableCard>
       <MasterListPaginationCard
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredEntries.length })}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: activeRowCount })}
         singularLabel="sales"
-        totalCount={filteredEntries.length}
+        totalCount={activeRowCount}
         totalPages={totalPages}
         onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
         onPageChange={setCurrentPage}
@@ -328,17 +403,20 @@ export function SalesPage({ initialEntryUuid, session }: { initialEntryUuid?: st
   )
 }
 
-function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onNew, onNext, onPrevious, onRestore, onTool, session }: {
+function SalesShowPage({ entry, isWorking, onBack, onComment, onCorrection, onDestroy, onDownloadPdf, onEdit, onNew, onNext, onPrevious, onRestore, onReversal, onTool, session }: {
   entry: SalesEntry
   isWorking: boolean
   onBack(): void
   onComment(entry: SalesEntry, body: string): Promise<void>
+  onCorrection(entry: SalesEntry): Promise<void>
   onDestroy(): void
+  onDownloadPdf(entry: SalesEntry): Promise<void>
   onEdit(): void
   onNew(): void
   onNext?(): void
   onPrevious?(): void
   onRestore(): void
+  onReversal(entry: SalesEntry): Promise<void>
   onTool(entry: SalesEntry, tool: string): Promise<void>
   session: AuthSession
 }) {
@@ -402,6 +480,7 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
   }
 
   const entryTools: Array<{ icon: typeof Mail; id: SalesEntryToolId; label: string }> = [
+    { icon: Download, id: "downloadPdf", label: "Download PDF" },
     { icon: Mail, id: "email", label: "Send to Email" },
     { icon: UserRound, id: "assign", label: "Assign" },
     { icon: Paperclip, id: "attachments", label: "Attachments" },
@@ -442,6 +521,8 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
             </div>
             <Button className="rounded-xl" onClick={() => window.print()} type="button"><Printer className="size-4" />Print</Button>
             <Button type="button" variant="outline" className="rounded-xl" onClick={onEdit}><Pencil className="size-4" />Edit</Button>
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onCorrection(entry)}><Pencil className="size-4" />Correction</Button> : null}
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onReversal(entry)}><RotateCcw className="size-4" />Reversal</Button> : null}
             {isActive(entry) ? (
               <Button onClick={onDestroy} type="button" variant="destructive" className="rounded-xl"><Trash2 className="size-4" />Suspend</Button>
             ) : (
@@ -496,7 +577,15 @@ function SalesShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit,
           <CardContent className="p-0 [&:last-child]:pb-0">
             {entryTools.map((tool) => (
               <div key={tool.id} className="border-b border-border/70 last:border-b-0">
-                <button disabled={isWorking} onClick={() => toggleEntryTool(tool.id)} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={isWorking} onClick={() => {
+                  if (tool.id === "downloadPdf") {
+                    void onDownloadPdf(entry)
+                      .then(() => recordToolActivity(`Downloaded PDF ${entry.invoice_no}`))
+                      .catch((error) => toast.error("PDF download failed", { description: error instanceof Error ? error.message : "Unable to generate the PDF." }))
+                    return
+                  }
+                  toggleEntryTool(tool.id)
+                }} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
                   <tool.icon className="size-4" />
                   <span className="flex-1">{tool.label}</span>
                   <Plus className={cn("size-4 transition-transform", openTool === tool.id ? "rotate-45" : "")} />
@@ -613,6 +702,7 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   const unitsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "units"], queryFn: () => listSalesCommonLookups(session, "units") })
   const transportsQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "transports"], queryFn: () => listMasterDataRecords(session, "transports") })
   const salesAccountTypesQuery = useQuery({ queryKey: ["sales-lookups", session.selectedTenant.slug, "salesAccountTypes"], queryFn: () => listMasterDataRecords(session, "salesAccountTypes") })
+  const salesAccountTypeMutation = useMutation({ mutationFn: (name: string) => upsertMasterDataRecord(session, "salesAccountTypes", { name, description: "", is_active: true }) })
   const nextInvoiceQuery = useQuery({
     enabled: !entry,
     queryKey: ["document-number-next-preview", session.selectedTenant.slug, "sales"],
@@ -642,6 +732,14 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
                 contacts={customerContacts}
                 onContactsRefresh={() => void contactsQuery.refetch()}
                 onCreateContact={setContactCreateInitialName}
+                onCreateSalesType={async (name) => {
+                  const trimmed = name.trim()
+                  if (!trimmed) return
+                  const record = await salesAccountTypeMutation.mutateAsync(trimmed)
+                  await salesAccountTypesQuery.refetch()
+                  setDraft((current) => ({ ...current, accounting_category: normalizeSalesAccountTypeValue(getCommonRecordName(record)) }))
+                  toast.success("Sales type created", { description: getCommonRecordName(record) })
+                }}
                 form={draft}
                 hsnCodes={hsnCodesQuery.data ?? []}
                 salesAccountTypes={salesAccountTypesQuery.data ?? []}
@@ -686,12 +784,13 @@ function SalesUpsertPage({ entry, isSaving, session, onBack, onSubmit }: {
   )
 }
 
-function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, salesAccountTypes, session, setForm, softwareSettings, taxes, totals, transports, units }: {
+function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreateContact, onCreateSalesType, salesAccountTypes, session, setForm, softwareSettings, taxes, totals, transports, units }: {
   contacts: SalesLookupOption[]
   form: SalesEntryInput
   hsnCodes: SalesLookupOption[]
   onContactsRefresh(): void
   onCreateContact(name: string): void
+  onCreateSalesType(name: string): Promise<void>
   salesAccountTypes: MasterDataRecord[]
   session: AuthSession
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
@@ -769,6 +868,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
           itemDraft={itemDraft}
           addressLabels={addressLabels}
           onCreateContact={onCreateContact}
+          onCreateSalesType={onCreateSalesType}
           salesTypeOptions={salesTypeOptions}
           session={session}
           setEditingItemIndex={setEditingItemIndex}
@@ -811,7 +911,7 @@ function SalesVoucherTabs({ contacts, form, hsnCodes, onContactsRefresh, onCreat
   )
 }
 
-function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, salesTypeOptions, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
+function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editItem, editingItemIndex, form, hsnCodes, itemDraft, onCreateContact, onCreateSalesType, salesTypeOptions, session, setEditingItemIndex, setForm, setItemDraft, softwareSettings, taxes, totals, units }: {
   addItem(): void
   addressLabels: SalesAddressLabels
   contacts: SalesLookupOption[]
@@ -822,7 +922,8 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
   hsnCodes: SalesLookupOption[]
   itemDraft: SalesEntryItem
   onCreateContact(name: string): void
-  salesTypeOptions: Array<{ value: string; label: string }>
+  onCreateSalesType(name: string): Promise<void>
+  salesTypeOptions: SalesTypeOption[]
   session: AuthSession
   setEditingItemIndex(value: number | null): void
   setForm(updater: (current: SalesEntryInput) => SalesEntryInput): void
@@ -891,25 +992,27 @@ function SalesDetailsTab({ addItem, addressLabels, contacts, deleteItem, editIte
             onTextChange={(value) => setForm((current) => ({ ...current, customer_gstin: "", customer_id: null, customer_name: value, customer_state_code: "", customer_state_name: "" }))}
           />
           <WorkOrderAutocomplete session={session} value={form.reference_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, reference_no: value }))} />
-        </div>
-        <div className="space-y-5">
-          <Field label="Invoice no" value={form.invoice_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, invoice_no: value }))} />
-          <Field label="Date" type="date" value={String(form.invoice_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, invoice_date: value }))} />
-          <SalesTypeField value={form.place_of_supply ?? "cgst-sgst"} onChange={(value) => setForm((current) => ({ ...current, place_of_supply: value }))} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField
+          <div className="grid items-start gap-3 sm:grid-cols-2">
+            <LookupSelectField
               label="Posting"
               value={form.accounting_posting_mode ?? "auto"}
               options={[{ value: "auto", label: "Auto Post" }, { value: "none", label: "Do Not Post" }]}
               onChange={(value) => setForm((current) => ({ ...current, accounting_posting_mode: value }))}
             />
-            <SelectField
-              label="Sales Type"
+            <LookupSelectField
+              createLabel="Create sales ledger"
+              label="Sales Ledger"
               value={normalizeSalesAccountTypeValue(form.accounting_category) || defaultSalesAccountType}
               options={salesTypeOptions}
+              onCreate={onCreateSalesType}
               onChange={(value) => setForm((current) => ({ ...current, accounting_category: value }))}
             />
           </div>
+        </div>
+        <div className="space-y-5">
+          <Field label="Invoice no" value={form.invoice_no ?? ""} onChange={(value) => setForm((current) => ({ ...current, invoice_no: value }))} />
+          <Field label="Date" type="date" value={String(form.invoice_date ?? "")} onChange={(value) => setForm((current) => ({ ...current, invoice_date: value }))} />
+          <SalesTypeField value={form.place_of_supply ?? "cgst-sgst"} onChange={(value) => setForm((current) => ({ ...current, place_of_supply: value }))} />
         </div>
       </div>
       <section className="space-y-5">
@@ -1274,6 +1377,58 @@ function SalesDocumentTab({ form, session, setForm, softwareSettings, transports
     }
   }
 
+  async function cancelEinvoice() {
+    if (!form.irn?.trim()) {
+      toast.error("IRN is required before cancelling e-invoice.")
+      return
+    }
+    const toastId = toast.loading("Sending e-invoice cancellation request...")
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      await runGstComplianceOperation(session, "cancelIrn", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: "einvoice_eway",
+        payload: { Irn: savedEntry.irn, CnlRsn: "1", CnlRem: "Cancelled from sales entry" },
+        sourceId: savedEntry.id,
+        sourceType: "sales",
+        sourceUuid: savedEntry.uuid,
+      })
+      void queryClient.invalidateQueries({ queryKey: ["gst-compliance"] })
+      toast.success("E-invoice cancelled", { description: "Cancellation audit was recorded in GST compliance.", id: toastId })
+    } catch (error) {
+      toast.error("E-invoice cancellation failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
+  }
+
+  async function cancelEway() {
+    if (!form.eway_bill_no?.trim()) {
+      toast.error("E-way bill number is required before cancelling.")
+      return
+    }
+    const toastId = toast.loading("Sending E-way bill cancellation request...")
+    try {
+      const savedEntry = await saveSalesDraft({ ...form, status: "posted" })
+      await runGstComplianceOperation(session, "cancelEwaybill", {
+        companyId: savedEntry.company_id,
+        documentDate: savedEntry.invoice_date,
+        documentNo: savedEntry.invoice_no,
+        environment: activeGstEnvironment(session),
+        purpose: activeGstPurpose(softwareSettings),
+        payload: { ewbNo: savedEntry.eway_bill_no, cancelRsnCode: "2", cancelRmrk: "Cancelled from sales entry" },
+        sourceId: savedEntry.id,
+        sourceType: "sales",
+        sourceUuid: savedEntry.uuid,
+      })
+      void queryClient.invalidateQueries({ queryKey: ["gst-compliance"] })
+      toast.success("E-way bill cancelled", { description: "Cancellation audit was recorded in GST compliance.", id: toastId })
+    } catch (error) {
+      toast.error("E-way cancellation failed", { description: error instanceof Error ? error.message : "Please try again.", id: toastId })
+    }
+  }
+
   if (type === "einvoice") {
     return (
       <div className="space-y-5">
@@ -1282,7 +1437,10 @@ function SalesDocumentTab({ form, session, setForm, softwareSettings, transports
             <span>E-invoice status</span>
             <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", einvoiceStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{einvoiceStatus}</Badge>
           </div>
-          <Button className="h-9 rounded-md" type="button" onClick={() => void generateEinvoice()}><Send className="size-4" />Generate</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="h-9 rounded-md" type="button" onClick={() => void generateEinvoice()}><Send className="size-4" />Generate</Button>
+            <Button className="h-9 rounded-md" type="button" variant="outline" disabled={!form.irn?.trim()} onClick={() => void cancelEinvoice()}><X className="size-4" />Cancel</Button>
+          </div>
         </div>
         <Field label="IRN" value={form.irn ?? ""} onChange={(irn) => setForm((current) => ({ ...current, irn }))} />
         <div className="grid gap-5 lg:grid-cols-2">
@@ -1301,7 +1459,10 @@ function SalesDocumentTab({ form, session, setForm, softwareSettings, transports
           <span>E-way status</span>
           <Badge variant="outline" className={cn("h-6 rounded-md px-2 text-[11px]", ewayStatus === "Generated" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700")}>{ewayStatus}</Badge>
         </div>
-        <Button className="h-9 rounded-md" type="button" onClick={() => void generateEway()}><Send className="size-4" />Generate</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button className="h-9 rounded-md" type="button" onClick={() => void generateEway()}><Send className="size-4" />Generate</Button>
+          <Button className="h-9 rounded-md" type="button" variant="outline" disabled={!form.eway_bill_no?.trim()} onClick={() => void cancelEway()}><X className="size-4" />Cancel</Button>
+        </div>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Field label="E-way bill no" value={form.eway_bill_no ?? ""} onChange={(eway_bill_no) => setForm((current) => ({ ...current, eway_bill_no }))} />
@@ -1824,17 +1985,25 @@ function Field({ centeredLabel = false, compact = false, decimalScale, label, nu
   )
 }
 
-function SelectField({ label, onChange, options, value }: { label: string; onChange(value: string): void; options: ReadonlyArray<{ value: string; label: string }>; value: string }) {
+function LookupSelectField({ createLabel, label, onChange, onCreate, options, value }: { createLabel?: string; label: string; onChange(value: string): void; onCreate?(query: string): Promise<void>; options: ReadonlyArray<SalesTypeOption>; value: string }) {
+  const selectedOption = options.find((option) => option.value === value)
+  const selectedLabel = selectedOption?.label ?? ""
+  const lookupOptions = options.map((option) => ({ id: option.value, label: option.label, code: option.value, record: lookupRecord(option.value, option.label) }))
+
   return (
-    <div className="grid gap-2">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-md"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
+    <MasterAutocompleteLookup
+      label={label}
+      options={lookupOptions}
+      placeholder=""
+      selectedId={value}
+      selectedLabel={selectedLabel}
+      createLabel={createLabel}
+      onPick={(option) => onChange(option.id)}
+      onTextChange={() => undefined}
+      onCreate={onCreate ? async (query) => {
+        await onCreate(query)
+      } : undefined}
+    />
   )
 }
 
@@ -2371,6 +2540,20 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
   return <th className={cn("border-b border-border/70 px-4 py-3.5 text-left font-medium text-foreground", className)}>{children}</th>
 }
 
+function EntryViewModeSelect({ onChange, value }: { onChange(value: EntryListViewMode): void; value: EntryListViewMode }) {
+  return (
+    <Select value={value} onValueChange={(nextValue) => onChange(nextValue === "month" ? "month" : "day")}>
+      <SelectTrigger className="h-8 min-w-28 rounded-md border-border/80 bg-background text-sm shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" className="rounded-md">
+        <SelectItem value="day">Day view</SelectItem>
+        <SelectItem value="month">Month view</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
 function searchSales(entries: SalesEntry[], searchValue: string) {
   const term = searchValue.trim().toLowerCase()
   if (!term) return entries
@@ -2394,6 +2577,46 @@ function isActive(entry: SalesEntry) {
 
 function totalSalesQuantity(entry: SalesEntry) {
   return entry.items.reduce((total, item) => total + Number(item.quantity || 0), 0)
+}
+
+function summarizeSalesByMonth(entries: SalesEntry[]): MonthlySalesSummary[] {
+  const grouped = new Map<string, MonthlySalesSummary>()
+  for (const entry of entries) {
+    const month = monthKey(entry.invoice_date)
+    const existing = grouped.get(month) ?? { month, entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 }
+    existing.entryCount += 1
+    existing.totalQty += totalSalesQuantity(entry)
+    existing.taxableTotal += Number(entry.taxable_total || 0)
+    existing.gstTotal += Number(entry.tax_total || 0)
+    existing.grandTotal += Number(entry.grand_total || 0)
+    grouped.set(month, existing)
+  }
+  return [...grouped.values()].sort((left, right) => right.month.localeCompare(left.month))
+}
+
+function totalMonthlySales(rows: MonthlySalesSummary[]): MonthlySalesSummary {
+  return rows.reduce(
+    (total, row) => ({
+      month: "total",
+      entryCount: total.entryCount + row.entryCount,
+      totalQty: total.totalQty + row.totalQty,
+      taxableTotal: total.taxableTotal + row.taxableTotal,
+      gstTotal: total.gstTotal + row.gstTotal,
+      grandTotal: total.grandTotal + row.grandTotal,
+    }),
+    { month: "total", entryCount: 0, totalQty: 0, taxableTotal: 0, gstTotal: 0, grandTotal: 0 },
+  )
+}
+
+function monthKey(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return "Not set"
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function formatMonth(value: string) {
+  if (value === "Not set") return value
+  return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`))
 }
 
 function formatDate(value?: string | null) {

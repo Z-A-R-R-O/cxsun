@@ -51,5 +51,7 @@
 - [x] Split the super-admin ZETRO base screen into focused pages for Base, Providers, Knowledge, Agents, Queries, and Updates.
 - [x] Fix ZETRO fetch/learn flow errors by restoring backend startup, bounding tenant provisioning, and surfacing failed Learn/API payloads.
 - [x] Expand approved read-only tenant query tools for customer balances, supplier balances, sales bill details, and purchase bill details.
+- [x] Add a database-backed ZETRO Query Registry for approved tools, aliases, mappings, and business-query usage logs.
+- [x] Add super-admin mapping candidates from recent ZETRO chat logs.
 - [ ] Verify with platform FAQ prompts after docs are indexed.
 - [x] Verify a live provider response through the saved OpenRouter connection.

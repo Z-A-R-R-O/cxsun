@@ -8,7 +8,9 @@ import { MailRepository } from '../../mail/mail.repository.js'
 import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
 import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../shared/entry-document-pdf-download.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
+import { EntryPostingControlService } from '../shared/entry-posting-control.service.js'
 import { PaymentEntryController } from './payment-entry.controller.js'
 import { PaymentEntryRepository } from './payment-entry.repository.js'
 import { PaymentEntryService } from './payment-entry.service.js'
@@ -22,10 +24,12 @@ import { PaymentEntryService } from './payment-entry.service.js'
     MasterQueueService,
     MailRepository,
     EntryDocumentMailService,
+    EntryDocumentPdfDownloadService,
     PrintHtmlPdfService,
     DocumentNumberRepository,
     AccountsEngineRepository,
     AccountsEntryPostingService,
+    EntryPostingControlService,
     PaymentEntryRepository,
     PaymentEntryService,
   ],

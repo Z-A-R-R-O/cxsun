@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type Ref, type SetStateAction } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Mail, MessageCircle, Paperclip, Pencil, Plus, Printer, RefreshCw, RotateCcw, Save, Send, Settings2, Tag, Trash2, UserRound, X } from "lucide-react"
 import { Button } from "src/components/ui/button"
 import { Input } from "src/components/ui/input"
 import { Label } from "src/components/ui/label"
@@ -34,8 +34,12 @@ import { listMasterDataRecords } from "src/features/master-data/infrastructure/m
 import { nextDocumentNumberSetting } from "src/features/settings/document-settings-client"
 import { useCompanySoftwareSettings } from "src/features/settings/use-company-software-settings"
 import { filterStockContactLookupOptions, stockContactTypeId } from "src/features/stock/contact-role-filter"
+import { listSalesEntries, type SalesEntry } from "src/features/sales/sales-client"
 import {
   addReceiptComment,
+  createReceiptCorrection,
+  createReceiptReversal,
+  downloadReceiptPdf,
   destroyReceiptEntry,
   emptyReceiptAllocation,
   emptyReceiptEntry,
@@ -52,7 +56,9 @@ import {
 
 type ReceiptView = { mode: "list" } | { mode: "show"; entry: ReceiptEntry } | { mode: "upsert"; entry: ReceiptEntry | null }
 type ReceiptColumnId = "amount" | "date" | "ledger" | "mode" | "party" | "receipt" | "status" | "unallocated" | "updated"
-type ReceiptToolId = "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type ReceiptToolId = "downloadPdf" | "email" | "assign" | "attachments" | "tags" | "whatsapp"
+type EntryListViewMode = "day" | "month"
+type MonthlyReceiptSummary = { month: string; entryCount: number; amount: number; tdsAmount: number; discountAmount: number; roundOff: number; netAmount: number; allocatedAmount: number; unallocatedAmount: number }
 
 const receiptModeOptions = [
   { label: "Cash", value: "cash" },
@@ -98,6 +104,7 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
   const [searchValue, setSearchValue] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [visibleColumns, setVisibleColumns] = useState(defaultReceiptColumnVisibility)
+  const [listViewMode, setListViewMode] = useState<EntryListViewMode>("day")
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(100)
   const queryKey = ["receipt-entries", session.selectedTenant.slug]
@@ -106,11 +113,17 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
   const destroyMutation = useMutation({ mutationFn: (entry: ReceiptEntry) => destroyReceiptEntry(session, entry) })
   const restoreMutation = useMutation({ mutationFn: (entry: ReceiptEntry) => restoreReceiptEntry(session, entry) })
   const commentMutation = useMutation({ mutationFn: ({ entry, body }: { entry: ReceiptEntry; body: string }) => addReceiptComment(session, entry, body) })
+  const correctionMutation = useMutation({ mutationFn: (entry: ReceiptEntry) => createReceiptCorrection(session, entry) })
   const toolMutation = useMutation({ mutationFn: ({ entry, printHtml, tool }: { entry: ReceiptEntry; printHtml?: string; tool: string }) => runReceiptTool(session, entry, tool, printHtml) })
+  const reversalMutation = useMutation({ mutationFn: (entry: ReceiptEntry) => createReceiptReversal(session, entry) })
   const entries = entriesQuery.data ?? []
   const filteredEntries = useMemo(() => filterReceipts(searchReceipts(entries, searchValue), statusFilter).sort((left, right) => left.receipt_no.localeCompare(right.receipt_no)), [entries, searchValue, statusFilter])
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage))
+  const monthlyEntries = useMemo(() => summarizeReceiptsByMonth(filteredEntries), [filteredEntries])
+  const monthlyTotal = useMemo(() => totalMonthlyReceipts(monthlyEntries), [monthlyEntries])
+  const activeRowCount = listViewMode === "month" ? monthlyEntries.length : filteredEntries.length
+  const totalPages = Math.max(1, Math.ceil(activeRowCount / rowsPerPage))
   const pageEntries = filteredEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+  const pageMonthlyEntries = monthlyEntries.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
 
   useEffect(() => {
     if (entriesQuery.error) toast.error("Receipt load failed", { description: entriesQuery.error instanceof Error ? entriesQuery.error.message : "Unable to load receipt entries." })
@@ -173,11 +186,28 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
           await refresh()
           setView({ mode: "show", entry: updated })
         }}
+        onCorrection={async (entryValue) => {
+          const correction = await correctionMutation.mutateAsync(entryValue)
+          toast.success("Correction draft created", { description: correction?.receipt_no ?? entryValue.receipt_no })
+          await refresh()
+          if (correction) setView({ mode: "show", entry: correction })
+        }}
         onDestroy={() => void destroy(entry)}
+        onDownloadPdf={async (entryValue) => {
+          await downloadReceiptPdf(session, entryValue, capturePrintDocument(".receipt-print-page"))
+          toast.success("PDF downloaded", { description: entryValue.receipt_no })
+        }}
         onEdit={() => setView({ mode: "upsert", entry })}
+        onNew={openNewEntry}
         onNext={nextEntry ? () => setView({ mode: "show", entry: nextEntry }) : undefined}
         onPrevious={previousEntry ? () => setView({ mode: "show", entry: previousEntry }) : undefined}
         onRestore={() => void restore(entry)}
+        onReversal={async (entryValue) => {
+          const reversal = await reversalMutation.mutateAsync(entryValue)
+          toast.success("Reversal voucher created", { description: reversal?.receipt_no ?? entryValue.receipt_no })
+          await refresh()
+          if (reversal) setView({ mode: "show", entry: reversal })
+        }}
         onTool={async (entryValue, tool) => {
           const isEmail = tool.startsWith("Send to Email:")
           const updated = await toolMutation.mutateAsync({ entry: entryValue, printHtml: isEmail ? capturePrintDocument(".receipt-print-page") : undefined, tool })
@@ -194,7 +224,12 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
       title="Receipt"
       description="Track customer receipts and sales allocations."
       technicalName="page.entries.receipt.list"
-      action={<Button onClick={openNewEntry} type="button" className="h-9 rounded-xl"><Plus className="size-4" />New Receipt</Button>}
+      action={
+        <div className="flex items-center gap-2">
+          <Button disabled={entriesQuery.isFetching} onClick={() => void entriesQuery.refetch()} type="button" variant="outline" className="h-9 rounded-md"><RefreshCw className={cn("size-4", entriesQuery.isFetching && "animate-spin")} />Refresh</Button>
+          <Button onClick={openNewEntry} type="button" className="h-9 rounded-md"><Plus className="size-4" />New Receipt</Button>
+        </div>
+      }
     >
       <MasterListToolbarCard
         columns={receiptColumnCatalog.map((column) => ({ id: column.id, label: column.label, checked: visibleColumns[column.id], disabled: column.id === "receipt", onCheckedChange: (checked) => setVisibleColumns((current) => ({ ...current, [column.id]: checked })) }))}
@@ -211,9 +246,63 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
           setSearchValue(value)
           setCurrentPage(1)
         }}
+        toolbarAction={
+          <EntryViewModeSelect
+            value={listViewMode}
+            onChange={(value) => {
+              setListViewMode(value)
+              setCurrentPage(1)
+            }}
+          />
+        }
       />
       <MasterListTableCard className="rounded-md">
         <div className="overflow-x-auto">
+          {listViewMode === "month" ? (
+          <table className="w-full min-w-[1040px] border-collapse text-sm">
+            <thead className="bg-muted/55">
+              <tr>
+                <ListHeader>Month</ListHeader>
+                <ListHeader className="text-center">Receipts</ListHeader>
+                <ListHeader className="text-right">Amount</ListHeader>
+                <ListHeader className="text-right">TDS</ListHeader>
+                <ListHeader className="text-right">Discount</ListHeader>
+                <ListHeader className="text-right">Round Off</ListHeader>
+                <ListHeader className="text-right">Net Amount</ListHeader>
+                <ListHeader className="text-right">Allocated</ListHeader>
+                <ListHeader className="text-right">Unallocated</ListHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {pageMonthlyEntries.map((row) => (
+                <tr key={row.month} className="border-b border-border/60 last:border-b-0">
+                  <td className="px-4 py-2.5 font-semibold">{formatMonth(row.month)}</td>
+                  <td className="px-4 py-2.5 text-center">{row.entryCount}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.amount)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.tdsAmount)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.discountAmount)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.roundOff)}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold">{formatMoney(row.netAmount)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.allocatedAmount)}</td>
+                  <td className="px-4 py-2.5 text-right">{formatMoney(row.unallocatedAmount)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-border/80 bg-muted/40 font-semibold">
+              <tr>
+                <td className="px-4 py-2.5">Total</td>
+                <td className="px-4 py-2.5 text-center">{monthlyTotal.entryCount}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.amount)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.tdsAmount)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.discountAmount)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.roundOff)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.netAmount)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.allocatedAmount)}</td>
+                <td className="px-4 py-2.5 text-right">{formatMoney(monthlyTotal.unallocatedAmount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          ) : (
           <table className="w-full min-w-[1040px] border-collapse text-sm">
             <thead className="bg-muted/55">
               <tr>
@@ -248,15 +337,16 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
               ))}
             </tbody>
           </table>
+          )}
         </div>
-        {pageEntries.length === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading receipts." : "No receipts found."}</MasterListEmptyState> : null}
+        {(listViewMode === "month" ? pageMonthlyEntries.length : pageEntries.length) === 0 ? <MasterListEmptyState>{entriesQuery.isFetching ? "Loading receipts." : "No receipts found."}</MasterListEmptyState> : null}
       </MasterListTableCard>
       <MasterListPaginationCard
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: filteredEntries.length })}
+        showingLabel={buildMasterListShowingLabel({ page: currentPage, pageSize: rowsPerPage, totalCount: activeRowCount })}
         singularLabel="receipt"
-        totalCount={filteredEntries.length}
+        totalCount={activeRowCount}
         totalPages={totalPages}
         onNextPage={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
         onPageChange={setCurrentPage}
@@ -270,16 +360,20 @@ export function ReceiptPage({ initialEntryUuid, session }: { initialEntryUuid?: 
   )
 }
 
-function ReceiptShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdit, onNext, onPrevious, onRestore, onTool, session }: {
+function ReceiptShowPage({ entry, isWorking, onBack, onComment, onCorrection, onDestroy, onDownloadPdf, onEdit, onNew, onNext, onPrevious, onRestore, onReversal, onTool, session }: {
   entry: ReceiptEntry
   isWorking: boolean
   onBack(): void
   onComment(entry: ReceiptEntry, body: string): Promise<void>
+  onCorrection(entry: ReceiptEntry): Promise<void>
   onDestroy(): void
+  onDownloadPdf(entry: ReceiptEntry): Promise<void>
   onEdit(): void
+  onNew(): void
   onNext?(): void
   onPrevious?(): void
   onRestore(): void
+  onReversal(entry: ReceiptEntry): Promise<void>
   onTool(entry: ReceiptEntry, tool: string): Promise<void>
   session: AuthSession
 }) {
@@ -297,6 +391,7 @@ function ReceiptShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdi
   const company = (companyQuery.data ?? []).find((item) => item.isPrimary) ?? companyQuery.data?.[0] ?? null
   const [softwareSettings] = useCompanySoftwareSettings(session)
   const entryTools: Array<{ icon: typeof Mail; id: ReceiptToolId; label: string }> = [
+    { icon: Download, id: "downloadPdf", label: "Download PDF" },
     { icon: Mail, id: "email", label: "Send to Email" },
     { icon: UserRound, id: "assign", label: "Assign" },
     { icon: Paperclip, id: "attachments", label: "Attachments" },
@@ -324,9 +419,12 @@ function ReceiptShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdi
   return (
     <main className="theme-shell mx-auto min-h-screen w-[94%] pb-8 pt-8 text-black sm:w-[92%] lg:w-[90%] print:fixed print:inset-0 print:z-[9999] print:min-h-0 print:w-full print:overflow-visible print:bg-white print:p-0 receipt-print-page">
       <div className="mx-auto mb-3 grid w-full gap-2 print:hidden">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.party_name}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{entry.receipt_no}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold tracking-normal text-foreground">{entry.party_name}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{entry.receipt_no}</p>
+          </div>
+          <Button type="button" className="h-9 shrink-0 rounded-md" onClick={onNew}><Plus className="size-4" />New</Button>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -337,6 +435,8 @@ function ReceiptShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdi
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button className="rounded-xl" onClick={() => window.print()} type="button"><Printer className="size-4" />Print</Button>
             <Button type="button" variant="outline" className="rounded-xl" onClick={onEdit}><Pencil className="size-4" />Edit</Button>
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onCorrection(entry)}><Pencil className="size-4" />Correction</Button> : null}
+            {entry.status === "posted" ? <Button type="button" variant="outline" className="rounded-xl" onClick={() => void onReversal(entry)}><RotateCcw className="size-4" />Reversal</Button> : null}
             {isActive(entry) ? <Button onClick={onDestroy} type="button" variant="destructive" className="rounded-xl"><Trash2 className="size-4" />Suspend</Button> : <Button onClick={onRestore} type="button" variant="outline" className="rounded-xl"><RotateCcw className="size-4" />Restore</Button>}
           </div>
         </div>
@@ -377,7 +477,15 @@ function ReceiptShowPage({ entry, isWorking, onBack, onComment, onDestroy, onEdi
           <CardContent className="p-0 [&:last-child]:pb-0">
             {entryTools.map((tool) => (
               <div key={tool.id} className="border-b border-border/70 last:border-b-0">
-                <button disabled={isWorking} onClick={() => setOpenTool((current) => current === tool.id ? null : tool.id)} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={isWorking} onClick={() => {
+                  if (tool.id === "downloadPdf") {
+                    void onDownloadPdf(entry)
+                      .then(() => recordToolActivity(`Downloaded PDF ${entry.receipt_no}`))
+                      .catch((error) => toast.error("PDF download failed", { description: error instanceof Error ? error.message : "Unable to generate the PDF." }))
+                    return
+                  }
+                  setOpenTool((current) => current === tool.id ? null : tool.id)
+                }} type="button" className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-60">
                   <tool.icon className="size-4" />
                   <span className="flex-1">{tool.label}</span>
                   <Plus className={cn("size-4 transition-transform", openTool === tool.id ? "rotate-45" : "")} />
@@ -426,7 +534,7 @@ function ReceiptUpsertPage({ entry, isSaving, onBack, onSubmit, session }: {
 
   const tabs: AnimatedTab[] = [
     { value: "details", label: "Details", content: <ReceiptDetailsTab contacts={customerContacts} form={draft} ledgers={ledgers} onCreateContact={setContactCreateInitialName} session={session} setForm={setDraft} /> },
-    { value: "allocations", label: "Allocations", content: <ReceiptAllocationsTab form={draft} setForm={setDraft} /> },
+    { value: "allocations", label: "Allocations", content: <ReceiptAllocationsTab form={draft} session={session} setForm={setDraft} /> },
   ]
 
   return (
@@ -518,13 +626,30 @@ function ReceiptDetailsTab({ contacts, form, ledgers, onCreateContact, session, 
   )
 }
 
-function ReceiptAllocationsTab({ form, setForm }: { form: ReceiptEntryInput; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
-  const allocations = form.allocations.length ? form.allocations : [emptyReceiptAllocation()]
+function ReceiptAllocationsTab({ form, session, setForm }: { form: ReceiptEntryInput; session: AuthSession; setForm: Dispatch<SetStateAction<ReceiptEntryInput>> }) {
+  const salesQuery = useQuery({ queryKey: ["receipt-open-sales", session.selectedTenant.slug], queryFn: () => listSalesEntries(session) })
+  const allocations = form.allocations?.length ? form.allocations : [emptyReceiptAllocation()]
+  const openInvoices = useMemo(() => openSalesInvoiceOptions(salesQuery.data ?? [], allocations), [allocations, salesQuery.data])
   return (
     <div className="space-y-3">
       {allocations.map((allocation, index) => (
         <div key={index} className="grid gap-3 rounded-md border border-border/70 p-3 md:grid-cols-4">
-          <Input value={allocation.document_no} placeholder="Sales no" onChange={(event) => setAllocation(setForm, index, { document_no: event.target.value })} />
+          <OpenDocumentLookup
+            label="Sales invoice"
+            options={openInvoices}
+            placeholder="Search open invoice"
+            selectedLabel={allocation.document_no}
+            onPick={(option) => setAllocation(setForm, index, {
+              allocated_amount: option.balance,
+              document_date: option.date,
+              document_id: option.id,
+              document_no: option.documentNo,
+              document_total: option.total,
+              document_type: "sales",
+              previous_balance: option.balance,
+            })}
+            onTextChange={(value) => setAllocation(setForm, index, { document_id: null, document_no: value })}
+          />
           <Input type="date" value={allocation.document_date ?? ""} onChange={(event) => setAllocation(setForm, index, { document_date: event.target.value })} />
           <DecimalInput value={String(allocation.previous_balance ?? 0)} placeholder="Balance" onChange={(value) => setAllocation(setForm, index, { previous_balance: parseDecimalInput(value) })} />
           <DecimalInput value={String(allocation.allocated_amount ?? 0)} placeholder="Allocated" onChange={(value) => setAllocation(setForm, index, { allocated_amount: parseDecimalInput(value) })} />
@@ -665,6 +790,66 @@ function ReceiptContactCreateDialog({ contacts, initialName, onClose, onCreated,
 
 function contactToReceiptLookupOption(contact: ContactRecord): ReceiptLookupOption {
   return { id: String(contact.uuid ?? contact.id), label: [contact.code, contact.name].filter(Boolean).join(" - ") || contact.name, code: contact.code, record: contact as unknown as MasterDataRecord }
+}
+
+interface OpenDocumentOption {
+  balance: number
+  date: string
+  documentNo: string
+  id: string
+  label: string
+  partyName: string
+  total: number
+}
+
+function OpenDocumentLookup({ label, onPick, onTextChange, options, placeholder, selectedLabel }: { label: string; onPick(option: OpenDocumentOption): void; onTextChange(value: string): void; options: OpenDocumentOption[]; placeholder: string; selectedLabel: string }) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState(selectedLabel)
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredOptions = options.filter((option) => [option.documentNo, option.partyName, option.label, option.date].some((value) => value.toLowerCase().includes(normalizedQuery)))
+  const exactOption = options.find((option) => option.documentNo.toLowerCase() === normalizedQuery)
+
+  useEffect(() => {
+    if (!isOpen) setQuery(selectedLabel)
+  }, [isOpen, selectedLabel])
+
+  function selectOption(option: OpenDocumentOption) {
+    setQuery(option.documentNo)
+    onPick(option)
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="relative z-10 grid w-full gap-2 focus-within:z-[90]">
+      <Label className="sr-only">{label}</Label>
+      <Input
+        role="combobox"
+        className="h-10 w-full rounded-md bg-background"
+        placeholder={placeholder}
+        value={query}
+        onBlur={() => { if (exactOption) selectOption(exactOption); else window.setTimeout(() => { setIsOpen(false); setQuery(selectedLabel) }, 120) }}
+        onChange={(event) => { setQuery(event.target.value); setIsOpen(true); setActiveIndex(0); onTextChange(event.target.value) }}
+        onFocus={() => setIsOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current + 1) % filteredOptions.length : 0) }
+          if (event.key === "ArrowUp") { event.preventDefault(); setIsOpen(true); setActiveIndex((current) => filteredOptions.length ? (current - 1 + filteredOptions.length) % filteredOptions.length : 0) }
+          if (event.key === "Enter") { event.preventDefault(); if (filteredOptions[activeIndex]) selectOption(filteredOptions[activeIndex]) }
+          if (event.key === "Escape") { event.preventDefault(); setIsOpen(false); setQuery(selectedLabel) }
+        }}
+      />
+      {isOpen && filteredOptions.length ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[100] max-h-64 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-2xl" onMouseDown={(event) => event.preventDefault()}>
+          {filteredOptions.map((option, index) => (
+            <button key={option.id} type="button" className={activeIndex === index ? "grid w-full gap-0.5 rounded-md bg-muted px-3 py-2 text-left text-sm" : "grid w-full gap-0.5 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"} onMouseDown={(event) => { event.preventDefault(); selectOption(option) }}>
+              <span className="flex items-center justify-between gap-3 font-medium"><span className="truncate">{option.documentNo}</span><span className="shrink-0 text-xs text-muted-foreground">{formatMoney(option.balance)}</span></span>
+              <span className="truncate text-xs text-muted-foreground">{option.partyName} • {formatDate(option.date)}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function MasterAutocompleteLookup({ createLabel, inputRef, label, onCreate, onPick, onTextChange, options, placeholder, selectedId, selectedLabel }: { createLabel?: string; inputRef?: Ref<HTMLInputElement>; label: string; onCreate?(query: string): void; onPick(option: ReceiptLookupOption): void; onTextChange(value: string): void; options: ReceiptLookupOption[]; placeholder: string; selectedId: string | null; selectedLabel: string }) {
@@ -841,6 +1026,20 @@ function ListHeader({ children, className }: { children: ReactNode; className?: 
   return <th className={cn("border-b border-border/70 px-4 py-2.5 text-left text-sm font-medium text-foreground", className)}>{children}</th>
 }
 
+function EntryViewModeSelect({ onChange, value }: { onChange(value: EntryListViewMode): void; value: EntryListViewMode }) {
+  return (
+    <Select value={value} onValueChange={(nextValue) => onChange(nextValue === "month" ? "month" : "day")}>
+      <SelectTrigger className="h-8 min-w-28 rounded-md border-border/80 bg-background text-sm shadow-none">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="end" className="rounded-md">
+        <SelectItem value="day">Day view</SelectItem>
+        <SelectItem value="month">Month view</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
 function isBankTransferMode(mode: string) {
   return mode !== "cash"
 }
@@ -858,6 +1057,23 @@ function lookupName(option: ReceiptLookupOption) {
   return name || option.label
 }
 
+function openSalesInvoiceOptions(entries: SalesEntry[], allocations: ReceiptAllocation[]): OpenDocumentOption[] {
+  const allocatedByDocument = new Map<string, number>()
+  for (const allocation of allocations) {
+    const key = String(allocation.document_id || allocation.document_no || "").trim()
+    if (!key) continue
+    allocatedByDocument.set(key, (allocatedByDocument.get(key) ?? 0) + Number(allocation.allocated_amount || 0))
+  }
+  return entries
+    .filter((entry) => entry.status === "posted" && Number(entry.balance_amount || 0) > 0)
+    .map((entry) => {
+      const allocated = (allocatedByDocument.get(String(entry.id)) ?? 0) + (allocatedByDocument.get(entry.uuid) ?? 0) + (allocatedByDocument.get(entry.invoice_no) ?? 0)
+      const balance = Math.max(0, Number(entry.balance_amount || 0) - allocated)
+      return { balance, date: entry.invoice_date, documentNo: entry.invoice_no, id: String(entry.id), label: `${entry.invoice_no} ${entry.customer_name}`, partyName: entry.customer_name, total: Number(entry.grand_total || 0) }
+    })
+    .filter((entry) => entry.balance > 0)
+}
+
 function modeLabel(value: string) {
   return receiptModeOptions.find((option) => option.value === value)?.label ?? value
 }
@@ -870,6 +1086,52 @@ function searchReceipts(entries: ReceiptEntry[], searchValue: string) {
 
 function filterReceipts(entries: ReceiptEntry[], statusFilter: string) {
   return statusFilter === "all" ? entries : entries.filter((entry) => entry.status === statusFilter)
+}
+
+function summarizeReceiptsByMonth(entries: ReceiptEntry[]): MonthlyReceiptSummary[] {
+  const grouped = new Map<string, MonthlyReceiptSummary>()
+  for (const entry of entries) {
+    const month = monthKey(entry.receipt_date)
+    const existing = grouped.get(month) ?? { month, entryCount: 0, amount: 0, tdsAmount: 0, discountAmount: 0, roundOff: 0, netAmount: 0, allocatedAmount: 0, unallocatedAmount: 0 }
+    existing.entryCount += 1
+    existing.amount += Number(entry.amount || 0)
+    existing.tdsAmount += Number(entry.tds_amount || 0)
+    existing.discountAmount += Number(entry.discount_amount || 0)
+    existing.roundOff += Number(entry.round_off || 0)
+    existing.netAmount += Number(entry.net_amount || 0)
+    existing.allocatedAmount += Number(entry.allocated_amount || 0)
+    existing.unallocatedAmount += Number(entry.unallocated_amount || 0)
+    grouped.set(month, existing)
+  }
+  return [...grouped.values()].sort((left, right) => right.month.localeCompare(left.month))
+}
+
+function totalMonthlyReceipts(rows: MonthlyReceiptSummary[]): MonthlyReceiptSummary {
+  return rows.reduce(
+    (total, row) => ({
+      month: "total",
+      entryCount: total.entryCount + row.entryCount,
+      amount: total.amount + row.amount,
+      tdsAmount: total.tdsAmount + row.tdsAmount,
+      discountAmount: total.discountAmount + row.discountAmount,
+      roundOff: total.roundOff + row.roundOff,
+      netAmount: total.netAmount + row.netAmount,
+      allocatedAmount: total.allocatedAmount + row.allocatedAmount,
+      unallocatedAmount: total.unallocatedAmount + row.unallocatedAmount,
+    }),
+    { month: "total", entryCount: 0, amount: 0, tdsAmount: 0, discountAmount: 0, roundOff: 0, netAmount: 0, allocatedAmount: 0, unallocatedAmount: 0 },
+  )
+}
+
+function monthKey(value?: string | null) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return "Not set"
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+function formatMonth(value: string) {
+  if (value === "Not set") return value
+  return new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric" }).format(new Date(`${value}-01T00:00:00`))
 }
 
 function formatDate(value?: string | null) {

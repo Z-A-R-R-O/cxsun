@@ -61,11 +61,15 @@ export class GstComplianceService {
     let httpStatus: number | null = null
     let providerStatus: string | null = null
     let success = false
+    let errorCode: string | null = null
     let errorMessage: string | null = null
     let authToken = ''
-    const payload = operation === 'generateIrn' ? await this.withSellerDetails(context, settings, input.payload) : input.payload
+    let payload: unknown = input.payload
 
     try {
+      payload = operation === 'generateIrn' ? await this.withSellerDetails(context, settings, input.payload) : input.payload
+      validateComplianceOperationPayload(operation, payload, input)
+
       if (definition.needsAuth) {
         const token = await this.authToken(headers, settings.companyId, Boolean(input.forceRefreshToken), settings.environment, settings.purpose)
         authToken = token.authToken
@@ -84,6 +88,7 @@ export class GstComplianceService {
       httpStatus = response.httpStatus
       providerStatus = providerStatusFromResponse(providerResponse)
       success = response.ok && !providerErrorMessage(providerResponse)
+      errorCode = providerErrorCode(providerResponse)
       errorMessage = providerErrorMessage(providerResponse)
       if (operation === 'authenticate' && success) {
         const token = await this.compliance.saveToken(context, settings, providerResponse)
@@ -97,7 +102,9 @@ export class GstComplianceService {
     const recordedProviderResponse = redactProviderResponse(providerResponse)
     const operationRecord = await this.compliance.recordOperation(context, {
       endpoint: definition.endpoint,
+      errorCode,
       errorMessage,
+      gatewayStatus: gatewayStatus(providerStatus, httpStatus, success),
       httpStatus,
       method: definition.method,
       operation,
@@ -111,6 +118,7 @@ export class GstComplianceService {
         payload: payload ?? null,
         query: { ...whiteBooksRequest(operation, input.query, settings.gstin).query, email: settings.email },
       },
+      retryState: retryState(operation, success, httpStatus, errorMessage),
       settings,
       source,
       success,
@@ -140,6 +148,10 @@ export class GstComplianceService {
       settings,
       source: { documentDate: null, documentNo: null, sourceId: null, sourceType: null, sourceUuid: null },
       success: response.ok && Boolean(token.authToken),
+      gatewayStatus: gatewayStatus(providerStatusFromResponse(response.response), response.httpStatus, response.ok && Boolean(token.authToken)),
+      errorCode: providerErrorCode(response.response),
+      errorMessage: providerErrorMessage(response.response),
+      retryState: retryState('authenticate', response.ok && Boolean(token.authToken), response.httpStatus, providerErrorMessage(response.response)),
     })
     return token
   }
@@ -210,6 +222,9 @@ function whiteBooksRequest(operation: GstComplianceOperation, queryInput: Record
     query.supplier_gstn = query.supplier_gstn || supplierGstin
     delete query.irn
   }
+  if (operation === 'cancelEwaybill') {
+    query.supplier_gstn = query.supplier_gstn || supplierGstin
+  }
   if (operation === 'getB2cQrCode') {
     const headerKeys = ['sgstin', 'docno', 'docdate', 'totinvval', 'upiid', 'bankaccno', 'bankifsccode', 'accountholdername', 'igstamount', 'cgstamount', 'sgstamount', 'cessamount']
     for (const key of headerKeys) {
@@ -252,6 +267,132 @@ function providerErrorMessage(value: unknown) {
     return errorText(value) ?? 'Provider returned an error.'
   }
   return stringOrNull(record.error) ?? errorDetailsText(record.errorDetails) ?? null
+}
+
+function providerErrorCode(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  return stringOrNull(record.errorCode)
+    ?? stringOrNull(record.ErrorCode)
+    ?? stringOrNull(record.code)
+    ?? errorDetailsCode(record.errorDetails)
+    ?? errorDetailsCode(record.ErrorDetails)
+    ?? providerErrorCode(record.data)
+}
+
+function gatewayStatus(providerStatus: string | null, httpStatus: number | null, success: boolean) {
+  return providerStatus ?? (httpStatus ? String(httpStatus) : success ? 'success' : 'failed')
+}
+
+function retryState(operation: GstComplianceOperation, success: boolean, httpStatus: number | null, errorMessage: string | null) {
+  if (success) return 'none'
+  if (!['authenticate', 'generateIrn', 'generateEwaybillByIrn', 'cancelIrn', 'cancelEwaybill'].includes(operation)) return 'failed'
+  if (httpStatus && (httpStatus === 408 || httpStatus === 429 || httpStatus >= 500)) return 'retryable'
+  return errorMessage && /timeout|temporar|network|fetch|rate/i.test(errorMessage) ? 'retryable' : 'failed'
+}
+
+function validateComplianceOperationPayload(operation: GstComplianceOperation, payload: unknown, input: GstComplianceOperationInput) {
+  if (operation === 'generateIrn') validateEinvoicePayload(payload, input)
+  if (operation === 'generateEwaybillByIrn') validateEwayPayload(payload)
+  if (operation === 'cancelIrn') validateCancelIrnPayload(payload)
+  if (operation === 'cancelEwaybill') validateCancelEwayPayload(payload)
+}
+
+function validateEinvoicePayload(payload: unknown, input: GstComplianceOperationInput) {
+  const record = objectRecord(payload)
+  const document = objectRecord(record.DocDtls)
+  const seller = objectRecord(record.SellerDtls)
+  const buyer = objectRecord(record.BuyerDtls)
+  const values = objectRecord(record.ValDtls)
+  const items = Array.isArray(record.ItemList) ? record.ItemList : []
+  const errors = [
+    !validGstin(seller.Gstin) ? 'Seller GSTIN is required and must be valid.' : '',
+    buyer.Gstin && String(buyer.Gstin).toUpperCase() !== 'URP' && !validGstin(buyer.Gstin) ? 'Buyer GSTIN must be valid.' : '',
+    !validStateCode(seller.Stcd) ? 'Seller state code is required.' : '',
+    buyer.Stcd && !validStateCode(buyer.Stcd) ? 'Buyer state code must be valid.' : '',
+    !stringOrNull(document.No ?? input.documentNo) ? 'Invoice number is required.' : '',
+    !validInvoiceDate(document.Dt ?? input.documentDate) ? 'Invoice date is required and cannot be in the future.' : '',
+    !items.length ? 'At least one invoice item is required.' : '',
+    ...items.flatMap((item, index) => validateEinvoiceItem(item, index)),
+    !positiveNumber(values.AssVal ?? record.AssVal) ? 'Taxable value must be greater than zero.' : '',
+    !positiveNumber(values.TotInvVal ?? record.TotInvVal) ? 'Invoice total must be greater than zero.' : '',
+  ].filter(Boolean)
+  if (errors.length) throw new BadRequestException(errors.join(' '))
+}
+
+function validateEinvoiceItem(itemInput: unknown, index: number) {
+  const item = objectRecord(itemInput)
+  return [
+    !stringOrNull(item.HsnCd) ? `Item ${index + 1} HSN is required.` : '',
+    !positiveNumber(item.AssAmt ?? item.TotAmt) ? `Item ${index + 1} taxable amount must be greater than zero.` : '',
+  ].filter(Boolean)
+}
+
+function validateEwayPayload(payload: unknown) {
+  const record = objectRecord(payload)
+  const errors = [
+    !stringOrNull(record.Irn) ? 'IRN is required for e-way bill generation.' : '',
+    !positiveNumber(record.Distance) ? 'Distance must be greater than zero.' : '',
+    !stringOrNull(record.TransMode) ? 'Transport mode is required.' : '',
+    !stringOrNull(record.VehNo) && !stringOrNull(record.TransDocNo) ? 'Vehicle number or transport document number is required.' : '',
+    !stringOrNull(record.VehType) && stringOrNull(record.VehNo) ? 'Vehicle type is required when vehicle number is entered.' : '',
+  ].filter(Boolean)
+  if (errors.length) throw new BadRequestException(errors.join(' '))
+}
+
+function validateCancelIrnPayload(payload: unknown) {
+  const record = objectRecord(payload)
+  const errors = [
+    !stringOrNull(record.Irn) ? 'IRN is required for e-invoice cancellation.' : '',
+    !stringOrNull(record.CnlRsn) ? 'Cancellation reason is required.' : '',
+    !stringOrNull(record.CnlRem) ? 'Cancellation remarks are required.' : '',
+  ].filter(Boolean)
+  if (errors.length) throw new BadRequestException(errors.join(' '))
+}
+
+function validateCancelEwayPayload(payload: unknown) {
+  const record = objectRecord(payload)
+  const errors = [
+    !stringOrNull(record.EwbNo ?? record.ewbNo ?? record.ewayBillNo) ? 'E-way bill number is required for cancellation.' : '',
+    !stringOrNull(record.CancelRsnCode ?? record.cancelRsnCode ?? record.CnlRsn) ? 'E-way cancellation reason is required.' : '',
+    !stringOrNull(record.CancelRmrk ?? record.cancelRmrk ?? record.CnlRem) ? 'E-way cancellation remarks are required.' : '',
+  ].filter(Boolean)
+  if (errors.length) throw new BadRequestException(errors.join(' '))
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function validGstin(value: unknown) {
+  const text = stringOrNull(value)?.toUpperCase()
+  return Boolean(text && /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(text))
+}
+
+function validStateCode(value: unknown) {
+  const text = stringOrNull(value)
+  return Boolean(text && /^[0-9]{2}$/.test(text))
+}
+
+function validInvoiceDate(value: unknown) {
+  const text = stringOrNull(value)
+  if (!text) return false
+  const date = parseGstDate(text)
+  return Boolean(date && date.getTime() <= Date.now() + 24 * 60 * 60 * 1000)
+}
+
+function parseGstDate(value: string) {
+  const rawParts = value.includes('/') ? value.split('/') : value.split('-')
+  const parts = rawParts[0]?.length === 4 ? rawParts : [rawParts[2], rawParts[1], rawParts[0]]
+  if (parts.length !== 3) return null
+  const [year, month, day] = parts.map(Number)
+  if (!year || !month || !day) return null
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function positiveNumber(value: unknown) {
+  return Number(value) > 0
 }
 
 function emptyTokenStatus(environment: unknown, purpose: unknown, gstin: unknown) {
@@ -315,4 +456,15 @@ function errorDetailsText(value: unknown): string | null {
     })
     .filter(Boolean)
   return parts.length ? parts.join('; ') : null
+}
+
+function errorDetailsCode(value: unknown): string | null {
+  if (!Array.isArray(value)) return null
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const code = stringOrNull(record.ErrorCode) ?? stringOrNull(record.errorCode) ?? stringOrNull(record.code)
+    if (code) return code
+  }
+  return null
 }

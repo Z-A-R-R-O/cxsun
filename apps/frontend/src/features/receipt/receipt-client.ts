@@ -1,5 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { downloadPrintPdf } from "src/shared/print/download-print-pdf"
 
 export interface ReceiptAllocation {
   id?: number
@@ -117,7 +118,7 @@ export async function upsertReceiptEntry(session: AuthSession, input: ReceiptEnt
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Receipt save failed with status ${response.status}.`)
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Receipt save failed."))
   const result = (await response.json()) as { ok: boolean; entry?: ReceiptEntry; error?: string; warning?: string }
   if (!result.ok || !result.entry) throw new Error(result.error ?? "Receipt save failed.")
   return { ...result.entry, document_number_warning: result.warning }
@@ -129,6 +130,14 @@ export async function destroyReceiptEntry(session: AuthSession, entry: ReceiptEn
 
 export async function restoreReceiptEntry(session: AuthSession, entry: ReceiptEntry) {
   return mutateReceiptEntry(session, entry.uuid, "restore")
+}
+
+export async function createReceiptCorrection(session: AuthSession, entry: ReceiptEntry) {
+  return mutateReceiptEntry(session, entry.uuid, "correction")
+}
+
+export async function createReceiptReversal(session: AuthSession, entry: ReceiptEntry) {
+  return mutateReceiptEntry(session, entry.uuid, "reversal")
 }
 
 export async function addReceiptComment(session: AuthSession, entry: ReceiptEntry, body: string) {
@@ -157,6 +166,10 @@ export async function runReceiptTool(session: AuthSession, entry: ReceiptEntry, 
   return result.entry
 }
 
+export async function downloadReceiptPdf(session: AuthSession, entry: ReceiptEntry, printHtml: string) {
+  await downloadPrintPdf(session, `/api/v1/entries/receipt/${entry.uuid}/pdf`, printHtml, entry.receipt_no)
+}
+
 export async function listReceiptContactLookups(session: AuthSession) {
   const response = await fetch(`${apiBaseUrl}/api/v1/contacts`, { cache: "no-store", headers: authHeaders(session) })
   if (!response.ok) throw new Error(`Contact lookup failed with status ${response.status}.`)
@@ -168,16 +181,26 @@ export async function listReceiptContactLookups(session: AuthSession) {
   })
 }
 
-async function mutateReceiptEntry(session: AuthSession, idOrUuid: string, action: "destroy" | "restore") {
+async function mutateReceiptEntry(session: AuthSession, idOrUuid: string, action: "correction" | "destroy" | "restore" | "reversal") {
   const response = await fetch(`${apiBaseUrl}/api/v1/entries/receipt/${encodeURIComponent(idOrUuid)}/${action}`, {
     body: "{}",
     cache: "no-store",
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Receipt ${action} failed with status ${response.status}.`)
-  const result = (await response.json()) as { ok: boolean; error?: string }
+  if (!response.ok) throw new Error(await responseErrorMessage(response, `Receipt ${action} failed.`))
+  const result = (await response.json()) as { ok: boolean; entry?: ReceiptEntry; error?: string }
   if (!result.ok) throw new Error(result.error ?? `Receipt ${action} failed.`)
+  return result.entry ?? null
+}
+
+async function responseErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string }
+    return payload.error ?? payload.message ?? `${fallback} Status ${response.status}.`
+  } catch {
+    return `${fallback} Status ${response.status}.`
+  }
 }
 
 function readString(value: unknown) {

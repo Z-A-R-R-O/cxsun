@@ -2,13 +2,36 @@
 
 ## Version State
 
-- **Current version:** `1.0.99`
-- **Release tag:** `v-1.0.99`
-- **Changelog label:** `v 1.0.99`
+- **Current version:** `1.0.101`
+- **Release tag:** `v-1.0.101`
+- **Changelog label:** `v 1.0.101`
 
 Historical changelog entries are immutable. A version bump may update this `Version State` block and add a new entry, but it must not rewrite old entry labels.
 
 ---
+
+## v-1.0.101
+
+### [v 1.0.101] 2026-06-13 9:47 pm - entry PDF downloads and receipt payment month views
+
+- Bumped workspace version to 1.0.101
+- Added Download PDF to entry show-page tools for Sales, Purchase, Quotation, Export Sales, Receipt, and Payment.
+- Reused the existing email attachment print HTML renderer for direct backend PDF downloads.
+- Added Receipt day/month switching with monthly totals for amount, TDS, discount, round-off, net, allocated, and unallocated values.
+- Added Payment day/month switching with the same consolidated monthly total layout.
+- Kept month-view pagination, empty states, and total rows aligned with the Sales and Purchase list behavior.
+
+## v-1.0.100
+
+### [v 1.0.100] 2026-06-13 8:43 pm - accounts posting and billing report polish
+
+- Bumped workspace version to 1.0.100
+- Added month/day list switching for Sales and Purchase with consolidated monthly totals.
+- Removed the month-view Balance column and added a bottom Total row for invoice/entry count, quantity, taxable value, GST, and grand total.
+- Added refresh actions across billing entry lists, Cash Book, and Bank Book.
+- Polished Sales, Purchase, Receipt, and Payment show/list actions with consistent New buttons and labels.
+- Reworked Sales Ledger and Purchase Ledger selection to use lookup-style controls, including dynamic Sales Ledger creation.
+- Improved Cash Book and Bank Book ledger lookup display so dropdowns show ledger names cleanly instead of code slugs.
 
 ## v-1.0.99
 

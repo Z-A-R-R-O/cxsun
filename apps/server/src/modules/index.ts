@@ -27,9 +27,11 @@ import { CrmModule } from './crm/index.js'
 import { TallyModule } from './tally/index.js'
 import { FrappeModule } from './frappe/index.js'
 import { TConnectModule } from './tconnect/index.js'
+import { EcommerceModule } from './ecommerce/index.js'
 import { AgentOsModule } from './agent-os/index.js'
 import { AuditorContactCredentialModule } from './auditor/contact-credential/index.js'
 import { AuditorGstFilingModule } from './auditor/gst-filing/index.js'
+import { BlogModule } from './blog/index.js'
 import { SystemUpdateModule } from '../core/system/system-update/system-update.module.js'
 import { QueueManagerModule } from '../core/system/queue-manager/queue-manager.module.js'
 import { DatabaseManagerModule } from '../core/system/database-manager/database-manager.module.js'
@@ -80,9 +82,11 @@ import { AuthGuard } from '../core/guards/auth.guard.js'
     TallyModule,
     FrappeModule,
     TConnectModule,
+    EcommerceModule,
     AgentOsModule,
     AuditorContactCredentialModule,
     AuditorGstFilingModule,
+    BlogModule,
     CompanyModule,
   ],
   guards: [AuthGuard, AuthAnyGuard],

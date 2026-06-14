@@ -31,6 +31,7 @@ export interface AccountLedgerInput {
   uuid?: string
   account_type?: AccountLedgerType
   code?: string | null
+  group_id?: number | null
   name?: string | null
   opening_balance?: number | string | null
   status?: string | null
@@ -222,6 +223,34 @@ export interface AccountSummaryReport {
   totals: { debit_amount: number; credit_amount: number }
 }
 
+export interface AccountingPeriodLock {
+  id: number
+  uuid: string
+  company_id: number | null
+  accounting_year_id: number | null
+  locked_from: string
+  locked_to: string
+  lock_type: string
+  source: string | null
+  reason: string | null
+  is_active: boolean | number
+  created_by: string
+  released_by: string | null
+  released_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AccountingPeriodLockInput {
+  company_id?: number | null
+  accounting_year_id?: number | null
+  locked_from?: string | null
+  locked_to?: string | null
+  lock_type?: string | null
+  source?: string | null
+  reason?: string | null
+}
+
 export function emptyAccountBookEntry(): AccountBookEntryInput {
   return {
     voucher_date: new Date().toISOString().slice(0, 10),
@@ -353,6 +382,41 @@ export async function recalculateAccountReports(session: AuthSession) {
   return result
 }
 
+export async function listAccountingPeriodLocks(session: AuthSession) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/accounts/period-locks`, {
+    cache: "no-store",
+    headers: authHeaders(session),
+  })
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Period lock list failed."))
+  return (await response.json()) as AccountingPeriodLock[]
+}
+
+export async function createAccountingPeriodLock(session: AuthSession, input: AccountingPeriodLockInput) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/accounts/period-locks`, {
+    body: JSON.stringify(input),
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Period lock save failed."))
+  const result = (await response.json()) as { ok: boolean; lock?: AccountingPeriodLock; error?: string }
+  if (!result.ok || !result.lock) throw new Error(result.error ?? "Period lock save failed.")
+  return result.lock
+}
+
+export async function releaseAccountingPeriodLock(session: AuthSession, lock: AccountingPeriodLock) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/accounts/period-locks/${lock.uuid}/release`, {
+    body: "{}",
+    cache: "no-store",
+    headers: { ...authHeaders(session), "Content-Type": "application/json" },
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Period lock release failed."))
+  const result = (await response.json()) as { ok: boolean; lock?: AccountingPeriodLock; error?: string }
+  if (!result.ok || !result.lock) throw new Error(result.error ?? "Period lock release failed.")
+  return result.lock
+}
+
 async function accountVoucherAction(session: AuthSession, voucher: AccountVoucher, action: "post" | "cancel") {
   const response = await fetch(`${apiBaseUrl}/api/v1/accounts/vouchers/${voucher.uuid}/${action}`, {
     body: "{}",
@@ -370,7 +434,7 @@ function accountingYearQuery(accountingYearId?: number | null) {
   return accountingYearId ? `?accounting_year_id=${encodeURIComponent(String(accountingYearId))}` : ""
 }
 
-export async function upsertAccountLedger(session: AuthSession, type: AccountBookType, input: AccountLedgerInput) {
+export async function upsertAccountLedger(session: AuthSession, type: AccountLedgerType, input: AccountLedgerInput) {
   const response = await fetch(`${apiBaseUrl}/api/v1/accounts/ledgers/${type}/upsert`, {
     body: JSON.stringify(input),
     cache: "no-store",
@@ -448,4 +512,13 @@ async function accountBookAction(session: AuthSession, bookType: AccountBookType
 
 function bookPath(bookType: AccountBookType) {
   return bookType === "bank" ? "bank-book" : "cash-book"
+}
+
+async function responseErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string }
+    return payload.error ?? payload.message ?? `${fallback} Status ${response.status}.`
+  } catch {
+    return `${fallback} Status ${response.status}.`
+  }
 }

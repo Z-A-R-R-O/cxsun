@@ -28,6 +28,7 @@ import { migrateCrmTables } from '../../modules/crm/index.js'
 import { migrateTallyTables } from '../../modules/tally/index.js'
 import { migrateFrappeTables } from '../../modules/frappe/index.js'
 import { migrateTConnectTables } from '../../modules/tconnect/index.js'
+import { migrateEcommerceTables } from '../../modules/ecommerce/index.js'
 import { migrateAuditorContactCredentialTables } from '../../modules/auditor/contact-credential/index.js'
 import { migrateAuditorGstFilingTables } from '../../modules/auditor/gst-filing/index.js'
 import { migrateSiteSliderTables, seedDefaultSiteSliders } from '../../modules/site/slider/database/site-slider.migration.js'
@@ -145,6 +146,7 @@ export async function provisionTenantDatabase(tenant: Tenant): Promise<void> {
   await migrateTallyTables(database as never)
   await migrateFrappeTables(database as never)
   await migrateTConnectTables(database, tenant)
+  await migrateEcommerceTables(database as never)
   await migrateAuditorContactCredentialTables(database)
   await migrateAuditorGstFilingTables(database)
   await migrateSiteSliderTables(database as never)

@@ -10,10 +10,12 @@ import { SalesEntryV1Controller } from './interface/http/sales-entry-v1.controll
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../shared/entry-document-pdf-download.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 import { QuotationEntryRepository } from '../quotation/infrastructure/persistence/quotation-entry.repository.js'
 import { AccountsEngineRepository } from '../../accounts/accounts-engine.repository.js'
 import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posting.service.js'
+import { EntryPostingControlService } from '../shared/entry-posting-control.service.js'
 
 @Module({
   controllers: [SalesEntryV1Controller],
@@ -24,11 +26,13 @@ import { AccountsEntryPostingService } from '../../accounts/accounts-entry-posti
     MasterQueueService,
     MailRepository,
     EntryDocumentMailService,
+    EntryDocumentPdfDownloadService,
     PrintHtmlPdfService,
     SalesEntryEventBus,
     DocumentNumberRepository,
     AccountsEngineRepository,
     AccountsEntryPostingService,
+    EntryPostingControlService,
     QuotationEntryRepository,
     SalesEntryRepository,
     SalesEntryService,

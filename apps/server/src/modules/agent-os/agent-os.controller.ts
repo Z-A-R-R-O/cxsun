@@ -6,7 +6,7 @@ import { Inject } from '../../core/decorators/inject.js'
 import { AuthAnyGuard } from '../../core/guards/auth-any.guard.js'
 import type { TenantRequestHeaders } from '../../core/tenant/tenant-context.service.js'
 import type { AuthTokenPayload } from '../../infrastructure/auth/jwt.js'
-import { AgentOsService, type ZetroApiConnectionInput, type ZetroChatInput, type ZetroSearchInput } from './agent-os.service.js'
+import { AgentOsService, type ZetroApiConnectionInput, type ZetroChatInput, type ZetroQueryMappingInput, type ZetroSearchInput } from './agent-os.service.js'
 
 @Controller('api/v1/agent-os')
 export class AgentOsController {
@@ -61,6 +61,22 @@ export class AgentOsController {
     const audience = zetroAudienceFromRequest(request)
     if (!isZetroAdminRole(audience.userRole)) return zetroAdminOnlyResponse('review ZETRO query logs')
     return this.agentOs.queryInsights()
+  }
+
+  @Get('query-registry')
+  @UseGuards(AuthAnyGuard)
+  queryRegistry(@Req() request: ZetroAuthenticatedRequest) {
+    const audience = zetroAudienceFromRequest(request)
+    if (!isZetroAdminRole(audience.userRole)) return zetroAdminOnlyResponse('review ZETRO query registry')
+    return this.agentOs.queryRegistry()
+  }
+
+  @Post('query-registry/mappings')
+  @UseGuards(AuthAnyGuard)
+  saveQueryMapping(@Body() body: ZetroQueryMappingInput, @Req() request: ZetroAuthenticatedRequest) {
+    const audience = zetroAudienceFromRequest(request)
+    if (!isZetroAdminRole(audience.userRole)) return zetroAdminOnlyResponse('update ZETRO query mappings')
+    return this.agentOs.saveQueryMapping({ ...(body ?? {}), ...audience })
   }
 
   @Post('api-connection/test')

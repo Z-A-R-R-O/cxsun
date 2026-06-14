@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely'
+import { sql, type Kysely } from 'kysely'
 import { BadRequestException } from '../../../core/exceptions/http.exception.js'
 import { Inject } from '../../../core/decorators/inject.js'
 import { Injectable } from '../../../core/decorators/injectable.js'
@@ -136,6 +136,7 @@ export class PaymentEntryRepository {
     const roundOff = roundMoney(input.round_off ?? 0)
     const netAmount = roundMoney(amount - tdsAmount - discountAmount + roundOff)
     const allocations = (input.allocations ?? []).map((allocation, index) => normalizeAllocation(allocation, index)).filter((allocation) => allocation.document_no || allocation.allocated_amount > 0)
+    await this.validatePurchaseAllocations(context, allocations, companyId, accountingYearId, existingId)
     const allocatedAmount = roundMoney(allocations.reduce((sum, allocation) => sum + allocation.allocated_amount, 0))
     const moneyLedger = await this.resolveMoneyLedger(context, input.payment_mode, input.ledger_id)
 
@@ -176,6 +177,63 @@ export class PaymentEntryRepository {
       .insertInto('payment_entry_allocations')
       .values(allocations.map((allocation, index) => ({ ...allocation, payment_entry_id: paymentEntryId, sort_order: index + 1 })))
       .execute()
+  }
+
+  private async validatePurchaseAllocations(context: TenantRuntimeContext, allocations: NormalizedPaymentAllocation[], companyId: number, accountingYearId: number, existingId?: number) {
+    for (const allocation of allocations) {
+      if (allocation.allocated_amount <= 0) continue
+      if (allocation.document_type && allocation.document_type !== 'purchase') throw new BadRequestException('Payment allocations can only be linked to purchase bills.')
+      const bill = await this.findPurchaseBillForAllocation(context, allocation, companyId, accountingYearId)
+      if (!bill) throw new BadRequestException(`Purchase bill ${allocation.document_no || allocation.document_id || ''} was not found for allocation.`)
+      if (String(bill.status) !== 'posted') throw new BadRequestException(`Purchase bill ${String(bill.entry_no)} is not posted.`)
+      const otherAllocated = await this.sumOtherPurchaseAllocations(context, allocation, companyId, accountingYearId, existingId)
+      const available = roundMoney(numberValue(bill.balance_amount) - otherAllocated)
+      if (allocation.allocated_amount > available) {
+        throw new BadRequestException(`Allocation for purchase bill ${String(bill.entry_no)} exceeds open balance. Available ${available.toFixed(2)}.`)
+      }
+      allocation.document_id = String(bill.uuid)
+      allocation.document_no = String(bill.entry_no)
+      allocation.document_date = bill.entry_date as Date | string | null
+      allocation.document_total = numberValue(bill.grand_total)
+      allocation.previous_balance = available
+      allocation.balance_after_allocation = roundMoney(available - allocation.allocated_amount)
+    }
+  }
+
+  private async findPurchaseBillForAllocation(context: TenantRuntimeContext, allocation: NormalizedPaymentAllocation, companyId: number, accountingYearId: number) {
+    let query = this.database(context)
+      .selectFrom('purchase_entries')
+      .select(['id', 'uuid', 'entry_no', 'entry_date', 'grand_total', 'balance_amount', 'status'])
+      .where('tenant_id', '=', context.tenant.id)
+      .where('company_id', '=', companyId)
+      .where('accounting_year_id', '=', accountingYearId)
+      .where('deleted_at', 'is', null)
+    const documentId = String(allocation.document_id ?? '').trim()
+    if (documentId) {
+      const numericId = Number(documentId)
+      query = Number.isInteger(numericId) && numericId > 0 && documentId.length !== 8 ? query.where('id', '=', numericId) : query.where('uuid', '=', documentId)
+    } else {
+      query = query.where('entry_no', '=', allocation.document_no)
+    }
+    return query.executeTakeFirst()
+  }
+
+  private async sumOtherPurchaseAllocations(context: TenantRuntimeContext, allocation: NormalizedPaymentAllocation, companyId: number, accountingYearId: number, existingId?: number) {
+    let query = this.database(context)
+      .selectFrom('payment_entry_allocations as allocation')
+      .innerJoin('payment_entries as payment', 'payment.id', 'allocation.payment_entry_id')
+      .select(sql<number>`COALESCE(SUM(allocation.allocated_amount), 0)`.as('allocated'))
+      .where('payment.tenant_id', '=', context.tenant.id)
+      .where('payment.company_id', '=', companyId)
+      .where('payment.accounting_year_id', '=', accountingYearId)
+      .where('payment.deleted_at', 'is', null)
+      .where('payment.status', '=', 'posted')
+    if (existingId) query = query.where('payment.id', '!=', existingId)
+    const documentId = String(allocation.document_id ?? '').trim()
+    if (documentId) query = query.where('allocation.document_id', '=', documentId)
+    else query = query.where('allocation.document_no', '=', allocation.document_no)
+    const row = await query.executeTakeFirst()
+    return roundMoney(row?.allocated ?? 0)
   }
 
   private async resolveMoneyLedger(context: TenantRuntimeContext, mode: string | null | undefined, ledgerIdInput: string | null | undefined) {

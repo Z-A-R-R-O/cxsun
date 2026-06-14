@@ -181,11 +181,20 @@ const DocumentSettingsPage = lazy(() =>
 const InventoryDocumentSettingsPage = lazy(() =>
   import('src/features/settings/settings-page').then((module) => ({ default: module.InventoryDocumentSettingsPage })),
 )
+const AccountsDocumentSettingsPage = lazy(() =>
+  import('src/features/settings/settings-page').then((module) => ({ default: module.AccountsDocumentSettingsPage })),
+)
 const GstSandboxPage = lazy(() =>
   import('src/features/gst/gst-sandbox-page').then((module) => ({ default: module.GstSandboxPage })),
 )
 const GstProviderSettingsPage = lazy(() =>
   import('src/features/gst/gst-provider-settings-page').then((module) => ({ default: module.GstProviderSettingsPage })),
+)
+const BlogPage = lazy(() =>
+  import('src/features/blog/blog-page').then((module) => ({ default: module.BlogPage })),
+)
+const EcommercePage = lazy(() =>
+  import('src/features/ecommerce/ecommerce-page').then((module) => ({ default: module.EcommercePage })),
 )
 
 function dashboardPath(basePath: string, page: DashboardPage) {
@@ -280,6 +289,13 @@ const pageLabels: Partial<Record<DashboardPage, string>> = {
   "app-agent-os-agents": "Agents",
   "app-agent-os-queries": "Queries",
   "app-agent-os-updates": "Updates",
+  "app-blog-posts": "Posts",
+  "app-blog-categories": "Categories",
+  "app-blog-tags": "Tags",
+  "app-blog-comments": "Comments",
+  "app-blog-images": "Images",
+  "app-blog-seo": "SEO",
+  "app-blog-settings": "Blog Settings",
 }
 
 function pushDashboardPage(basePath: string, page: DashboardPage) {
@@ -367,8 +383,17 @@ function prefetchAppModules(appId: DashboardAppId) {
       return
     }
 
+    if (appId === "ecommerce") {
+      void import('src/features/ecommerce/ecommerce-page')
+      return
+    }
+
     if (appId === "sites") {
       void import('src/features/site/slider/site-slider-page')
+    }
+
+    if (appId === "blog") {
+      void import('src/features/blog/blog-page')
     }
   }
 
@@ -686,6 +711,7 @@ export function DashboardView({
       window.localStorage.setItem("cxsun.activeApp", nextApp)
     }
     pushDashboardPage(basePath, page)
+    window.dispatchEvent(new CustomEvent("cxsun:dashboard-navigate", { detail: { page } }))
   }
 
   function openBillingEntry(entry: BillingRecentTransaction) {
@@ -828,14 +854,16 @@ export function DashboardView({
             <AccountsPage session={session} view="bank-posting" />
           ) : visiblePage === "app-accounts-chart" ? (
             <AccountsPage session={session} view="chart" />
-          ) : visiblePage === "app-accounts-voucher-new" ? (
-            <AccountsPage session={session} view="voucher-new" />
           ) : visiblePage === "app-accounts-journal-vouchers" ? (
             <AccountsPage session={session} view="journal-vouchers" />
           ) : visiblePage === "app-accounts-contra-vouchers" ? (
             <AccountsPage session={session} view="contra-vouchers" />
           ) : visiblePage === "app-accounts-opening-vouchers" ? (
             <AccountsPage session={session} view="opening-vouchers" />
+          ) : visiblePage === "app-accounts-period-locks" ? (
+            <AccountsPage session={session} view="period-locks" />
+          ) : visiblePage === "app-accounts-document-settings" ? (
+            <AccountsDocumentSettingsPage session={session} />
           ) : visiblePage === "app-accounts-vouchers" ? (
             <AccountsPage session={session} view="vouchers" />
           ) : visiblePage === "app-accounts-day-book" ? (
@@ -888,6 +916,22 @@ export function DashboardView({
             <MailDeskPage session={session} view="settings" />
           ) : visiblePage === "app-sites-sliders" ? (
             <SiteSliderPage session={session} />
+          ) : visiblePage === "app-blog-posts" ? (
+            <BlogPage session={session} view="posts" />
+          ) : visiblePage === "app-blog-categories" ? (
+            <BlogPage session={session} view="categories" />
+          ) : visiblePage === "app-blog-tags" ? (
+            <BlogPage session={session} view="tags" />
+          ) : visiblePage === "app-blog-comments" ? (
+            <BlogPage session={session} view="comments" />
+          ) : visiblePage === "app-blog-images" ? (
+            <BlogPage session={session} view="images" />
+          ) : visiblePage === "app-blog-seo" ? (
+            <BlogPage session={session} view="seo" />
+          ) : visiblePage === "app-blog-settings" ? (
+            <BlogPage session={session} view="posts" />
+          ) : visiblePage.startsWith("app-ecommerce-") ? (
+            <EcommercePage session={session} view={ecommerceViewFromPage(visiblePage)} />
           ) : visiblePage === "app-crm-tasks" || visiblePage === "app-taskmanager-my-tasks" ? (
             <TaskManagerPage scope="my" session={session} />
           ) : visiblePage === "app-crm-leads" ? (
@@ -1177,6 +1221,11 @@ function agentOsViewFromPage(page: DashboardPage) {
   if (page === "app-agent-os-queries") return "queries"
   if (page === "app-agent-os-updates") return "updates"
   return "base"
+}
+
+function ecommerceViewFromPage(page: DashboardPage) {
+  const view = page.replace(/^app-ecommerce-/, "")
+  return (view === "overview" ? "dashboard" : view) as import('src/features/ecommerce/ecommerce-client').EcommerceView
 }
 
 function appGroupDescription(title: string) {

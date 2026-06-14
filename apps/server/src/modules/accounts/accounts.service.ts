@@ -6,6 +6,7 @@ import { AccountsEngineRepository } from './accounts-engine.repository.js'
 import { AccountsEntryPostingService } from './accounts-entry-posting.service.js'
 import { AccountsRepository } from './accounts.repository.js'
 import type { AccountBookEntryInput, AccountBookType, AccountLedgerInput, AccountLedgerType, AccountVoucherInput } from './accounts.types.js'
+import { EntryPostingControlService, type PeriodLockInput } from '../entries/shared/entry-posting-control.service.js'
 
 @Injectable()
 export class AccountsService {
@@ -14,6 +15,7 @@ export class AccountsService {
     @Inject(AccountsRepository) private readonly accounts: AccountsRepository,
     @Inject(AccountsEngineRepository) private readonly engine: AccountsEngineRepository,
     @Inject(AccountsEntryPostingService) private readonly entryPostings: AccountsEntryPostingService,
+    @Inject(EntryPostingControlService) private readonly postingControl: EntryPostingControlService,
   ) {}
 
   async groups(headers: TenantRequestHeaders) {
@@ -82,6 +84,18 @@ export class AccountsService {
   async repostSourceEntries(headers: TenantRequestHeaders, body: { source_module?: string }) {
     const sourceModule = normalizeSourceModule(body.source_module)
     return this.entryPostings.repostSourceEntries(await this.context(headers), sourceModule)
+  }
+
+  async periodLocks(headers: TenantRequestHeaders) {
+    return this.postingControl.listPeriodLocks(await this.context(headers))
+  }
+
+  async createPeriodLock(headers: TenantRequestHeaders, input: PeriodLockInput) {
+    return { ok: true, lock: await this.postingControl.createPeriodLock(await this.context(headers), input) }
+  }
+
+  async releasePeriodLock(headers: TenantRequestHeaders, idOrUuid: string) {
+    return { ok: true, lock: await this.postingControl.releasePeriodLock(await this.context(headers), idOrUuid) }
   }
 
   async listEntries(headers: TenantRequestHeaders, bookType: AccountBookType) {

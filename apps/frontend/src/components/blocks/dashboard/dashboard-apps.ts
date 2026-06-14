@@ -30,13 +30,13 @@ import {
   Link2,
   Mail,
   Map,
+  MessageSquare,
   MapPinned,
   MapPin,
   Megaphone,
   Package,
   PackageSearch,
   Palette,
-  Plus,
   ReceiptText,
   Ruler,
   Scale,
@@ -56,7 +56,7 @@ import {
 
 import type { DashboardPage } from "src/components/blocks/sidebar/app-sidebar"
 
-export type DashboardAppId = "application" | "accounts" | "agent-os" | "auditor" | "billing" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "tconnect" | "sites" | "tally" | "frappe"
+export type DashboardAppId = "application" | "accounts" | "agent-os" | "auditor" | "billing" | "blog" | "media" | "mail" | "taskmanager" | "ecommerce" | "crm" | "inventory" | "tconnect" | "sites" | "tally" | "frappe"
 
 export interface DashboardAppMenuItem {
   title: string
@@ -213,9 +213,10 @@ export const dashboardApps: DashboardAppDefinition[] = [
     accent: "bg-lime-700 text-white",
     icon: Landmark,
     menuGroups: [
-      { title: "Accounting", icon: BookOpenText, items: [item("accounts", "voucher-new", "New Voucher", Plus), item("accounts", "journal-vouchers", "Journal", BookOpenText), item("accounts", "contra-vouchers", "Contra", Landmark), item("accounts", "opening-vouchers", "Opening Posting", ClipboardCheck), item("accounts", "vouchers", "All Vouchers", ClipboardList)] },
+      { title: "Accounting", icon: BookOpenText, items: [item("accounts", "journal-vouchers", "Journal", BookOpenText), item("accounts", "contra-vouchers", "Contra", Landmark), item("accounts", "opening-vouchers", "Opening Posting", ClipboardCheck), item("accounts", "vouchers", "All Vouchers", ClipboardList)] },
       { title: "Books", icon: Landmark, items: [item("accounts", "cash-book", "Cash Book", Banknote), item("accounts", "bank-book", "Bank Book", Landmark), item("accounts", "chart", "Chart of Accounts", BookOpenText), item("accounts", "day-book", "Day Book", FileText)] },
       { title: "Reports", icon: BarChart3, items: [item("accounts", "cash-posting", "Cash Posting", Banknote), item("accounts", "bank-posting", "Bank Posting", Landmark), item("accounts", "monthly-movement", "Monthly Movement", BarChart3), item("accounts", "trial-balance", "Trial Balance", Scale), item("accounts", "profit-loss", "Profit & Loss", BarChart3), item("accounts", "balance-sheet", "Balance Sheet", Landmark)] },
+      { title: "Settings", icon: Settings, items: [item("accounts", "document-settings", "Document Settings", FileCog), item("accounts", "period-locks", "Period Locks", ShieldCheck)] },
     ],
   }),
   withMenu({
@@ -314,7 +315,7 @@ export const dashboardApps: DashboardAppDefinition[] = [
     menuGroups: [
       { title: "Storefront", icon: ShoppingBag, items: [item("ecommerce", "dashboard", "Store Desk", LayoutDashboard), item("ecommerce", "orders", "Orders", ShoppingBag), item("ecommerce", "carts", "Carts", ShoppingBag), item("ecommerce", "checkout", "Checkout", CreditCard)] },
       { title: "Catalog", icon: PackageSearch, items: [item("ecommerce", "products", "Products", PackageSearch), item("ecommerce", "categories", "Categories", Tags), item("ecommerce", "collections", "Collections", Boxes), item("ecommerce", "variants", "Variants", Boxes)] },
-      { title: "Customers", icon: UsersRound, items: [item("ecommerce", "customers", "Customers", UsersRound), item("ecommerce", "wishlists", "Wishlists", ShoppingBag), item("ecommerce", "reviews", "Reviews", BookOpenText)] },
+      { title: "Customers", icon: UsersRound, items: [item("ecommerce", "customers", "Customers", UsersRound), item("ecommerce", "customer-dashboard", "Customer Dashboard", LayoutDashboard), item("ecommerce", "customer-portal", "Customer Portal", UserRoundCog), item("ecommerce", "wishlists", "Wishlists", ShoppingBag), item("ecommerce", "reviews", "Reviews", BookOpenText)] },
       { title: "Fulfillment", icon: Truck, items: [item("ecommerce", "shipping", "Shipping", Truck), item("ecommerce", "delivery-zones", "Delivery Zones", MapPin), item("ecommerce", "returns", "Returns", ReceiptText)] },
       { title: "Marketing", icon: Megaphone, items: [item("ecommerce", "coupons", "Coupons", Tags), item("ecommerce", "campaigns", "Campaigns", Megaphone), item("ecommerce", "seo", "SEO", Megaphone)] },
       { title: "Reports", icon: BarChart3, items: [item("ecommerce", "sales-report", "Sales Report", BarChart3), item("ecommerce", "product-report", "Product Report", BarChart3), item("ecommerce", "customer-report", "Customer Report", BarChart3)] },
@@ -385,6 +386,21 @@ export const dashboardApps: DashboardAppDefinition[] = [
           item("tconnect", "settings", "Settings", Settings),
         ],
       },
+    ],
+  }),
+  withMenu({
+    id: "blog",
+    name: "Blog",
+    shortName: "Blog",
+    description: "Content management for blog posts, categories, tags, comments, images, and SEO.",
+    status: "active",
+    accent: "bg-orange-600 text-white",
+    icon: BookOpenText,
+    menuGroups: [
+      { title: "Content", icon: BookOpenText, items: [item("blog", "posts", "Posts", BookOpenText), item("blog", "categories", "Categories", Tags), item("blog", "tags", "Tags", Tags), item("blog", "comments", "Comments", MessageSquare)] },
+      { title: "Media", icon: Image, items: [item("blog", "images", "Images", Image)] },
+      { title: "SEO", icon: BarChart3, items: [item("blog", "seo", "SEO", BarChart3)] },
+      { title: "Settings", icon: Settings, items: [item("blog", "settings", "Blog Settings", Settings)] },
     ],
   }),
   withMenu({

@@ -1,5 +1,6 @@
 import { apiBaseUrl, authHeaders, type AuthSession } from "src/features/auth/auth-client"
 import type { MasterDataRecord } from "src/features/master-data/domain/master-data"
+import { downloadPrintPdf } from "src/shared/print/download-print-pdf"
 
 export type PurchaseCommonLookupKey = "hsnCodes" | "units" | "taxes"
 type PurchaseLookupModuleKey = "contacts" | "orders" | "products" | PurchaseCommonLookupKey
@@ -210,7 +211,7 @@ export async function upsertPurchaseEntry(session: AuthSession, input: PurchaseE
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Purchase save failed with status ${response.status}.`)
+  if (!response.ok) throw new Error(await responseErrorMessage(response, "Purchase save failed."))
   const result = (await response.json()) as { ok: boolean; entry?: PurchaseEntry; error?: string; warning?: string }
   if (!result.ok || !result.entry) throw new Error(result.error ?? "Purchase save failed.")
   return { ...result.entry, document_number_warning: result.warning }
@@ -222,6 +223,14 @@ export async function destroyPurchaseEntry(session: AuthSession, entry: Purchase
 
 export async function restorePurchaseEntry(session: AuthSession, entry: PurchaseEntry) {
   return mutatePurchaseEntry(session, entry.uuid, "restore")
+}
+
+export async function createPurchaseCorrection(session: AuthSession, entry: PurchaseEntry) {
+  return mutatePurchaseEntry(session, entry.uuid, "correction")
+}
+
+export async function createPurchaseReversal(session: AuthSession, entry: PurchaseEntry) {
+  return mutatePurchaseEntry(session, entry.uuid, "reversal")
 }
 
 export async function addPurchaseComment(session: AuthSession, entry: PurchaseEntry, body: string) {
@@ -250,16 +259,30 @@ export async function runPurchaseTool(session: AuthSession, entry: PurchaseEntry
   return result.entry
 }
 
-async function mutatePurchaseEntry(session: AuthSession, idOrUuid: string, action: "destroy" | "restore") {
+export async function downloadPurchasePdf(session: AuthSession, entry: PurchaseEntry, printHtml: string) {
+  await downloadPrintPdf(session, `/api/v1/entries/purchase/${entry.uuid}/pdf`, printHtml, entry.entry_no)
+}
+
+async function mutatePurchaseEntry(session: AuthSession, idOrUuid: string, action: "correction" | "destroy" | "restore" | "reversal") {
   const response = await fetch(`${apiBaseUrl}/api/v1/entries/purchase/${encodeURIComponent(idOrUuid)}/${action}`, {
     body: "{}",
     cache: "no-store",
     headers: { ...authHeaders(session), "Content-Type": "application/json" },
     method: "POST",
   })
-  if (!response.ok) throw new Error(`Purchase ${action} failed with status ${response.status}.`)
-  const result = (await response.json()) as { ok: boolean; error?: string }
+  if (!response.ok) throw new Error(await responseErrorMessage(response, `Purchase ${action} failed.`))
+  const result = (await response.json()) as { ok: boolean; entry?: PurchaseEntry; error?: string }
   if (!result.ok) throw new Error(result.error ?? `Purchase ${action} failed.`)
+  return result.entry ?? null
+}
+
+async function responseErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string }
+    return payload.error ?? payload.message ?? `${fallback} Status ${response.status}.`
+  } catch {
+    return `${fallback} Status ${response.status}.`
+  }
 }
 
 async function listLookupRecords(session: AuthSession, endpoint: string) {
@@ -320,8 +343,4 @@ function readNumber(value: unknown) {
   }
   return undefined
 }
-
-
-
-
 

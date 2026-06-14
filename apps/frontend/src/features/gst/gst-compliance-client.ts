@@ -11,6 +11,7 @@ export const gstComplianceOperations = [
   "getRejectedIrns",
   "generateEwaybillByIrn",
   "getEwaybillByIrn",
+  "cancelEwaybill",
   "getB2cQrCode",
 ] as const
 
@@ -23,8 +24,12 @@ export interface GstComplianceDocument {
   ewayBillDate: string | null
   ewayBillNo: string | null
   ewayStatus: string
+  ewayCancelledAt?: string | null
+  ewayGeneratedAt?: string | null
   irn: string | null
   irnStatus: string
+  irnCancelledAt?: string | null
+  irnGeneratedAt?: string | null
   signedQr: string | null
 }
 
@@ -125,10 +130,13 @@ export interface GstComplianceOperationRecord {
   endpoint: string
   errorMessage: string | null
   httpStatus: number | null
+  gatewayStatus?: string | null
   id: string
   method: string
   operation: GstComplianceOperation
   providerStatus: string | null
+  errorCode?: string | null
+  retryState?: string | null
   requestJson: Record<string, unknown>
   responseJson: unknown
   success: boolean

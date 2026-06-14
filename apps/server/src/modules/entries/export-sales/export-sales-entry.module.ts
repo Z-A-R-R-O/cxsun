@@ -10,6 +10,7 @@ import { ExportSalesEntryV1Controller } from './interface/http/export-sales-entr
 import { DocumentNumberRepository } from '../../settings/document-settings/infrastructure/document-number.repository.js'
 import { MailRepository } from '../../mail/mail.repository.js'
 import { EntryDocumentMailService } from '../shared/entry-document-mail.service.js'
+import { EntryDocumentPdfDownloadService } from '../shared/entry-document-pdf-download.service.js'
 import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
 
 @Module({
@@ -21,6 +22,7 @@ import { PrintHtmlPdfService } from '../shared/print-html-pdf.service.js'
     MasterQueueService,
     MailRepository,
     EntryDocumentMailService,
+    EntryDocumentPdfDownloadService,
     PrintHtmlPdfService,
     ExportSalesEntryEventBus,
     DocumentNumberRepository,

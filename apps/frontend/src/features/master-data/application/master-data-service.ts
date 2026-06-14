@@ -60,9 +60,6 @@ export const pageModuleMap: Partial<Record<DashboardPage, string>> = {
   "app-inventory-warehouse": "warehouses",
   "app-inventory-warehouses": "warehouses",
   "app-inventory-suppliers": "contacts",
-  "app-ecommerce-categories": "productCategories",
-  "app-ecommerce-products": "products",
-  "app-ecommerce-customers": "contacts",
   "app-crm-contacts": "contacts",
 }
 

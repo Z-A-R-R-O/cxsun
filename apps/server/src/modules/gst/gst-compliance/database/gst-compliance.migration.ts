@@ -79,6 +79,11 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       eway_valid_upto DATETIME NULL,
       irn_status VARCHAR(32) NOT NULL DEFAULT 'not_generated',
       eway_status VARCHAR(32) NOT NULL DEFAULT 'not_generated',
+      irn_generated_at DATETIME NULL,
+      irn_cancelled_at DATETIME NULL,
+      eway_generated_at DATETIME NULL,
+      eway_cancelled_at DATETIME NULL,
+      retry_state VARCHAR(32) NOT NULL DEFAULT 'none',
       last_operation_id INT NULL,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -107,8 +112,15 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       endpoint VARCHAR(260) NOT NULL,
       http_status INT NULL,
       provider_status VARCHAR(80) NULL,
+      gateway_status VARCHAR(80) NULL,
       success TINYINT(1) NOT NULL DEFAULT 0,
+      error_code VARCHAR(120) NULL,
       error_message TEXT NULL,
+      retry_state VARCHAR(32) NOT NULL DEFAULT 'none',
+      retry_count INT NOT NULL DEFAULT 0,
+      next_retry_at DATETIME NULL,
+      generated_at DATETIME NULL,
+      cancelled_at DATETIME NULL,
       request_json LONGTEXT NULL,
       response_json LONGTEXT NULL,
       created_by VARCHAR(191) NOT NULL,
@@ -118,6 +130,19 @@ export async function migrateGstComplianceTables(database: TenantDatabase) {
       INDEX idx_gst_operations_success (tenant_id, success, id)
     )
   `).execute(database)
+
+  await sql.raw(`ALTER TABLE gst_compliance_documents ADD COLUMN IF NOT EXISTS irn_generated_at DATETIME NULL AFTER eway_status`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_documents ADD COLUMN IF NOT EXISTS irn_cancelled_at DATETIME NULL AFTER irn_generated_at`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_documents ADD COLUMN IF NOT EXISTS eway_generated_at DATETIME NULL AFTER irn_cancelled_at`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_documents ADD COLUMN IF NOT EXISTS eway_cancelled_at DATETIME NULL AFTER eway_generated_at`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_documents ADD COLUMN IF NOT EXISTS retry_state VARCHAR(32) NOT NULL DEFAULT 'none' AFTER eway_cancelled_at`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS gateway_status VARCHAR(80) NULL AFTER provider_status`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS error_code VARCHAR(120) NULL AFTER success`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS retry_state VARCHAR(32) NOT NULL DEFAULT 'none' AFTER error_message`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS retry_count INT NOT NULL DEFAULT 0 AFTER retry_state`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS next_retry_at DATETIME NULL AFTER retry_count`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS generated_at DATETIME NULL AFTER next_retry_at`).execute(database)
+  await sql.raw(`ALTER TABLE gst_compliance_operations ADD COLUMN IF NOT EXISTS cancelled_at DATETIME NULL AFTER generated_at`).execute(database)
 
   await sql.raw(`
     UPDATE gst_provider_settings

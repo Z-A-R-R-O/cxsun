@@ -38,6 +38,7 @@ const whiteBooksOperations: Record<GstComplianceOperation, WhiteBooksOperationDe
   getRejectedIrns: { endpoint: '/einvoice/type/GETREJECTEDIRNS/version/V1_03', method: 'GET', needsAuth: true },
   generateEwaybillByIrn: { endpoint: '/einvoice/type/GENERATE_EWAYBILL/version/V1_03', method: 'POST', needsAuth: true },
   getEwaybillByIrn: { endpoint: '/einvoice/type/GETEWAYBILLIRN/version/V1_03', method: 'GET', needsAuth: true },
+  cancelEwaybill: { endpoint: '/einvoice/type/CANCEL_EWAYBILL/version/V1_03', method: 'POST', needsAuth: true },
   getB2cQrCode: { endpoint: '/einvoice/qrcode', method: 'GET', needsAuth: true },
 }
 
